@@ -1,7 +1,7 @@
 Intro
 =====
 
-Inspiré des scripts de Pierre. L'application prend en compte 4 fichiers
+Crée à partir des scripts de Pierre. L'application prend en compte 4 fichiers
 en entrée. Elle applique une normalisation log(cpm) sur les données puis
 crée diverses *Distributions* pour décrire celle-ci. (Onglet Descriptive
 analysis) Peut être est-il possible d'incorporer par la suite la partie
