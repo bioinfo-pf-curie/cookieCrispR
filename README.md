@@ -1,17 +1,27 @@
-Version: 1.0
+Intro
+=====
 
-RestoreWorkspace: Default
-SaveWorkspace: Default
-AlwaysSaveHistory: Default
+Inspiré des scripts de Pierre. L'application prend en compte 4 fichiers
+en entrée. Elle applique une normalisation log(cpm) sur les données puis
+crée diverses *Distributions* pour décrire celle-ci. (Onglet Descriptive
+analysis) Peut être est-il possible d'incorporer par la suite la partie
+écrite par Pierre dans un onfle Statistical analysis... ?
 
-EnableCodeIndexing: Yes
-UseSpacesForTab: Yes
-NumSpacesForTab: 2
-Encoding: UTF-8
+Input specifications
+====================
 
-RnwWeave: Sweave
-LaTeX: pdfLaTeX
+-   Liste des gènes essentiels contenues dans une colonne au format
+    texte, sans header.
+-   Liste des gènes non-essentiels contenues dans une colonne au format
+    texte, sans header.
+-   Table de comptage au format csv. Les rownames correspondent aux noms
+    de guides, les colnames aux échantillons.
+-   Fichier de description des échantillons contentant une seule colonne
+    au format texte. Respectant le format suivant.
+    SAMPLENAME|Réplica-celltype-timepoint...
 
-BuildType: Package
-PackageUseDevtools: Yes
-PackageInstallArgs: --no-multiarch --with-keep.source
+Contact
+=======
+
+-   <pierre.gestraud@curie.fr>
+-   <clement.benoit@curie.fr>
