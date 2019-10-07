@@ -124,7 +124,7 @@ diff_t0 <- reactive({
 ######### Plots and tables outputs ####################################
 output$counts_table <- DT::renderDataTable({
 
-  counts()[[1]]
+  DT::datatable(counts()[[1]],rownames=FALSE)
 
   })
 
@@ -132,7 +132,7 @@ output$sample_plan_table <- DT::renderDataTable({
 
   sample_plan <- sample_plan()
   sample_plan <- subset(sample_plan,select = -c(day_num))
-  return(sample_plan)
+  return(DT::datatable(sample_plan,rownames = FALSE))
 
 })
 
