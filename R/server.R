@@ -37,11 +37,12 @@ sample_plan <- reactive({
 
   req(input$sample_plan)
   inFile <- input$sample_plan
-  samples <- read_delim(inFile$datapath, delim = "|",  col_names = c("barcode", "sample"))
+  samples <- read_delim(inFile$datapath, delim = "|",  col_names = c("barcode", "sample","condition"))
   samples <- samples %>%
-  separate(sample, into = c("rep", "clone", "day"), remove = FALSE) %>%
+  separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
     mutate(day = as.factor(day)) %>%
-    mutate(day_num = as.numeric(gsub("J","",day))) %>% 
+    mutate(condition = as.factor(condition)) %>%
+    mutate(day_num = as.numeric(gsub("DAY","",day))) %>% 
     mutate(day = fct_reorder(.f = factor(day), .x = day_num))
   return(samples)
 })
@@ -87,39 +88,39 @@ non_ess_genes <- reactive({
 })
 
 
+#Compute difference to 0
+ diff_t0 <- reactive({
 
-## compute diff to t0
-diff_t0 <- reactive({
 
+    req(input$timepoints_order)
+   
+     counts <- counts()[[1]]
+     firstpoint <- input$timepoints_order[[1]]
+
+     all <- joined() %>%
+       select(sgRNA,clone, rep, day, log_cpm, gene, condition)
+     # 
+     t0 <- all %>%  
+        filter(day == firstpoint)  %>%
+        mutate(log_cpmt0 = log_cpm) %>%
+        mutate(log_cpm = NULL) %>%
+        mutate(day = NULL) %>%
+        mutate(gene = NULL) %>%
+        mutate(condition = NULL)
+       
   
-  req(input$timepoints_order)
-  counts <- counts()[[1]]
-  # t0 <- joined() %>%
-  #   select(sgRNA, clone, gene ,rep, day, log_cpm) %>%
-  #   spread(key = day, value = log_cpm) %>%
-  #   mutate_at(vars(J4:J16), ~ . - J1) %>%
-  #   mutate(J1 = 0) %>%
-  #   gather(key = day, value = diff_J1, -sgRNA, -clone, -rep, -gene)
-  # 
-  # 
-  # 
-  firstpoint <- input$timepoints_order[[1]]
-  joined <- joined()
-  t0 <- joined %>%
-    select(sgRNA,clone, rep, day, log_cpm, gene) %>%
-    spread(key = day, value = log_cpm) %>%
-    mutate_at(vars(input$timepoints_order[[2]]:input$timepoints_order[[length(input$timepoints_order)]]), ~ . - !!(as.name(firstpoint))) %>%
-    mutate(!!firstpoint := 0) %>%
-     gather(key = day, value = diff_J1, -sgRNA, -clone, -rep, -gene) %>%
-     mutate(day = factor(day, levels = levels(joined$day)))
-
-  
-  t0 <- inner_join(counts, t0, by="sgRNA")
-  return(t0)
+     all <- inner_join(all,t0,c("sgRNA","clone","rep")) %>%
+       mutate(diff = log_cpm - log_cpmt0) %>%
+       mutate(log_cpm = NULL) %>%
+       mutate(condtion = NULL)
+     
+    fin <- inner_join(joined() %>% 
+                        mutate(gene=NULL) %>%
+                        mutate(day=NULL) %>%
+                       mutate(condition = NULL), all, by=c("sgRNA","clone","rep"))
+    return(fin)
 })
-  
-
-
+#
 
 ######### Plots and tables outputs ####################################
 output$counts_table <- DT::renderDataTable({
@@ -136,6 +137,11 @@ output$sample_plan_table <- DT::renderDataTable({
 
 })
 
+output$joined <- DT::renderDataTable({
+  
+  
+  diff_t0()
+})
 
 
 
@@ -310,6 +316,7 @@ output$orderUI <- renderUI({
 
 
 
+############## NEGATIV SCREENING ################
 
 diff_box_all <- reactive({
   
@@ -318,7 +325,8 @@ diff_box_all <- reactive({
   
   diff_box_all <- diff_t0() %>%
     filter(day != firstpoint) %>%
-    ggplot(aes(x = day, y = diff_J1, fill = rep)) + geom_boxplot() + facet_grid(.~ clone) +
+    ggplot(aes(x = day, y = diff, fill = rep)) + geom_boxplot() + facet_grid(condition ~ clone) +
+    #ggplot(aes(x = day, y = diff_DAY1, fill = rep)) + geom_boxplot() + facet_grid(.~ clone) +
     ylab(paste0("diff_",firstpoint)) + 
     labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - all guides"))
   
@@ -332,15 +340,16 @@ output$diff_box_all <- renderPlot({
 })
 
   
-  
 diff_box_ess <- reactive({
   
   firstpoint <- input$timepoints_order[[1]]
   ess_genes <- ess_genes()
-  diff_box_ess <-  diff_t0() %>%
+  
+  diff_box_ess <-  diff_t0() %>% 
+    #select(-condition, -log_cpmt0, -diff) %>%
     filter(day != !!firstpoint) %>%
-    filter(gene.x %in% ess_genes$V1) %>%
-    ggplot(aes(x = day, y= diff_J1, fill = rep)) + geom_boxplot() + facet_grid(.~ clone) +
+    filter(gene %in% ess_genes[,1]) %>%
+    ggplot(aes(x = day, y= diff, fill = rep)) + geom_boxplot() + facet_grid(.~ clone) +
     ylab(paste0("diff_",firstpoint)) + 
     labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - essential genes's guides"))
   
@@ -368,11 +377,59 @@ output$dldiffboxes <- downloadHandler(
   }
 )
 
+#################### ROC ####################
+
+
+ROC <- reactive({
+   
+  ess_genes <- ess_genes()
+  non_ess_genes <- non_ess_genes()
+   
+  d <- diff_t0() %>% select(sgRNA,clone, rep, day,log_cpm, gene, condition, diff) %>%
+    group_by(day,condition,clone,rep) %>%
+      arrange(diff) %>% 
+      mutate(type = case_when(gene %in% ess_genes[,1] ~ "+",gene %in% non_ess_genes[,1] ~ "-", TRUE ~ NA_character_)) %>%
+     filter(!is.na(type)) %>%
+     mutate(TP = cumsum(type == "+") / sum(type == "+"), FP = cumsum(type == "-") / sum(type == "-")) %>%
+     ungroup()
+  
+  write.csv(diff_t0(),"~/to_shiny.csv")
+
+    d <- d %>% ggplot(aes(x = FP, y = TP, color = day)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(condition + clone ~ rep) + coord_equal()
+#   # 
+   return(d)
+})
+
+
+
+output$roc <- renderPlot({
+   ROC()
+})
+
+output$dlROC <- downloadHandler(
+  filename = function(){
+    paste("ROC_plots",Sys.Date(),".pdf",sep="")
+  },
+  content = function(file){
+    pdf(file = file)
+    plot(ROC())
+    dev.off()
+  }
+)
+
+
 ########################## Observers ############################
 
 
 
-
+observe({
+  
+  updateSelectInput(session,"conditionreference2",
+                    choices = sample_plan()$condition)
+  
+  updateSelectInput(session,"conditionreference1",
+                    choices = sample_plan()$condition)
+})
 
 
 
