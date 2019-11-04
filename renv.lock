@@ -4,7 +4,7 @@
     "Repositories": [
       {
         "Name": "CRAN",
-        "URL": "https://cran.rstudio.com/"
+        "URL": "https://cran.rstudio.com"
       },
       {
         "Name": "BioCsoft",
@@ -107,10 +107,10 @@
     },
     "Matrix": {
       "Package": "Matrix",
-      "Version": "1.2-18",
+      "Version": "1.2-17",
       "Source": "Repository",
-      "Repository": "R-Forge",
-      "Hash": "9df720f304c83d8bf371d1b6ffb9bbd1"
+      "Repository": "CRAN",
+      "Hash": "a60009c832f495604f54399f21d89cc8"
     },
     "R6": {
       "Package": "R6",
@@ -212,10 +212,10 @@
     },
     "colorspace": {
       "Package": "colorspace",
-      "Version": "1.4-2",
+      "Version": "1.4-1",
       "Source": "Repository",
-      "Repository": "R-Forge",
-      "Hash": "8cfe52fc78bc96300812611b223fc60d"
+      "Repository": "CRAN",
+      "Hash": "c25d49739abb6ebf4b3d0c3565574226"
     },
     "commonmark": {
       "Package": "commonmark",
@@ -672,6 +672,18 @@
       "Repository": "CRAN",
       "Hash": "830aa73278dce9beba583bfe57a5c015"
     },
+    "renv": {
+      "Package": "renv",
+      "Version": "0.7.0-129",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "renv",
+      "RemoteUsername": "rstudio",
+      "RemoteRef": "master",
+      "RemoteSha": "9db5abb71367e8ae561fc1cb5cffc96d1422416c",
+      "Hash": "8fd68f69a00f7aceaa92651ec6d83edb"
+    },
     "reprex": {
       "Package": "reprex",
       "Version": "0.3.0",
@@ -940,10 +952,10 @@
     },
     "xtable": {
       "Package": "xtable",
-      "Version": "1.8-5",
+      "Version": "1.8-4",
       "Source": "Repository",
-      "Repository": "R-Forge",
-      "Hash": "7faacee7048e039ef6f0fc81aaf3a66f"
+      "Repository": "CRAN",
+      "Hash": "48f60fcc0974ce72870076d48038df2d"
     },
     "yaml": {
       "Package": "yaml",
