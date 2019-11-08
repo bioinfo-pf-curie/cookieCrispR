@@ -436,7 +436,72 @@ observe({
 
 
 ########################################################
+################## Help section ############
 
+
+output$Totguidenumber <- renderInfoBox(
+  infoBox(
+    "Total guides number :",
+    as.numeric(nrow(counts()[[1]]))
+  )
+)
+
+output$Depth <- renderInfoBox(
+  infoBox(
+    "Average sequencing depth across samples :",
+    sum(counts()[[1]]$count)/(nrow(sample_plan()) + nrow(counts()[[1]]))
+    
+    
+  )
+)
+
+output$Datahelptext <- renderUI({HTML(
+  "
+
+<ul> 
+<li>Sample infos file :
+<br/><br/>
+<B>Format description :</B>
+<br/>
+A text file, each line of the file must respects the following format specifications :<br/>
+SampleBarcode|SampleCreationDate-Replicat-Souche-Day|Condition
+<br/>
+<B>For example :</B>
+<br/>
+D115R13|191015-Replica1-WT-DAY14|TREATED
+<br/>
+<br/>
+</li><li>Counts table file :</li>
+<br/>
+<B>Format description :</B>
+<br/>
+A csv formated text file using ; or , as field separator. The first line of the file is a header, it contains samples barcodes as colnames and two supplementary columns called 'gene
+' and 'sequence'. Guides names' are rownames. Values are read counts.
+<br/>
+<B>For example :</B><br/>
+\"\";\"D115R01\";\"D115R02\";\"gene\";\"sequence\"<br/>
+\"sgITGB8_1\";339;379;\"ITGB8\";\"AAAACACCCAGGCTGCCCAG\"<br/>
+<br/><br/>
+</li><li>Genes' lists</li><br/>
+<B>Format description :</B>
+<br/>
+Essentials and non essentials genes' list file just contains one column with all the genes of the list.
+<br/>
+
+<B>For example:</B><br/>
+
+Gene1<br/>
+Gene2<br/>
+...
+
+
+</ul>
+
+  
+  
+  
+  "
+)})
 
 
 

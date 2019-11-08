@@ -12,20 +12,24 @@ dashboardPage(
   dashboardBody(
     tabItems(
       tabItem(tabName = "DataInput",
-              fluidRow(
-                valueBoxOutput("Totguidenumber"),
-                valueBoxOutput("Depth")
-              ),
+                infoBoxOutput("Totguidenumber"),
+                valueBoxOutput("Depth"),
               fluidRow(
                 box(
                   width = 12,status = "info",solidHeader = TRUE,
                   title="Inputs",
                   #column(width=4,fileInput("list","Enter your essential and non essential genes list")),
-                  fluidRow(
-                    column(width=3,fileInput("sample_plan","Sample infos")),
-                    column(width=3,fileInput("counts","Global counts")),
-                    column(width=3,fileInput("essential","Essential genes")),
-                    column(width=3,fileInput("nonessential","Non Essential genes"))
+                  tabsetPanel(type = "tabs",
+                              tabPanel("Uploads",
+                              fluidRow(
+                                column(width=3,fileInput("sample_plan","Sample infos")),
+                                column(width=3,fileInput("counts","Global counts")),
+                                column(width=3,fileInput("essential","Essential genes")),
+                                column(width=3,fileInput("nonessential","Non Essential genes")))),
+                              tabPanel("Help",
+                                       uiOutput("Datahelptext"))
+
+           
                   ))),
               
               fluidRow(
