@@ -1,10 +1,10 @@
 Package: CRISPRApp
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Downstream analysis of Crispr screening counts data
 Version: 0.1.0
 Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
+Maintainer: The package maintainer <clement.benoit@curie.fr>
+Description: A Shiny App to perform downstram analysis of Crispr screening counts data generated in Curie's Institute.
     Use four spaces when indenting paragraphs within the Description.
 License: What license is it under?
 Encoding: UTF-8
@@ -14,3 +14,4 @@ Imports:
   shinyjs,
   xlsx,
   shinydashboard
+RoxygenNote: 6.1.1
