@@ -473,6 +473,8 @@ SampleBarcode|SampleCreationDate-Replicat-Souche-Day|Condition
 <br/>
 D115R13|191015-Replica1-WT-DAY14|TREATED
 <br/>
+<a href='https://gitlab.curie.fr/r-shiny/bioshiny/blob/devel/example_datasets/Crispr/SampleDescription' target='_blank'>Click here to download the Sample Description example file</a>
+<br/>
 <br/>
 </li><li>Counts table file :</li>
 <br/>
@@ -484,11 +486,16 @@ A csv formated text file using ; or , as field separator. The first line of the 
 <B>For example :</B><br/>
 \"\";\"D115R01\";\"D115R02\";\"gene\";\"sequence\"<br/>
 \"sgITGB8_1\";339;379;\"ITGB8\";\"AAAACACCCAGGCTGCCCAG\"<br/>
+<br/>
+<a href='https://gitlab.curie.fr/r-shiny/bioshiny/blob/devel/example_datasets/Crispr/global_counts_table.csv' target='_blank'>Click here to download the Counts table example file</a>
+<br/>
 <br/><br/>
 </li><li>Genes' lists</li><br/>
 <B>Format description :</B>
 <br/>
-Essentials and non essentials genes' list file just contains one column with all the genes of the list.
+Essentials and non essentials genes' list file just contains one column with all the genes of the list.<br/>
+<br/>
+<a href='https://gitlab.curie.fr/r-shiny/bioshiny/blob/devel/example_datasets/Crispr/essentials.csv' target='_blank'>Click here to download the essentials genes'list example file</a>
 <br/>
 
 <B>For example:</B><br/>
