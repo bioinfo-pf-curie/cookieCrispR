@@ -10,8 +10,10 @@ License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 Imports:
-  shiny,
   shinyjs,
-  xlsx,
-  shinydashboard
-RoxygenNote: 6.1.1
+  shiny,
+  shinydashboard,
+  tidyverse,
+  dplyr,
+  ggridges
+RoxygenNote: 7.0.2
