@@ -15,5 +15,7 @@ Imports:
   shinydashboard,
   tidyverse,
   dplyr,
-  ggridges
+  ggridges,
+  DT,
+  readr
 RoxygenNote: 7.0.2
