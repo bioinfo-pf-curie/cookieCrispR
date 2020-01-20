@@ -3,9 +3,7 @@ Intro
 
 Crée à partir des scripts de Pierre, l'application prend en compte 4 fichiers
 en entrée. Elle applique une normalisation log(cpm) sur les données puis
-crée diverses *distributions* pour décrire celles-ci (Onglet Descriptive
-analysis). Peut être est-il possible d'incorporer par la suite la partie
-écrite par Pierre dans un onglet Statistical analysis... ?
+crée diverses visualisations descriptives.
 
 Input specifications
 ====================
