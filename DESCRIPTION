@@ -2,7 +2,7 @@ Package: CRISPRApp
 Type: Package
 Title: Downstream analysis of Crispr screening counts data
 Version: 0.1.0
-Author: Who wrote it
+Author: Clement BENOIT
 Maintainer: The package maintainer <clement.benoit@curie.fr>
 Description: A Shiny App to perform downstram analysis of Crispr screening counts data generated in Curie's Institute.
     Use four spaces when indenting paragraphs within the Description.
@@ -11,6 +11,14 @@ Encoding: UTF-8
 LazyData: true
 Imports:
   shinyjs,
+<<<<<<< HEAD
+  xlsx,
+  shinydashboard,
+  tidyverse,
+  ggridges,
+  dplyr
+RoxygenNote: 6.1.1
+=======
   shiny,
   shinydashboard,
   tidyverse,
@@ -19,3 +27,4 @@ Imports:
   DT,
   readr
 RoxygenNote: 7.0.2
+>>>>>>> 007d492f3d24f05297e884119d28653b244229b3
