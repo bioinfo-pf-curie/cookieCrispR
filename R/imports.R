@@ -6,6 +6,7 @@
 #' @import ggridges
 #' @import DT
 #' @import readr
+#' @import shinyjqui
 
 
 NULL

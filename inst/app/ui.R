@@ -1,6 +1,6 @@
 #' @export 
 dashboardPage(
-  dashboardHeader(title = "CRISPR Screening"),
+  dashboardHeader(title = "Cookie CRISPR"),
   dashboardSidebar(
     sidebarMenu(
       menuItem("Data Input", tabName = "DataInput"),
@@ -22,6 +22,7 @@ dashboardPage(
                   #column(width=4,fileInput("list","Enter your essential and non essential genes list")),
                   tabsetPanel(type = "tabs",
                               tabPanel("Uploads",
+                              fluidRow(column(width=6,selectInput("FS","Choose the field separator in your expression matrix",choices=c(";",","), selected = ";"))),
                               fluidRow(
                                 column(width=3,fileInput("sample_plan","Sample infos")),
                                 column(width=3,fileInput("counts","Global counts")),

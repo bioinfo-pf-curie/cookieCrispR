@@ -17,7 +17,7 @@ counts <- reactive({
 
   req(input$counts)
   inFile <- input$counts
-  counts <- read_delim(inFile$datapath, delim = ";")
+  counts <- read_delim(inFile$datapath, delim = input$FS)
   counts <- dplyr::rename(counts, sgRNA = X1)
   counts <- dplyr::select(counts, -sequence)
 
