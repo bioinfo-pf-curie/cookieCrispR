@@ -11,14 +11,6 @@ Encoding: UTF-8
 LazyData: true
 Imports:
   shinyjs,
-<<<<<<< HEAD
-  xlsx,
-  shinydashboard,
-  tidyverse,
-  ggridges,
-  dplyr
-RoxygenNote: 6.1.1
-=======
   shiny,
   shinydashboard,
   tidyverse,
@@ -27,4 +19,3 @@ RoxygenNote: 6.1.1
   DT,
   readr
 RoxygenNote: 7.0.2
->>>>>>> 007d492f3d24f05297e884119d28653b244229b3
