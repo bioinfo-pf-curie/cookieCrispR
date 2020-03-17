@@ -13,9 +13,13 @@ Imports:
   shinyjs,
   shiny,
   shinydashboard,
-  tidyverse,
+  shinyjqui,
   dplyr,
   ggridges,
   DT,
-  readr
+  readr, 
+  forcats, 
+  tidyr, 
+  ggplot2,
+  stringr
 RoxygenNote: 7.0.2

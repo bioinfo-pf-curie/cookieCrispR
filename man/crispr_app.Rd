@@ -13,5 +13,5 @@ None
 Function launching the crispr app..;
 }
 \examples{
-crispr_app()
+if (interactive()) crispr_app()
 }
