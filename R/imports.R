@@ -1,7 +1,7 @@
-#' @import shinyjs
 #' @import shiny
+#' @import shinydashboard
 #' @importFrom grDevices dev.off pdf
-#' @importFrom graphics box plot
+#' @importFrom graphics plot
 #' @importFrom utils read.table write.csv
 #' @importFrom shinydashboard dashboardPage box
 #' @importFrom dplyr rename select mutate group_by ungroup full_join filter arrange case_when inner_join summarise 
@@ -13,7 +13,6 @@
 #' @importFrom DT datatable
 #' @importFrom readr read_delim
 #' @importFrom magrittr %>%
-#' @import shinyjqui
-#' @import shinydashboard
+#' @importFrom shinyjqui orderInput
 
 NULL
