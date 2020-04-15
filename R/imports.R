@@ -14,5 +14,6 @@
 #' @importFrom readr read_delim
 #' @importFrom magrittr %>%
 #' @importFrom shinyjqui orderInput
+#' @importFrom shiny showModal modalDialog
 
 NULL

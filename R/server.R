@@ -12,13 +12,15 @@
 server_crispr_app <- function(input, output, session) {
     
     ##### Upload files and datatable construction ####################
-    
+  #FSs <- NULL
+  reactives <- reactiveValues(sampleplan = NULL)
+  separators <- reactiveValues(counts = NULL, sampleplan = NULL)
   ## counts table    
     counts <- reactive({
       
       req(input$counts)
       inFile <- input$counts
-      counts <- read_delim(inFile$datapath, delim = input$FS)
+      counts <- read_delim(inFile$datapath, delim = input$FSc)
       counts <- dplyr::rename(counts, sgRNA = .data$X1)
       counts <- dplyr::select(counts, -.data$sequence)
       
@@ -37,24 +39,45 @@ server_crispr_app <- function(input, output, session) {
     })
     
     ## samples annotations
-    sample_plan <- reactive({
+    observeEvent(c(input$sample_plan,
+                   separators$sampleplan),{
+
+      # req(input$sample_plan)
+      # inFile <- input$sample_plan
+      # samples <- read_delim(inFile$datapath, delim = "|",  col_names = c("barcode", "sample","condition"))
+      # samples <- samples %>%
+      #   separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
+      #   mutate(day = as.factor(.data$day)) %>%
+      #   mutate(condition = as.factor(.data$condition)) %>%
+      #   mutate(day_num = as.numeric(gsub("DAY","",.data$day))) %>% 
+      #   mutate(day = fct_reorder(.f = factor(.data$day), .x = .data$day_num))
+      # return(samples)
       
       req(input$sample_plan)
       inFile <- input$sample_plan
-      samples <- read_delim(inFile$datapath, delim = "|",  col_names = c("barcode", "sample","condition"))
-      samples <- samples %>%
-        separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
-        mutate(day = as.factor(.data$day)) %>%
-        mutate(condition = as.factor(.data$condition)) %>%
-        mutate(day_num = as.numeric(gsub("DAY","",.data$day))) %>% 
-        mutate(day = fct_reorder(.f = factor(.data$day), .x = .data$day_num))
-      return(samples)
-    })
+      # samples <- read.table(inFile$datapath, sep = input$FSs,header = TRUE)
+      if (is.null(separators$sampleplan)){
+      samples <- read.table(inFile$datapath, sep = ";", header = TRUE)
+      } else {
+      samples <- read.table(inFile$datapath, sep = separators$sampleplan, header = TRUE)
+      }
+      #colnames(samples) <- c("barcode", "sample","condition")
+      # samples <- samples %>%
+      #   #separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
+      #   mutate(day = as.factor(.data$day)) %>%
+      #   mutate(condition = as.factor(.data$condition)) %>%
+      #   mutate(day_num = as.numeric(gsub("DAY","",.data$day))) %>% 
+      #   mutate(day = fct_reorder(.f = factor(.data$day), .x = .data$day_num))
+      #return(samples)
+      
+      reactives$sample_plan <- samples
+    
+}) # end of observer
     
     ## counts and annotations
     joined <- reactive({
       counts <- counts()[[1]]
-      samples <- sample_plan()
+      samples <- reactives$sample_plan
       counts <- full_join(counts, samples) %>%
         mutate(day = factor(.data$day, levels = input$timepoints_order))
       return(counts)
@@ -113,7 +136,7 @@ server_crispr_app <- function(input, output, session) {
     })
     
     output$sample_plan_table <- DT::renderDataTable({
-      sample_plan <- sample_plan()
+      sample_plan <- reactives$sample_plan
       sample_plan <- dplyr::select(sample_plan, -.data$day_num)
       return(DT::datatable(sample_plan,rownames = FALSE))
     })
@@ -255,7 +278,7 @@ server_crispr_app <- function(input, output, session) {
     
     
     output$orderUI <- renderUI({
-      counts <- levels(sample_plan()$day)
+      counts <- levels(reactives$sample_plan$day)
       print(counts)
       orderInput(inputId = 'timepoints', label = 'Re-order your timepoints here :', items = counts, as_source = F)
     })
@@ -368,10 +391,10 @@ server_crispr_app <- function(input, output, session) {
     observe({
       
       updateSelectInput(session,"conditionreference2",
-                        choices = sample_plan()$condition)
+                        choices = reactives$sample_plan$condition)
       
       updateSelectInput(session,"conditionreference1",
-                        choices = sample_plan()$condition)
+                        choices = reactives$sample_plan$condition)
     })
     
     
@@ -392,7 +415,7 @@ server_crispr_app <- function(input, output, session) {
     output$Depth <- renderInfoBox(
       infoBox(
         "Average sequencing depth across samples :",
-        round(sum(counts()[[1]]$count)/(nrow(sample_plan()) + nrow(counts()[[1]])))
+        round(sum(counts()[[1]]$count)/(nrow(reactives$sample_plan) + nrow(counts()[[1]])))
         
       )
     )
@@ -453,8 +476,61 @@ Gene2<br/>
     )})
     
     
+    ## Modal Dialogue 
+    
+    dataModal <- function(failed = FALSE) {
+        modalDialog(p(""),
+                    title = "Set up inputs files formats specifications",
+                    selectInput("FSc","Field separator (counts)",choices=c(";",","), selected = separators$counts),
+                    selectInput("FSs","Field separator (sampleplan)",choices=c(";",","), selected = separators$sampleplan),
+                    footer = tagList(
+                      actionButton("apply",label = "Apply this parameters",icon = icon("check")),
+                      modalButton("Dismiss"),
+                    )
+            )
+    
+    }
+    
+    observeEvent(input$settings,{
+    showModal(dataModal())
+    })
+    
+    observeEvent(input$apply,{
+      separators$sampleplan <- as.character(input$FSs)
+      separators$counts <- as.character(input$FSc)
+      removeModal()
+    })
+    
+    
+    observeEvent(c(reactives$sample_plan),{
+    
+    colnames <- colnames(reactives$sample_plan)
+    if( (!"Sample_ID" %in% colnames|
+        !"Sample_description" %in% colnames|
+        !"Cell_line" %in% colnames|
+        !"Timepoint" %in% colnames|
+        !"Treatment" %in% colnames|
+        !"Replicate" %in% colnames)  ){
+      showModal(modalDialog(tagList(h3('Colnames must contain these values :',style="color:red"),
+                                    h4("| Sample_ID | Sample_description | Cell_line | Timepoint | Treatment | Replicate |"),
+                                    #p(),
+                                    h4("colnames must respect majuscules",style="color:red"),
+                                    p(),
+                                    h3("Your current file colnames are : ",strong ="bold"),
+                                    #h4(paste(colnames,collapse ="  "))
+                                    h4(paste("| ",paste(colnames,collapse =" | ")," |"))
+                                    
+                                    ),
+                            title = "Anormal sample plan columns naming",
+                            footer = tagList(
+                              modalButton("Return to input tab"),
+                          )))
+      
+      
+     } 
+       
+    })
+    
+    
     
   }
-
-
-#shinyApp(server = crispr_server())
