@@ -11,36 +11,55 @@
 #'
 server_crispr_app <- function(input, output, session) {
     
-    ##### Upload files and datatable construction ####################
-  #FSs <- NULL
-  reactives <- reactiveValues(sampleplan = NULL)
-  separators <- reactiveValues(counts = NULL, sampleplan = NULL)
+  ##### Usefull variables #############
+  reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE)
+  separators <- reactiveValues(counts = NULL, sampleplanRaw = NULL , sampleplan = NULL)
+  
+  ##### Upload files and datatable construction ####################
+  
   ## counts table    
-    counts <- reactive({
+  observeEvent(c(input$counts,
+                 separators$counts),{  
+  #counts <- reactive({
+      
+      # req(input$counts)
+      # inFile <- input$counts
+      # counts <- read_delim(inFile$datapath, delim = input$FSc)
+      # counts <- dplyr::rename(counts, sgRNA = .data$X1)
+      # counts <- dplyr::select(counts, -.data$sequence)
+      # 
+      # annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
+      # 
+      # counts <- gather(counts, value = "count", key = "barcode", -.data$sgRNA, -.data$gene)
+      # counts <- dplyr::mutate(counts, barcode = str_remove(.data$barcode, ".R1.fastq"))
+      # 
+      # counts <- counts %>%
+      #   dplyr::group_by(.data$barcode) %>%
+      #   dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + .data$cpm)) %>%
+      #   dplyr::ungroup()
+      # 
+      # return(list(counts, annot_sgRNA))
       
       req(input$counts)
       inFile <- input$counts
-      counts <- read_delim(inFile$datapath, delim = input$FSc)
-      counts <- dplyr::rename(counts, sgRNA = .data$X1)
+
+      if (is.null(separators$counts)){
+        counts <- read.table(inFile$datapath, sep = ";", header = TRUE)
+      } else {
+        counts <- read.table(inFile$datapath, sep = separators$counts, header = TRUE)
+      }
+      print(colnames(counts))
+      counts <- dplyr::rename(counts, sgRNA = .data$X)
       counts <- dplyr::select(counts, -.data$sequence)
       
-      annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
       
-      counts <- gather(counts, value = "count", key = "barcode", -.data$sgRNA, -.data$gene)
-      counts <- dplyr::mutate(counts, barcode = str_remove(.data$barcode, ".R1.fastq"))
+      reactives$counts <- counts
       
-      counts <- counts %>%
-        dplyr::group_by(.data$barcode) %>%
-        dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + .data$cpm)) %>%
-        dplyr::ungroup()
-      
-      return(list(counts, annot_sgRNA))
-      
-    })
+  })  # end of observer
     
     ## samples annotations
-    observeEvent(c(input$sample_plan,
-                   separators$sampleplan),{
+observeEvent(c(input$sample_plan,
+              separators$sampleplan),{
 
       # req(input$sample_plan)
       # inFile <- input$sample_plan
@@ -49,8 +68,8 @@ server_crispr_app <- function(input, output, session) {
       #   separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
       #   mutate(day = as.factor(.data$day)) %>%
       #   mutate(condition = as.factor(.data$condition)) %>%
-      #   mutate(day_num = as.numeric(gsub("DAY","",.data$day))) %>% 
-      #   mutate(day = fct_reorder(.f = factor(.data$day), .x = .data$day_num))
+      #   mutate(Timepoint_num = as.numeric(gsub("DAY","",.data$day))) %>% 
+      #   mutate(day = fct_reorder(.f = factor(.data$day), .x = .data$Timepoint_num))
       # return(samples)
       
       req(input$sample_plan)
@@ -61,22 +80,28 @@ server_crispr_app <- function(input, output, session) {
       } else {
       samples <- read.table(inFile$datapath, sep = separators$sampleplan, header = TRUE)
       }
-      #colnames(samples) <- c("barcode", "sample","condition")
-      # samples <- samples %>%
+      reactives$sample_planRaw <- samples
+
+}) # end of observer
+    
+observeEvent(reactives$sample_planRaw,{    
+      
+      if(reactives$sampleplanGood == TRUE){
+      samples <- reactives$sample_planRaw %>%
       #   #separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
-      #   mutate(day = as.factor(.data$day)) %>%
-      #   mutate(condition = as.factor(.data$condition)) %>%
-      #   mutate(day_num = as.numeric(gsub("DAY","",.data$day))) %>% 
-      #   mutate(day = fct_reorder(.f = factor(.data$day), .x = .data$day_num))
-      #return(samples)
+          mutate(Timepoint = as.factor(.data$Timepoint)) %>%
+          mutate(Treatment = as.factor(.data$Treatment)) %>%
+          mutate(Timepoint_num = as.numeric(gsub("[^0-9.-]", "", .data$Timepoint))) %>% 
+          mutate(Timepoint = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
       
       reactives$sample_plan <- samples
+      }
     
 }) # end of observer
     
     ## counts and annotations
     joined <- reactive({
-      counts <- counts()[[1]]
+      counts <- reactives$counts
       samples <- reactives$sample_plan
       counts <- full_join(counts, samples) %>%
         mutate(day = factor(.data$day, levels = input$timepoints_order))
@@ -103,7 +128,7 @@ server_crispr_app <- function(input, output, session) {
     #Compute difference to 0
     diff_t0 <- reactive({
       req(input$timepoints_order)
-      counts <- counts()[[1]]
+      counts <- reactives$counts
       firstpoint <- input$timepoints_order[[1]]
       
       all <- joined() %>%
@@ -132,12 +157,12 @@ server_crispr_app <- function(input, output, session) {
     
     ######### Plots and tables outputs ####################################
     output$counts_table <- DT::renderDataTable({
-      DT::datatable(counts()[[1]], rownames = FALSE)
+      DT::datatable(reactives$counts, rownames = FALSE)
     })
     
     output$sample_plan_table <- DT::renderDataTable({
       sample_plan <- reactives$sample_plan
-      sample_plan <- dplyr::select(sample_plan, -.data$day_num)
+      sample_plan <- dplyr::select(sample_plan, -.data$Timepoint_num)
       return(DT::datatable(sample_plan,rownames = FALSE))
     })
     
@@ -278,7 +303,7 @@ server_crispr_app <- function(input, output, session) {
     
     
     output$orderUI <- renderUI({
-      counts <- levels(reactives$sample_plan$day)
+      counts <- levels(reactives$sample_plan$Timepoint)
       print(counts)
       orderInput(inputId = 'timepoints', label = 'Re-order your timepoints here :', items = counts, as_source = F)
     })
@@ -408,14 +433,14 @@ server_crispr_app <- function(input, output, session) {
     output$Totguidenumber <- renderInfoBox(
       infoBox(
         "Total guides number :",
-        as.numeric(nrow(counts()[[1]]))
+        as.numeric(nrow(reactives$counts))
       )
     )
     
     output$Depth <- renderInfoBox(
       infoBox(
         "Average sequencing depth across samples :",
-        round(sum(counts()[[1]]$count)/(nrow(reactives$sample_plan) + nrow(counts()[[1]])))
+        round(sum(reactives$counts$count)/(nrow(reactives$sample_plan) + nrow(reactives$counts)))
         
       )
     )
@@ -423,17 +448,22 @@ server_crispr_app <- function(input, output, session) {
     output$Datahelptext <- renderUI({HTML(
       "
 
-<ul> 
+<ol> 
 <li>Sample infos file :
 <br/><br/>
 <B>Format description :</B>
 <br/>
-A text file, each line of the file must respects the following format specifications :<br/>
-SampleBarcode|SampleCreationDate-Replicat-Souche-Day|Condition
+<ul>
+<li>A csv file using ';' or ',' as field separator, each line of the file must respects the following format specifications :<br/>
+Sample_ID;Sample_description;Cell_line;Timepoint;Treatment;Replicate</li>
+<li>Column names must respect Upper and lower case. </li>
+<li>Values in the table must not contain spaces, use '_' instead. </li>
+</ul>
 <br/>
 <B>For example :</B>
 <br/>
-D115R13|191015-Replica1-WT-DAY14|TREATED
+D308R1;Ctrl_R1;HEK;T0;Ref_R1;Replica_1
+<br/>
 <br/>
 <a href='https://gitlab.curie.fr/r-shiny/bioshiny/blob/devel/example_datasets/Crispr/SampleDescription' target='_blank'>Click here to download the Sample Description example file</a>
 <br/>
@@ -442,8 +472,13 @@ D115R13|191015-Replica1-WT-DAY14|TREATED
 <br/>
 <B>Format description :</B>
 <br/>
-A csv formated text file using ; or , as field separator. The first line of the file is a header, it contains samples barcodes as colnames and two supplementary columns called 'gene
-' and 'sequence'. Guides names' are rownames. Values are read counts.
+<ul>
+<li>A csv formated text file using ; or , as field separator. </li>
+<li>The first line of the file is a header, it contains samples barcodes as colnames and two supplementary columns called 'gene
+' and 'sequence'. </li>
+<li>AGuides names' are rownames. </li>
+<li>AValues are read counts.</li>
+</ul>
 <br/>
 <B>For example :</B><br/>
 \"\";\"D115R01\";\"D115R02\";\"gene\";\"sequence\"<br/>
@@ -457,17 +492,17 @@ A csv formated text file using ; or , as field separator. The first line of the 
 <br/>
 Essentials and non essentials genes' list file just contains one column with all the genes of the list.<br/>
 <br/>
-<a href='https://gitlab.curie.fr/r-shiny/bioshiny/blob/devel/example_datasets/Crispr/essentials.csv' target='_blank'>Click here to download the essentials genes'list example file</a>
-<br/>
-
 <B>For example:</B><br/>
 
 Gene1<br/>
 Gene2<br/>
+<br/>
+<a href='https://gitlab.curie.fr/r-shiny/bioshiny/blob/devel/example_datasets/Crispr/essentials.csv' target='_blank'>Click here to download the essentials genes'list example file</a>
+
 ...
 
 
-</ul>
+</ol>
 
   
   
@@ -502,9 +537,9 @@ Gene2<br/>
     })
     
     
-    observeEvent(c(reactives$sample_plan),{
+    observeEvent(c(reactives$sample_planRaw),priority = 10,{
     
-    colnames <- colnames(reactives$sample_plan)
+    colnames <- colnames(reactives$sample_planRaw)
     if( (!"Sample_ID" %in% colnames|
         !"Sample_description" %in% colnames|
         !"Cell_line" %in% colnames|
@@ -526,8 +561,10 @@ Gene2<br/>
                               modalButton("Return to input tab"),
                           )))
       
-      
-     } 
+    reactives$sampleplanGood <- FALSE
+    } else {
+    reactives$sampleplanGood <- TRUE
+    }
        
     })
     
