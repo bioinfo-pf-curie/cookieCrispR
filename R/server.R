@@ -12,10 +12,9 @@
 server_crispr_app <- function(input, output, session) {
     
   ######### Global options ##############
-  #session$onSessionEnded(stopApp)
+  session$onSessionEnded(stopApp)
   options(shiny.sanitize.errors = TRUE)
   session$allowReconnect(TRUE)
-  #session$lockDisabled <- NULL
 
   ##### Usefull variables #############
   reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL, joined = NULL)
@@ -161,12 +160,20 @@ observeEvent(reactives$sampleplanRaw,{
     #
     
     ######### Plots and tables outputs ####################################
-    
+   
+observe({
+  print(input$restore)
+  
+  if (!is.null(reactives$counts)){
     output$counts_table <- DT::renderDataTable({
       DT::datatable(reactives$counts, rownames = FALSE)
+      
     })
+}
 
-#observeEvent(input$restore,{
+}) # end of observer
+
+        
 observe({
     print(input$restore)
     output$sample_plan_table <- DT::renderDataTable({
@@ -626,16 +633,10 @@ Gene2<br/>
                  ,priority =10,ignoreInit = TRUE,{
       
       cat("save data \n")
-      # save(reactives,input,separators,
-      #      file = "WorkingEnvironment.RData",
-      #      envir = session)
-      #save.image(file = "WorkingEnvironment.RData")
       saveState(filename = "WorkingEnvironment.rda",
                  reactives= reactives,
                  separators = separators,
-                 input = input,
-                 output = output)
-                 #session = session)
+                 input = input)
       
     })
     
@@ -651,10 +652,6 @@ Gene2<br/>
       })
     
     observeEvent(input$init, {
-      #shinyjs::runjs("document.getElementById('state_save_sc').click();")
-    # shinyjs::runjs("document.getElementById('init').addEventListener('click',function(){
-    # setTimeout(function(){document.getElementById('state_save_sc').click();},800)
-    #            });")
       runjs("$('#state_save_sc')[0].click();")
     })
     
@@ -670,103 +667,50 @@ Gene2<br/>
     
     ## Restore state 
     
-output$refreshOnUpload <- renderUI({
-    inFile <- input$restore
-    if(!is.null(inFile)) {
-      # Joe Cheng: https://groups.google.com/forum/#!topic/shiny-discuss/Olr8m0JwMTo
-      tags$script("window.location.reload();")
-      #shinyjs::js$reset()
-    }
-})
-    
-    
-# observeEvent(input$restore,{
-# 
-# 
-#     withProgress(message = 'Loading analysis state', value = 0.5, {
-# 
-#       updateQueryString(input$restore,mode = "replace")
-# 
-#       
-#       setProgress(1)
-#       
-# })
-# })
-     
 
 observeEvent(input$restore,priority = 10,{
-#observe({
-#
+
       withProgress(message = 'Loading analysis state', value = 0.5, {
-#
+
        inFile <- input$restore
        if(!is.null(inFile)) {
-#
+         
          isolate({
-#
+
            tmpEnv <- new.env()
            load(inFile$datapath, envir=tmpEnv)
             if (exists("r_reactives", envir=tmpEnv, inherits=FALSE)) {#
               print("load reactives")
-              #assign("reactives", tmpEnv$r_reactives, envir=.GlobalEnv)#
               reactives$sampleplan <- tmpEnv$r_reactives$sampleplan
+              reactives$counts <- tmpEnv$r_reactives$counts
             }
-            # if (exists("r_separators", envir=tmpEnv, inherits=FALSE)){
-            #   print("load separators")
-            #   #assign("separators", tmpEnv$r_separators, envir=.GlobalEnv)
-            #   #session$separators <- tmpEnv$r_separators
-            # }
-          # if (exists("r_outputs", envir=tmpEnv, inherits=FALSE)){
-          #   print("load outputs")
-          #   #assign("separators", tmpEnv$r_separators, envir=.GlobalEnv)
-          #   output <- tmpEnv$r_outputs
-          #   session$output <<- tmpEnv$r_outputs
-          # }
-#           load(inFile$datapath)
-#            if (exists("r_inputs", envir=tmpEnv, inherits=FALSE)){
-#            print("load inputs")
-#              assign("input", tmpEnv$r_inputs, envir=.GlobalEnv)
-# #             #assign("input", do.call(reactiveValues, reactiveValuesToList(tmpEnv$r_inputs)), envir=.GlobalEnv)
-#              input <<- tmpEnv$r_inputs
-#              session$input <<- tmpEnv$r_inputs
-#              lapply(names(input),
-#                    function(x) session$sendInputMessage(x, list(value = input[[x]]))
-#              )
-             #print(input)
-             #session$userData$.input
-          #}
+           incProgress(0.3)
+            if (exists("r_separators", envir=tmpEnv, inherits=FALSE)){
+              print("load separators")
+              separators$counts <- tmpEnv$r_separators$counts
+              separators$sampleplan <- tmpEnv$r_separators$sampleplan
+            }
+            incProgress(0.3)
+
+            if (exists("r_inputs", envir=tmpEnv, inherits=FALSE)){
+            print("load inputs")
+              input <- tmpEnv$r_inputs
+              lapply(names(input),
+                    function(x) session$sendInputMessage(x, list(value = input[[x]]))
+              )
+             print(input)
+         }
            rm(tmpEnv)
-#
+
          }) #end of isolate
-         #print(input$sample_plan)
-         #print(reactives$sampleplan)
 
        }
        setProgress(1)
-       })
+})
 
 
 
 }) # end of observer
-    
-# onBookmark(
-#   function(state) {
-#     state$values$sampleplan <- reactives$sampleplan
-#     state$values$sampleplanGood <- reactives$sampleplanGood
-#     state$values$sampleplanRaw <- reactives$sampleplanRaw
-#     state$values$sep_counts <- separators$counts
-#     state$values$sep_sampleplan <- separators$sampleplan
-#   }
-# )
-# 
-# onRestore(function(state) {
-#   
-#   reactives$sampleplan <- state$values$sampleplan
-#   reactives$sampleplanGood <- state$reactives$sampleplanGood
-#   reactives$sampleplanRaw <- state$values$sampleplanRaw
-#   separators$counts <- state$values$sep_counts
-#   separators$sampleplan <- state$values$sep_sampleplan
-#   
-# })
+  
 
-  }
+}
