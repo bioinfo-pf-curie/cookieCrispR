@@ -8,15 +8,20 @@
 #' @param session session
 #'
 #' @return None
-#'
+#' @importFrom shinyjs runjs  
 server_crispr_app <- function(input, output, session) {
     
+  ######### Global options ##############
+  #session$onSessionEnded(stopApp)
+  options(shiny.sanitize.errors = TRUE)
+  session$allowReconnect(TRUE)
+  #session$lockDisabled <- NULL
+
   ##### Usefull variables #############
-  reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE)
-  separators <- reactiveValues(counts = NULL, sampleplanRaw = NULL , sampleplan = NULL)
+  reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL, joined = NULL)
+  separators <- reactiveValues(counts = NULL,sampleplan = NULL)
   
   ##### Upload files and datatable construction ####################
-  
   ## counts table    
   observeEvent(c(input$counts,
                  separators$counts),{  
@@ -59,7 +64,7 @@ server_crispr_app <- function(input, output, session) {
     
     ## samples annotations
 observeEvent(c(input$sample_plan,
-              separators$sampleplan),{
+              separators$sampleplan),{#input$restore
 
       # req(input$sample_plan)
       # inFile <- input$sample_plan
@@ -80,21 +85,21 @@ observeEvent(c(input$sample_plan,
       } else {
       samples <- read.table(inFile$datapath, sep = separators$sampleplan, header = TRUE)
       }
-      reactives$sample_planRaw <- samples
+      reactives$sampleplanRaw <- samples
 
 }) # end of observer
     
-observeEvent(reactives$sample_planRaw,{    
+observeEvent(reactives$sampleplanRaw,{    
       
       if(reactives$sampleplanGood == TRUE){
-      samples <- reactives$sample_planRaw %>%
+      samples <- reactives$sampleplanRaw %>%
       #   #separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
           mutate(Timepoint = as.factor(.data$Timepoint)) %>%
           mutate(Treatment = as.factor(.data$Treatment)) %>%
           mutate(Timepoint_num = as.numeric(gsub("[^0-9.-]", "", .data$Timepoint))) %>% 
           mutate(Timepoint = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
       
-      reactives$sample_plan <- samples
+      reactives$sampleplan <- samples
       }
     
 }) # end of observer
@@ -102,7 +107,7 @@ observeEvent(reactives$sample_planRaw,{
     ## counts and annotations
     joined <- reactive({
       counts <- reactives$counts
-      samples <- reactives$sample_plan
+      samples <- reactives$sampleplan
       counts <- full_join(counts, samples) %>%
         mutate(day = factor(.data$day, levels = input$timepoints_order))
       return(counts)
@@ -156,16 +161,25 @@ observeEvent(reactives$sample_planRaw,{
     #
     
     ######### Plots and tables outputs ####################################
+    
     output$counts_table <- DT::renderDataTable({
       DT::datatable(reactives$counts, rownames = FALSE)
     })
-    
+
+#observeEvent(input$restore,{
+observe({
+    print(input$restore)
     output$sample_plan_table <- DT::renderDataTable({
-      sample_plan <- reactives$sample_plan
+      if (!is.null(reactives$sampleplan)){
+      print(class(reactives$sampleplan))
+      sample_plan <- reactives$sampleplan
       sample_plan <- dplyr::select(sample_plan, -.data$Timepoint_num)
       return(DT::datatable(sample_plan,rownames = FALSE))
+      }
     })
-    
+}) # end of observer
+
+       
     output$joined <- DT::renderDataTable({
       diff_t0()
     })
@@ -303,7 +317,7 @@ observeEvent(reactives$sample_planRaw,{
     
     
     output$orderUI <- renderUI({
-      counts <- levels(reactives$sample_plan$Timepoint)
+      counts <- levels(reactives$sampleplan$Timepoint)
       print(counts)
       orderInput(inputId = 'timepoints', label = 'Re-order your timepoints here :', items = counts, as_source = F)
     })
@@ -416,10 +430,10 @@ observeEvent(reactives$sample_planRaw,{
     observe({
       
       updateSelectInput(session,"conditionreference2",
-                        choices = reactives$sample_plan$condition)
+                        choices = reactives$sampleplan$condition)
       
       updateSelectInput(session,"conditionreference1",
-                        choices = reactives$sample_plan$condition)
+                        choices = reactives$sampleplan$condition)
     })
     
     
@@ -440,7 +454,7 @@ observeEvent(reactives$sample_planRaw,{
     output$Depth <- renderInfoBox(
       infoBox(
         "Average sequencing depth across samples :",
-        round(sum(reactives$counts$count)/(nrow(reactives$sample_plan) + nrow(reactives$counts)))
+        round(sum(reactives$counts$count)/(nrow(reactives$sampleplan) + nrow(reactives$counts)))
         
       )
     )
@@ -511,6 +525,43 @@ Gene2<br/>
     )})
     
     
+    metadata_path <- system.file("extdata", "SampleDescriptiondatatest.txt", package = "CRISPRApp")
+    counts_path <- system.file("extdata", "global_counts_table_datatest.csv", package = "CRISPRApp")
+    essential_path <- system.file("extdata", "essentials.csv", package = "CRISPRApp")
+    non_essential_path <- system.file("extdata", "non_essentials_datatest.csv", package = "CRISPRApp")
+    
+    output$DlTestCounts <- downloadHandler(
+      filename = function() {
+        paste("COOKIE_CRISPR_COUNTS_EXAMPLE-", Sys.Date(), ".csv", sep="")
+      },
+      content = function(file) {
+        file.copy(from = counts_path, to = file)
+      }
+    )
+    
+    output$DlTestSplan <- downloadHandler(
+      filename = function() {
+        paste("COOKIE_CRISPR_SAMPLEPLAN_EXAMPLE-", Sys.Date(), ".csv", sep="")
+      },
+      content = function(file) {
+        file.copy(from = metadata_path, to = file)
+      }
+    )
+    
+    output$DlTesGuideList <- downloadHandler(
+      filename = function() {
+        paste("COOKIE_CRISPR_GENESLIST_EXAMPLE-", Sys.Date(), ".csv", sep="")
+      },
+      content = function(file) {
+        file.copy(from = essential_path, to = file)
+        #file.copy(from = non_essential_path , to = file)
+      }
+    )
+    
+    
+    
+    
+    
     ## Modal Dialogue 
     
     dataModal <- function(failed = FALSE) {
@@ -537,9 +588,9 @@ Gene2<br/>
     })
     
     
-    observeEvent(c(reactives$sample_planRaw),priority = 10,{
+    observeEvent(c(reactives$sampleplanRaw),priority = 10,{
     
-    colnames <- colnames(reactives$sample_planRaw)
+    colnames <- colnames(reactives$sampleplanRaw)
     if( (!"Sample_ID" %in% colnames|
         !"Sample_description" %in% colnames|
         !"Cell_line" %in% colnames|
@@ -568,6 +619,154 @@ Gene2<br/>
        
     })
     
+    ###### Save State ############
+    
+    observeEvent(c(input$exit_and_save,
+                   input$init)
+                 ,priority =10,ignoreInit = TRUE,{
+      
+      cat("save data \n")
+      # save(reactives,input,separators,
+      #      file = "WorkingEnvironment.RData",
+      #      envir = session)
+      #save.image(file = "WorkingEnvironment.RData")
+      saveState(filename = "WorkingEnvironment.rda",
+                 reactives= reactives,
+                 separators = separators,
+                 input = input,
+                 output = output)
+                 #session = session)
+      
+    })
+    
+    output$exit_and_save <- downloadHandler(
+      filename = function() {
+        paste0("COOKIE_CRISPR_rState_",gsub(" ","_",gsub("-","",gsub(":","-",as.character(Sys.time())))),".rda")
+      },
+      content = function(file) {
+        #saveState(filename)
+        file.copy(from = "WorkingEnvironment.rda", to = filename)
+        file.remove("WorkingEnvironment.rda")
+        stopApp("COOCKIE CRISPR closed")
+      })
+    
+    observeEvent(input$init, {
+      #shinyjs::runjs("document.getElementById('state_save_sc').click();")
+    # shinyjs::runjs("document.getElementById('init').addEventListener('click',function(){
+    # setTimeout(function(){document.getElementById('state_save_sc').click();},800)
+    #            });")
+      runjs("$('#state_save_sc')[0].click();")
+    })
+    
+    output$state_save_sc <- downloadHandler(
+      filename = function() {
+        paste0("COOKIE_CRISPR_rState_",gsub(" ","_",gsub("-","",gsub(":","-",as.character(Sys.time())))),".rda")
+      },
+      content = function(file) {
+        file.copy(from = "WorkingEnvironment.rda", to = file)
+        file.remove("WorkingEnvironment.rda")
+      }
+    )
+    
+    ## Restore state 
+    
+output$refreshOnUpload <- renderUI({
+    inFile <- input$restore
+    if(!is.null(inFile)) {
+      # Joe Cheng: https://groups.google.com/forum/#!topic/shiny-discuss/Olr8m0JwMTo
+      tags$script("window.location.reload();")
+      #shinyjs::js$reset()
+    }
+})
     
     
+# observeEvent(input$restore,{
+# 
+# 
+#     withProgress(message = 'Loading analysis state', value = 0.5, {
+# 
+#       updateQueryString(input$restore,mode = "replace")
+# 
+#       
+#       setProgress(1)
+#       
+# })
+# })
+     
+
+observeEvent(input$restore,priority = 10,{
+#observe({
+#
+      withProgress(message = 'Loading analysis state', value = 0.5, {
+#
+       inFile <- input$restore
+       if(!is.null(inFile)) {
+#
+         isolate({
+#
+           tmpEnv <- new.env()
+           load(inFile$datapath, envir=tmpEnv)
+            if (exists("r_reactives", envir=tmpEnv, inherits=FALSE)) {#
+              print("load reactives")
+              #assign("reactives", tmpEnv$r_reactives, envir=.GlobalEnv)#
+              reactives$sampleplan <- tmpEnv$r_reactives$sampleplan
+            }
+            # if (exists("r_separators", envir=tmpEnv, inherits=FALSE)){
+            #   print("load separators")
+            #   #assign("separators", tmpEnv$r_separators, envir=.GlobalEnv)
+            #   #session$separators <- tmpEnv$r_separators
+            # }
+          # if (exists("r_outputs", envir=tmpEnv, inherits=FALSE)){
+          #   print("load outputs")
+          #   #assign("separators", tmpEnv$r_separators, envir=.GlobalEnv)
+          #   output <- tmpEnv$r_outputs
+          #   session$output <<- tmpEnv$r_outputs
+          # }
+#           load(inFile$datapath)
+#            if (exists("r_inputs", envir=tmpEnv, inherits=FALSE)){
+#            print("load inputs")
+#              assign("input", tmpEnv$r_inputs, envir=.GlobalEnv)
+# #             #assign("input", do.call(reactiveValues, reactiveValuesToList(tmpEnv$r_inputs)), envir=.GlobalEnv)
+#              input <<- tmpEnv$r_inputs
+#              session$input <<- tmpEnv$r_inputs
+#              lapply(names(input),
+#                    function(x) session$sendInputMessage(x, list(value = input[[x]]))
+#              )
+             #print(input)
+             #session$userData$.input
+          #}
+           rm(tmpEnv)
+#
+         }) #end of isolate
+         #print(input$sample_plan)
+         #print(reactives$sampleplan)
+
+       }
+       setProgress(1)
+       })
+
+
+
+}) # end of observer
+    
+# onBookmark(
+#   function(state) {
+#     state$values$sampleplan <- reactives$sampleplan
+#     state$values$sampleplanGood <- reactives$sampleplanGood
+#     state$values$sampleplanRaw <- reactives$sampleplanRaw
+#     state$values$sep_counts <- separators$counts
+#     state$values$sep_sampleplan <- separators$sampleplan
+#   }
+# )
+# 
+# onRestore(function(state) {
+#   
+#   reactives$sampleplan <- state$values$sampleplan
+#   reactives$sampleplanGood <- state$reactives$sampleplanGood
+#   reactives$sampleplanRaw <- state$values$sampleplanRaw
+#   separators$counts <- state$values$sep_counts
+#   separators$sampleplan <- state$values$sep_sampleplan
+#   
+# })
+
   }

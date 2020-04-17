@@ -1,0 +1,7 @@
+Sample_ID;Sample_description;Cell_line;Timepoint;Treatment;Replicate
+D115R13;Ctrl_R1;HEK;T0;Ref_R1;Replica1
+D115R11;Untreated_R1;HEK;T1;Untreated;Replica1
+D115R03;Treated_R1;HEK;T1;Treated;Replica1
+D115R18;Ctrl_R2;HEK;T0;Ref_R2;Replica2
+D115R12;Untreated_R2;HEK;T1;Untreated;Replica2
+D115R17;Treated_R2;HEK;T1;Treated;Replica2

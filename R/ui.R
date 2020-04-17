@@ -1,11 +1,27 @@
-ui_crispr_app <- function(){
+ui_crispr_app <- function(request){
   tagList(dashboardPage(skin = "green",
     dashboardHeader(title = "Cookie CRISPR",
     dropdownMenu(type = "notifications", badgeStatus = "success",
-                 messageItem("Task completion",
+                 messageItem("Notifications",
                              "This is the content of a message.",
                              time = "5 mins" )
-    )),
+    ),
+    dropdownMenu(
+   
+      type = "tasks",icon = icon("cog"),badgeStatus = NULL,
+      headerText = "pcaExplorer task menu",
+      notificationItem(
+        text = actionButton("exit_and_save","Exit App & save",
+                            class = "btn_no_border",
+                            onclick = "setTimeout(function(){window.close();}, 100); "),
+        icon = icon("sign-out"),status = "primary"),
+      menuItem(
+        #text = downloadButton("state_save_sc","Save State as .rda")
+        text = actionButton("init", "Save State as .rda", icon = icon("download"))
+        #text = bookmarkButton("Save analysis state",icon = icon("bookmark"))
+        )
+    ) # end of dropdownMenu
+    ),  # End of Header
     dashboardSidebar(
       sidebarUserPanel("Institut Curie",
                        subtitle = "Bioinformatic Platform",
@@ -24,6 +40,8 @@ ui_crispr_app <- function(){
       )
     ),
     dashboardBody(
+      useShinyjs(),
+      #uiOutput("refreshOnUpload"),
       tabItems(
         tabItem(tabName = "DataInput",
                 infoBoxOutput("Totguidenumber"),
@@ -35,18 +53,29 @@ ui_crispr_app <- function(){
                     #column(width=4,fileInput("list","Enter your essential and non essential genes list")),
                     tabsetPanel(type = "tabs",
                                 tabPanel("Uploads",
+                                         #uiOutput("refreshOnUpload"),
                                          fluidRow(
                                            column(width=3,fileInput("sample_plan","Sample infos")),
                                            column(width=3,fileInput("counts","Global counts")),
                                            column(width=3,fileInput("essential","Essential genes")),
                                            column(width=3,fileInput("nonessential","Non Essential genes"))),
+                                           fluidRow(downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;")),
                                            fluidRow(
                                            column(width = 6,actionButton(inputId = "settings", label = "Input files settings",
-                                                        icon = icon("gear"))))),
+                                                        icon = icon("gear"))),
+                                           column(width = 6,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
+                                                                      buttonLabel=list(icon("angle-double-up"))))
+                                                            #textInput(inputId = "restore","Enter URL analysis state"))
+                                           )),
                                 tabPanel("Help",
-                                         uiOutput("Datahelptext"))
-                                
-                                
+                                         uiOutput("Datahelptext"),
+                                         fluidRow(
+                                           column(width = 4,
+                                                  downloadButton("DlTestSplan","DL sample plan example", class = "butt"),
+                                                  tags$head(tags$style(".butt{background-color:#add8e6;} .butt{color: #337ab7;}"))
+                                                  )
+                                         )
+                                )
                     ))),
                 
                 fluidRow(

@@ -10,6 +10,6 @@
 #' @export
 
 
-crispr_app <- function() shinyApp(ui = ui_crispr_app, server = server_crispr_app)
+crispr_app <- function() shinyApp(ui = ui_crispr_app, server = server_crispr_app, enableBookmarking = "url")
 
 # crispr_app <- function() {  appDir <- system.file("app", package = "CRISPRApp");shiny::runApp(appDir, display.mode = "normal")}
