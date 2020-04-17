@@ -40,8 +40,6 @@ ui_crispr_app <- function(request){
       )
     ),
     dashboardBody(
-      useShinyjs(),
-      #uiOutput("refreshOnUpload"),
       tabItems(
         tabItem(tabName = "DataInput",
                 infoBoxOutput("Totguidenumber"),
@@ -73,7 +71,11 @@ ui_crispr_app <- function(request){
                                            column(width = 4,
                                                   downloadButton("DlTestSplan","DL sample plan example", class = "butt"),
                                                   tags$head(tags$style(".butt{background-color:#add8e6;} .butt{color: #337ab7;}"))
-                                                  )
+                                                  ),
+                                           column(width = 4,downloadButton("DlTestCounts","DL counts matrix example", class = "butt"),
+),
+                                           column(width = 4,downloadButton("DlTesGuideList","DL Genes list example", class = "butt"),
+)
                                          )
                                 )
                     ))),

@@ -17,13 +17,14 @@ server_crispr_app <- function(input, output, session) {
   session$allowReconnect(TRUE)
 
   ##### Usefull variables #############
-  reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL, joined = NULL)
+  reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
+                              joined = NULL,countsRaw = NULL, counts = NULL)
   separators <- reactiveValues(counts = NULL,sampleplan = NULL)
   
   ##### Upload files and datatable construction ####################
   ## counts table    
   observeEvent(c(input$counts,
-                 separators$counts),{  
+                 separators$counts),{
   #counts <- reactive({
       
       # req(input$counts)
@@ -34,11 +35,11 @@ server_crispr_app <- function(input, output, session) {
       # 
       # annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
       # 
-      # counts <- gather(counts, value = "count", key = "barcode", -.data$sgRNA, -.data$gene)
-      # counts <- dplyr::mutate(counts, barcode = str_remove(.data$barcode, ".R1.fastq"))
+      # counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
+      # counts <- dplyr::mutate(counts, Sample_ID = str_remove(.data$Sample_ID, ".R1.fastq"))
       # 
       # counts <- counts %>%
-      #   dplyr::group_by(.data$barcode) %>%
+      #   dplyr::group_by(.data$Sample_ID) %>%
       #   dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + .data$cpm)) %>%
       #   dplyr::ungroup()
       # 
@@ -52,11 +53,28 @@ server_crispr_app <- function(input, output, session) {
       } else {
         counts <- read.table(inFile$datapath, sep = separators$counts, header = TRUE)
       }
-      print(colnames(counts))
       counts <- dplyr::rename(counts, sgRNA = .data$X)
       counts <- dplyr::select(counts, -.data$sequence)
       
+      reactives$countsRaw <- counts
       
+})
+  
+observeEvent(reactives$countsRaw,{
+  
+      counts  <- reactives$countsRaw
+      
+      annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
+      # 
+      counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
+      counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
+      counts <- counts %>%
+      dplyr::group_by(.data$Sample_ID) %>%
+         dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + .data$cpm)) %>%
+         dplyr::ungroup()
+      # 
+      
+      #print(counts)
       reactives$counts <- counts
       
   })  # end of observer
@@ -67,13 +85,13 @@ observeEvent(c(input$sample_plan,
 
       # req(input$sample_plan)
       # inFile <- input$sample_plan
-      # samples <- read_delim(inFile$datapath, delim = "|",  col_names = c("barcode", "sample","condition"))
+      # samples <- read_delim(inFile$datapath, delim = "|",  col_names = c("Sample_ID", "sample","condition"))
       # samples <- samples %>%
       #   separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
-      #   mutate(day = as.factor(.data$day)) %>%
-      #   mutate(condition = as.factor(.data$condition)) %>%
-      #   mutate(Timepoint_num = as.numeric(gsub("DAY","",.data$day))) %>% 
-      #   mutate(day = fct_reorder(.f = factor(.data$day), .x = .data$Timepoint_num))
+      #   mutate(day = as.factor(.data$Timepoint)) %>%
+      #   mutate(condition = as.factor(.data$Treatment)) %>%
+      #   mutate(Timepoint_num = as.numeric(gsub("DAY","",.data$Timepoint))) %>% 
+      #   mutate(day = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
       # return(samples)
       
       req(input$sample_plan)
@@ -103,16 +121,30 @@ observeEvent(reactives$sampleplanRaw,{
     
 }) # end of observer
     
-    ## counts and annotations
-    joined <- reactive({
+    ## Join counts and annotations
+    #joined <- reactive({
+observeEvent(c(reactives$counts,reactives$sampleplan,
+               input$timepoints_order),{
+  
+      if(!is.null(reactives$counts) & !is.null(reactives$sampleplan)){
       counts <- reactives$counts
       samples <- reactives$sampleplan
+      
+      if(!(is.null(input$timepoints_order))){
       counts <- full_join(counts, samples) %>%
-        mutate(day = factor(.data$day, levels = input$timepoints_order))
-      return(counts)
-    })
-    
-    #timepoints <- reactiveValues(a = joined()$day)
+        #mutate(day = factor(.data$Timepoint, levels = input$timepoints_order))
+        mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order))
+      } else {
+      counts <- full_join(counts, samples) %>%
+          #mutate(day = factor(.data$Timepoint, levels = input$timepoints_order))
+          mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint)))
+      }
+      
+      print("joined_runed")
+      reactives$joined <- counts
+      }# end of if
+}) # End of observer    
+    #timepoints <- reactiveValues(a = reactives$joined$day)
     
     ess_genes <- reactive({
       req(input$essential)
@@ -135,11 +167,11 @@ observeEvent(reactives$sampleplanRaw,{
       counts <- reactives$counts
       firstpoint <- input$timepoints_order[[1]]
       
-      all <- joined() %>%
-        select(.data$sgRNA, .data$clone, .data$rep, .data$day, .data$log_cpm, .data$gene, .data$condition)
+      all <- reactives$joined %>%
+        select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$log_cpm, .data$gene, .data$Treatment)
       
       t0 <- all %>%  
-        filter(.data$day == firstpoint)  %>%
+        filter(.data$Timepoint == firstpoint)  %>%
         mutate(log_cpmt0 = .data$log_cpm) %>%
         mutate(log_cpm = NULL) %>%
         mutate(day = NULL) %>%
@@ -151,7 +183,7 @@ observeEvent(reactives$sampleplanRaw,{
         mutate(log_cpm = NULL) %>%
         mutate(condtion = NULL)
       
-      fin <- inner_join(joined() %>% 
+      fin <- inner_join(reactives$joined %>% 
                           mutate(gene=NULL) %>%
                           mutate(day=NULL) %>%
                           mutate(condition = NULL), all, by=c("sgRNA","clone","rep"))
@@ -194,13 +226,13 @@ observe({
     
     
     read_number <- reactive({
-      counts <- joined()
+      counts <- reactives$joined
       counts <- counts %>%
-        group_by(.data$barcode, .data$rep, .data$clone, .data$day) %>%
+        group_by(.data$Sample_ID, .data$Replicate, .data$Cell_line, .data$Timepoint) %>%
         summarise(total = sum(.data$count)) %>% 
         as.data.frame() %>%
-        ggplot(aes(x = .data$day, y = .data$total)) +
-        geom_col(position = position_dodge()) + facet_wrap(vars(.data$rep, .data$clone), nrow = 1) +
+        ggplot(aes(x = .data$Timepoint, y = .data$total)) +
+        geom_col(position = position_dodge()) + facet_wrap(vars(.data$Replicate, .data$Cell_line), nrow = 1) +
         labs(title = "Number of reads by sample") #+
       #scale_x_continuous(breaks = seq(min(counts$day),max(counts$day)))
       return(plot(counts))
@@ -225,9 +257,9 @@ observe({
     
     
     boxplot_all <- reactive({
-      counts <- joined()
+      counts <- reactives$joined
       counts %>% 
-        ggplot(aes(x = .data$day, y = .data$log_cpm, fill = .data$rep)) + geom_boxplot() + facet_grid(. ~ .data$clone) + 
+        ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) + 
         labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
     })
     
@@ -248,12 +280,12 @@ observe({
     )
     
     density_ridge <- reactive({
-      counts <- joined()
+      counts <- reactives$joined
       
       counts <-  counts %>%
-        ggplot(aes(x = .data$log_cpm, y = .data$day)) +
+        ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
-        facet_wrap(vars(.data$clone, .data$rep), ncol = 1, strip.position = "right") +
+        facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
         labs(title = "Distribution of normalzed log-cpm by sample", subtitle = "All guides")
       return(plot(counts))
     })
@@ -276,12 +308,12 @@ observe({
     
     
     essential_distribs <- reactive({
-      counts <- joined()
+      counts <- reactives$joined
       ess_genes <- ess_genes()
       counts <- filter(counts, .data$gene %in% ess_genes$V1)
-      counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$day)) + 
+      counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) + 
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
-        facet_wrap(vars(.data$clone, .data$rep), ncol = 1, strip.position = "right") +
+        facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
         scale_fill_viridis_c() +
         labs(title = "Distribution of normalised log-cpms", subtitle = "Essential genes")
       return(plot(counts_plot))
@@ -292,14 +324,14 @@ observe({
     })
     
     nonessential_distribs <- reactive({
-      counts <- joined()
+      counts <- reactives$joined
       ess_genes <- non_ess_genes()
       counts <- counts %>%
         filter(.data$gene %in% ess_genes$V1)
       
-      counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$day)) +
+      counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
-        facet_wrap(vars(.data$clone, .data$rep), ncol = 1, strip.position = "right") +
+        facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
         scale_fill_viridis_c() +
         labs(title = "Distribution of normalised log-cpms", subtitle = "Non Essential genes")
       
@@ -337,8 +369,8 @@ observe({
       firstpoint <- input$timepoints_order[[1]]
       
       diff_box_all <- diff_t0() %>%
-        filter(.data$day != firstpoint) %>%
-        ggplot(aes(x = .data$day, y = .data$diff, fill = .data$rep)) + geom_boxplot() + facet_grid(.data$condition ~ .data$clone) +
+        filter(.data$Timepoint != firstpoint) %>%
+        ggplot(aes(x = .data$Timepoint, y = .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.data$Treatment ~ .data$Cell_line) +
         #ggplot(aes(x = day, y = diff_DAY1, fill = rep)) + geom_boxplot() + facet_grid(.~ clone) +
         ylab(paste0("diff_",firstpoint)) + 
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - all guides"))
@@ -358,9 +390,9 @@ observe({
       
       diff_box_ess <-  diff_t0() %>% 
         #select(-condition, -log_cpmt0, -diff) %>%
-        filter(.data$day != !!firstpoint) %>%
+        filter(.data$Timepoint != !!firstpoint) %>%
         filter(.data$gene %in% ess_genes[,1]) %>%
-        ggplot(aes(x = .data$day, y= .data$diff, fill = .data$rep)) + geom_boxplot() + facet_grid(.~ .data$clone) +
+        ggplot(aes(x = .data$Timepoint, y= .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.~ .data$Cell_line) +
         ylab(paste0("diff_",firstpoint)) + 
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - essential genes's guides"))
       
@@ -394,8 +426,8 @@ observe({
       ess_genes <- ess_genes()
       non_ess_genes <- non_ess_genes()
       
-      d <- diff_t0() %>% select(.data$sgRNA, .data$clone, .data$rep, .data$day, .data$log_cpm, .data$gene, .data$condition, .data$diff) %>%
-        group_by(.data$day, .data$condition, .data$clone, .data$rep) %>%
+      d <- diff_t0() %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$log_cpm, .data$gene, .data$Treatment, .data$diff) %>%
+        group_by(.data$Timepoint, .data$Treatment, .data$Cell_line, .data$Replicate) %>%
         arrange(.data$diff) %>% 
         mutate(type = case_when(
           .data$gene %in% ess_genes[,1] ~ "+",
@@ -407,7 +439,7 @@ observe({
       
       write.csv(diff_t0(),"~/to_shiny.csv")
       
-      d <- d %>% ggplot(aes(x = .data$FP, y = .data$TP, color = .data$day)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(.data$condition + .data$clone ~ .data$rep) + coord_equal()
+      d <- d %>% ggplot(aes(x = .data$FP, y = .data$TP, color = .data$Timepoint)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(.data$Treatment + .data$Cell_line ~ .data$Replicate) + coord_equal()
       #   # 
       return(d)
     })
@@ -486,8 +518,6 @@ Sample_ID;Sample_description;Cell_line;Timepoint;Treatment;Replicate</li>
 D308R1;Ctrl_R1;HEK;T0;Ref_R1;Replica_1
 <br/>
 <br/>
-<a href='https://gitlab.curie.fr/r-shiny/bioshiny/blob/devel/example_datasets/Crispr/SampleDescription' target='_blank'>Click here to download the Sample Description example file</a>
-<br/>
 <br/>
 </li><li>Counts table file :</li>
 <br/>
@@ -495,7 +525,7 @@ D308R1;Ctrl_R1;HEK;T0;Ref_R1;Replica_1
 <br/>
 <ul>
 <li>A csv formated text file using ; or , as field separator. </li>
-<li>The first line of the file is a header, it contains samples barcodes as colnames and two supplementary columns called 'gene
+<li>The first line of the file is a header, it contains samples Sample_IDs as colnames and two supplementary columns called 'gene
 ' and 'sequence'. </li>
 <li>AGuides names' are rownames. </li>
 <li>AValues are read counts.</li>
@@ -503,11 +533,10 @@ D308R1;Ctrl_R1;HEK;T0;Ref_R1;Replica_1
 <br/>
 <B>For example :</B><br/>
 \"\";\"D115R01\";\"D115R02\";\"gene\";\"sequence\"<br/>
-\"sgITGB8_1\";339;379;\"ITGB8\";\"AAAACACCCAGGCTGCCCAG\"<br/>
+\"sgITGB8_1\";339;379;\"ITGB8\";\"AAAACACCCAGGCTGCCCAG\"
 <br/>
-<a href='https://gitlab.curie.fr/r-shiny/bioshiny/blob/devel/example_datasets/Crispr/global_counts_table.csv' target='_blank'>Click here to download the Counts table example file</a>
 <br/>
-<br/><br/>
+<br/>
 </li><li>Genes' lists</li><br/>
 <B>Format description :</B>
 <br/>
@@ -518,7 +547,6 @@ Essentials and non essentials genes' list file just contains one column with all
 Gene1<br/>
 Gene2<br/>
 <br/>
-<a href='https://gitlab.curie.fr/r-shiny/bioshiny/blob/devel/example_datasets/Crispr/essentials.csv' target='_blank'>Click here to download the essentials genes'list example file</a>
 
 ...
 
