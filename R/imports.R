@@ -15,5 +15,5 @@
 #' @importFrom magrittr %>%
 #' @importFrom shinyjqui orderInput
 #' @importFrom shiny showModal modalDialog
-
+#' @importFrom shinyjs runjs
 NULL
