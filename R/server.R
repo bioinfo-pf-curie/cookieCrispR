@@ -8,7 +8,7 @@
 #' @param session session
 #'
 #' @return None
-#' @importFrom shinyjs runjs  
+#' @importFrom shinyjs runjs
 server_crispr_app <- function(input, output, session) {
     
   ######### Global options ##############
@@ -679,8 +679,9 @@ Gene2<br/>
         stopApp("COOCKIE CRISPR closed")
       })
     
-    observeEvent(input$init, {
-      runjs("$('#state_save_sc')[0].click();")
+    observeEvent(c(input$init),
+                 ignoreInit = TRUE, {
+      shinyjs::runjs("$('#state_save_sc')[0].click();")
     })
     
     output$state_save_sc <- downloadHandler(

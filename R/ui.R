@@ -18,7 +18,6 @@ ui_crispr_app <- function(request){
       menuItem(
         #text = downloadButton("state_save_sc","Save State as .rda")
         text = actionButton("init", "Save State as .rda", icon = icon("download"))
-        #text = bookmarkButton("Save analysis state",icon = icon("bookmark"))
         )
     ) # end of dropdownMenu
     ),  # End of Header
@@ -42,16 +41,15 @@ ui_crispr_app <- function(request){
     dashboardBody(
       tabItems(
         tabItem(tabName = "DataInput",
+                useShinyjs(),
                 infoBoxOutput("Totguidenumber"),
                 valueBoxOutput("Depth"),
                 fluidRow(
                   box(
                     width = 12,status = "success",solidHeader = TRUE,
                     title="Inputs",
-                    #column(width=4,fileInput("list","Enter your essential and non essential genes list")),
                     tabsetPanel(type = "tabs",
                                 tabPanel("Uploads",
-                                         #uiOutput("refreshOnUpload"),
                                          fluidRow(
                                            column(width=3,fileInput("sample_plan","Sample infos")),
                                            column(width=3,fileInput("counts","Global counts")),
@@ -63,7 +61,6 @@ ui_crispr_app <- function(request){
                                                         icon = icon("gear"))),
                                            column(width = 6,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
                                                                       buttonLabel=list(icon("angle-double-up"))))
-                                                            #textInput(inputId = "restore","Enter URL analysis state"))
                                            )),
                                 tabPanel("Help",
                                          uiOutput("Datahelptext"),
