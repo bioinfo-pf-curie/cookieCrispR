@@ -661,7 +661,7 @@ Gene2<br/>
                  ,priority =10,ignoreInit = TRUE,{
       
       cat("save data \n")
-      saveState(filename = "WorkingEnvironment.rda",
+      saveState(filename = "/tmp/WorkingEnvironment.rda",
                  reactives= reactives,
                  separators = separators,
                  input = input)
@@ -674,8 +674,8 @@ Gene2<br/>
       },
       content = function(file) {
         #saveState(filename)
-        file.copy(from = "WorkingEnvironment.rda", to = filename)
-        file.remove("WorkingEnvironment.rda")
+        file.copy(from = "/tmp/WorkingEnvironment.rda", to = filename)
+        file.remove("/tmp/WorkingEnvironment.rda")
         stopApp("COOCKIE CRISPR closed")
       })
     
@@ -689,8 +689,8 @@ Gene2<br/>
         paste0("COOKIE_CRISPR_rState_",gsub(" ","_",gsub("-","",gsub(":","-",as.character(Sys.time())))),".rda")
       },
       content = function(file) {
-        file.copy(from = "WorkingEnvironment.rda", to = file)
-        file.remove("WorkingEnvironment.rda")
+        file.copy(from = "/tmp/WorkingEnvironment.rda", to = file)
+        file.remove("/tmp/WorkingEnvironment.rda")
       }
     )
     
