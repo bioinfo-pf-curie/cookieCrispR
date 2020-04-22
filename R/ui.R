@@ -11,7 +11,7 @@ ui_crispr_app <- function(request){
       type = "tasks",icon = icon("cog"),badgeStatus = NULL,
       headerText = "pcaExplorer task menu",
       notificationItem(
-        text = actionButton("exit_and_save","Exit App & save",
+        text = actionButton("init2","Exit App & save",
                             class = "btn_no_border",
                             onclick = "setTimeout(function(){window.close();}, 100); "),
         icon = icon("sign-out"),status = "primary"),
@@ -55,7 +55,8 @@ ui_crispr_app <- function(request){
                                            column(width=3,fileInput("counts","Global counts")),
                                            column(width=3,fileInput("essential","Essential genes")),
                                            column(width=3,fileInput("nonessential","Non Essential genes"))),
-                                           fluidRow(downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;")),
+                                           fluidRow(downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;"),
+                                                    downloadButton("exit_and_save","Save State as .rda",style = "visibility: hidden;")),
                                            fluidRow(
                                            column(width = 6,actionButton(inputId = "settings", label = "Input files settings",
                                                         icon = icon("gear"))),

@@ -656,7 +656,7 @@ Gene2<br/>
     
     ###### Save State ############
     
-    observeEvent(c(input$exit_and_save,
+    observeEvent(c(input$init2,
                    input$init)
                  ,priority =10,ignoreInit = TRUE,{
       
@@ -668,16 +668,22 @@ Gene2<br/>
       
     })
     
+    
     output$exit_and_save <- downloadHandler(
       filename = function() {
         paste0("COOKIE_CRISPR_rState_",gsub(" ","_",gsub("-","",gsub(":","-",as.character(Sys.time())))),".rda")
       },
       content = function(file) {
         #saveState(filename)
-        file.copy(from = "/tmp/WorkingEnvironment.rda", to = filename)
+        file.copy(from = "/tmp/WorkingEnvironment.rda", to = file)
         file.remove("/tmp/WorkingEnvironment.rda")
         stopApp("COOCKIE CRISPR closed")
       })
+    
+    observeEvent(c(input$init2),
+                 ignoreInit = TRUE, {
+                   shinyjs::runjs("$('#exit_and_save')[0].click();")
+                 })
     
     observeEvent(c(input$init),
                  ignoreInit = TRUE, {
