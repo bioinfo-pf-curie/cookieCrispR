@@ -6,7 +6,8 @@ This content has been loaded from the template report `.Rmd` file. Please edit i
 ```{r setup, include=FALSE, eval = TRUE, echo = FALSE}
 opts_chunk$set(
   echo=input$report_echo,
-  error=TRUE
+  error=TRUE,
+  dpi = 100
 )
 ```
 
@@ -61,7 +62,7 @@ print("Please upload SamplePlan file first")
         geom_col(position = position_dodge()) + facet_wrap(vars(.data$Replicate, .data$Cell_line), nrow = 1) +
         labs(title = "Number of reads by sample") #+
 
-      
+plot(counts)    
 ```
 
 
