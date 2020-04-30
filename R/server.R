@@ -12,6 +12,7 @@
 #' @importFrom shinyAce updateAceEditor aceEditor aceAutocomplete
 #' @import knitr
 #' @importFrom xfun embed_files
+#' @import kableExtra
 
 server_crispr_app <- function(input, output, session) {
     
