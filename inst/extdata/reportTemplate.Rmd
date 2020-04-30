@@ -1,0 +1,128 @@
+# About this report
+
+This content has been loaded from the template report `.Rmd` file. Please edit it at your best convenience!
+
+
+```{r setup, include=FALSE, eval = TRUE, echo = FALSE}
+opts_chunk$set(
+  echo=input$report_echo,
+  error=TRUE
+)
+```
+
+# Overview on the data
+
+## Samples Selected
+
+The following samples were selected in this analysis : 
+
+```{r, echo = FALSE}
+
+kable(reactives$sampleplan,caption = "samplePlan Table") %>%
+kable_styling() %>%
+kableExtra::column_spec(1:ncol(reactives$sampleplan),width = "80em", bold = FALSE, italic = FALSE) %>%
+    scroll_box(width = "100%", height = "250px")
+```
+
+
+```{r, echo = FALSE}
+
+write.table(reactives$sampleplan,file = "/tmp/sampleplan.csv",sep = ",",quote = FALSE)
+br()
+xfun::embed_files(path = "/tmp/sampleplan.csv", text = "SamplePlan file")
+```
+
+
+## Distributions
+
+### Read Numbers
+
+```{r, echo = FALSE}
+
+if (!is.null(reactives$joined)){
+
+  counts <- reactives$joined
+      counts <- counts %>%
+        group_by(.data$Sample_ID, .data$Replicate, .data$Cell_line, .data$Timepoint) %>%
+        summarise(total = sum(.data$count)) %>% 
+        as.data.frame() %>%
+        ggplot(aes(x = .data$Timepoint, y = .data$total)) +
+        geom_col(position = position_dodge()) + facet_wrap(vars(.data$Replicate, .data$Cell_line), nrow = 1) +
+        labs(title = "Number of reads by sample") #+
+      #scale_x_continuous(breaks = seq(min(counts$day),max(counts$day)))
+      return(plot(counts))
+      
+}      
+      
+```
+
+## Files 
+
+```{r, echo = FALSE}
+
+write.table(reactives$countsRaw,file = "/tmp/Rawcounts.csv",sep = ",",quote = FALSE)
+br()
+xfun::embed_files(path = "/tmp/Rawcounts.csv", text = "Counts Matrix File")
+
+```
+
+
+
+
+
+
+# About COOKIE CRISP'R
+
+`COOKIE CRISP'R` is a package containing a Shiny application for
+analyzing CRISPR screening experiments data in different conditions and experimental factors.
+
+`COOKIE CRISP'R` was developed by the bio-informatic platform of the Curie's Institute (France). 
+
+## Developers
+
+`COOKIE CRISP'R` is currently maintained by Clément BENOIT and Pierre Gestraud at the Bioinformatic Platform (Institut Curie) (https://curie.fr/).
+You can contact them by clicking on the buttons below.
+
+<a href="mailto:mailto:pierre.gestraud@curie.fr?subject=[COOKIE CRISP'R_feedback]" class="btn btn-primary">Pierre Gestraud</a>
+
+<a href="mailto:mailto:clement.benoit@curie.fr?subject=[COOKIE CRISP'R_feedback]" class="btn btn-primary">Clement BENOIT</a>
+
+
+# Citation info
+
+If you use `COOKIE CRISP'R` for your analysis, please cite it as here below:
+
+```{r}
+citation("CRISPRApp")
+```
+
+# Session Information
+
+```{r}
+sessionInfo()
+```
+
+```{r, echo = FALSE}
+library(shiny)
+footertemplate <- function(){
+  tags$div(
+    class = "footer",
+    style = "text-align:center",
+    tags$div(
+      class = "foot-inner",
+      list(
+        hr(),
+        "This report was generated with", tags$a(href="http://bioconductor.org/packages/COOKIE CRISP'R/", "COOKIE CRISP'R"), br(),
+        "COOKIE CRISP'R is a project developed by Nicolas Servant, Pierre Gestraud, Aurelien Bore and Clement Benoit from the bioinformatic and crispr'it platforms of the Institut Curie : ",
+        br(),
+        tags$a(href="https://science.curie.fr/plateformes/criblage-genetique-crispr-crisprit/","CRISPRIT platform"),
+        br(),
+        tags$a(href="https://science.curie.fr/recherche/developpement-cancer-genetique-epigenetique/dynamique-de-linformation-genetique/equipe-vallot/","Bioinformatic Platform"),br())
+      )
+    )
+}
+```
+
+```{r, echo = FALSE}
+footertemplate()
+```

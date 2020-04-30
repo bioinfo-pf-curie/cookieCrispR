@@ -1,4 +1,9 @@
 ui_crispr_app <- function(request){
+  
+  # get modes and themes for the ace editor
+  modes <- shinyAce::getAceModes()
+  themes <- shinyAce::getAceThemes()
+  
   tagList(dashboardPage(skin = "green",
     dashboardHeader(title = "Cookie CRISPR",
     dropdownMenu(type = "notifications", badgeStatus = "success",
@@ -33,7 +38,8 @@ ui_crispr_app <- function(request){
         menuItem("Screening", tabName = "Results",
                  menuSubItem("Positive screening","Pscreen"),
                  menuSubItem("Negative screening","Nscreen")
-        )
+        ),
+        menuItem("Report", tabName = "Report")
         
         
       )
@@ -167,13 +173,95 @@ ui_crispr_app <- function(request){
                 #       downloadButton("dlROC","Download ROC plots")
                 #   )
                 # )
-        )
+        ),
+        tabItem(tabName = "Report",
+                        tabPanel(
+                          "Report Editor",
+                          icon = icon("pencil"),
+                          
+                          h1("Report Editor"),
+                          fluidRow(
+                            column(
+                              width = 6,
+                              box(
+                                title = "markdown options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE, width = 9,
+                                radioButtons("rmd_dl_format", label = "Choose Format:", c("HTML" = "html", "R Markdown" = "rmd"), inline = TRUE),
+                                textInput("report_title", "Title: "),
+                                textInput("report_author", "Author: "),
+                                radioButtons("report_toc", "Table of Contents", choices = list("Yes" = "true", "No" = "false")),
+                                radioButtons("report_ns", "Number sections", choices = list("Yes" = "true", "No" = "false")),
+                                selectInput("report_theme", "Theme",
+                                            choices = list("Default" = "default", "Cerulean" = "cerulean",
+                                                           "Journal" = "journal", "Flatly" = "flatly",
+                                                           "Readable" = "readable", "Spacelab" = "spacelab",
+                                                           "United" = "united", "Cosmo" = "cosmo")),
+                                radioButtons("report_echo", "Echo the commands in the output", choices = list("Yes" = "TRUE", "No" = "FALSE")))),
+                            column(
+                              width = 6,
+                              box(
+                                title = "editor options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE, width = 9,
+                                checkboxInput("enableAutocomplete", "Enable AutoComplete", TRUE),
+                                conditionalPanel(
+                                  "input.enableAutocomplete",
+                                  wellPanel(
+                                    checkboxInput("enableLiveCompletion", "Live auto completion", TRUE),
+                                    checkboxInput("enableRCompletion", "R code completion", TRUE)
+                                  )
+                                ),
+                                
+                                selectInput("mode", "Mode: ", choices=modes, selected="markdown"),
+                                selectInput("theme", "Theme: ", choices=themes, selected="solarized_light"))
+                            )
+                            # ,
+                            # column( # kept for debugging purposes!
+                            #   width = 6,
+                            #   verbatimTextOutput("loadedRmd")
+                            # )
+                          ),
+                          fluidRow(
+                            column(3,
+                                   actionButton("updatepreview_button", "Update report",class = "btn btn-primary"),p()
+                            ),
+                            column(3, downloadButton("saveRmd", "Generate & Save",class = "btn btn-success"))
+                          ),
+                          
+                          tabBox(
+                            width = NULL,
+                            id="report_tabbox",
+                            tabPanel("Report preview",
+                                     icon = icon("file-text"),
+                                     htmlOutput("knitDoc")
+                            ),
+                            
+                            tabPanel("Edit report",
+                                     icon = icon("pencil-square-o"),
+                                     aceEditor("acereport_rmd", mode="markdown",theme = "solarized_light",autoComplete = "live",
+                                               value="_Initialization of the_ `CRISPRApp` _report generation..._",
+                                               placeholder = "You can enter some code and text in R Markdown format",
+                                               height="800px"))
+                          )
+                        ),
+                        # ui panel about -------------------------------------------------------
+                        tabPanel(
+                          "About", icon = icon("institution"),
+                          includeMarkdown(system.file("extdata", "about.md",package = "CRISPRApp")),
+                          hr(),
+                          
+                          h4("Session Info"),
+                          verbatimTextOutput("sessioninfo")
+                        )
+                        
+                        #           tabPanel(
+                        #             "Session manager",
+                        #             ## will put here the things to save/restore the sessions
+                        #             p("something"),
+                        #           )
+                ) # end of tabBox
+                )
         
         
         
       )
-      
-    )
   ),
   tags$footer(
     wellPanel(

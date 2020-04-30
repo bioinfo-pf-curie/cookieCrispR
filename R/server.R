@@ -9,6 +9,10 @@
 #'
 #' @return None
 #' @importFrom shinyjs runjs
+#' @importFrom shinyAce updateAceEditor aceEditor aceAutocomplete
+#' @import knitr
+#' @importFrom xfun embed_files
+
 server_crispr_app <- function(input, output, session) {
     
   ######### Global options ##############
@@ -747,5 +751,128 @@ observeEvent(input$restore,priority = 10,{
 
 }) # end of observer
   
+################### Report Section ################
+
+#########" Report section ###########"
+
+
+
+
+# server report editor ---------------------------------------------------------
+### yaml generation
+rmd_yaml <- reactive({
+  header <- paste0("---",
+                   "\ntitle: '", input$report_title,
+                   "'\nauthor: '", input$report_author,
+                   "'\ndate: '", Sys.Date(),
+                   "'\noutput:\n  html_document:\n    toc: ", input$report_toc, "\n    number_sections: ", input$report_ns, "\n    theme: ", input$report_theme,"\n code_folding: hide", "\n---\n\n",collapse = "\n")
+  return(header)
+})
+
+
+### loading report template
+# update aceEditor module
+observe({
+  # loading rmd report from disk
+  inFile <- system.file("extdata", "reportTemplate.Rmd",package = "CRISPRApp")
+  isolate({
+    if(!is.null(inFile) && !is.na(inFile)) {
+      
+      rmdfilecontent <- paste0(readLines(inFile),collapse="\n")
+      
+      shinyAce::updateAceEditor(session, "acereport_rmd", value = rmdfilecontent)
+    }
+  })
+})
+
+### ace editor options
+observe({
+  autoComplete <- if(input$enableAutocomplete) {
+    if(input$enableLiveCompletion) "live" else "enabled"
+  } else {
+    "disabled"
+  }
+  updateAceEditor(session, "acereport_rmd", autoComplete = autoComplete,theme=input$theme, mode=input$mode)
+  # updateAceEditor(session, "plot", autoComplete = autoComplete)
+})
+
+#Enable/Disable R code completion
+rmdOb <- aceAutocomplete("acereport_rmd")
+observe({
+  if(input$enableRCompletion) {
+    rmdOb$resume()
+  } else {
+    rmdOb$suspend()
+  }
+})
+
+## currently not working as I want with rmarkdown::render, but can leave it like this - the yaml will be taken in the final version only
+output$knitDoc <- renderUI({
+  input$updatepreview_button
+  return(
+    withProgress(
+      message = "Updating the report in the app body",
+      detail = "This can take some time",
+      {
+        # temporarily switch to the temp dir, in case you do not have write
+        # permission to the current working directory
+        owd <- setwd(tempdir())
+        on.exit(setwd(owd))
+        tmp_content <- paste0(rmd_yaml(),input$acereport_rmd,collapse = "\n")
+        incProgress(0.5, detail = "Rendering report...")
+        htmlpreview <- knit2html(text = tmp_content, fragment.only = TRUE, quiet = TRUE)
+        incProgress(1)
+        isolate(HTML(htmlpreview))
+      })
+  )
+})
+
+
+
+
+## Download Report
+
+output$saveRmd <- downloadHandler(
+  filename = function() {
+    if(input$rmd_dl_format == "rmd") {
+      "report.Rmd"
+    } else {
+      "report.html"
+    }
+  },
+  content = function(file) {
+    # knit2html(text = input$rmd, fragment.only = TRUE, quiet = TRUE))
+    tmp_content <-
+      paste0(rmd_yaml(),
+             input$acereport_rmd,collapse = "\n")
+    # input$acereport_rmd
+    if(input$rmd_dl_format == "rmd") {
+      cat(tmp_content,file=file,sep="\n")
+    } else {
+      # write it somewhere too keeping the source
+      # tmpfile <- tempfile()
+      # file.create(tmpfile)
+      # fileConn<- file(tempfile())
+      # writeLines(tmp_content, fileConn)
+      # close(fileConn)
+      if(input$rmd_dl_format == "html") {
+        
+        # temporarily switch to the temp dir, in case you do not have write
+        # permission to the current working directory
+        owd <- setwd(tempdir())
+        on.exit(setwd(owd))
+        
+        cat(tmp_content,file="tempreport.Rmd",sep="\n")
+        rmarkdown::render(input = "tempreport.Rmd",
+                          output_file = file,
+                          # fragment.only = TRUE,
+                          quiet = TRUE)
+      }
+    }
+  })
+
+
+
+
 
 }
