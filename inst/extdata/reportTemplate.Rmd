@@ -10,36 +10,47 @@ opts_chunk$set(
 )
 ```
 
+```{r evals, echo = FALSE}
+evalJoined <- FALSE
+evalSampleplan <- FALSE
+evalCounts <- FALSE
+if (!is.null(reactives$joined)){evalJoined <- TRUE}
+if (!is.null(reactives$sampleplan)){evalSampleplan <- TRUE}
+if (!is.null(reactives$countsRaw)){evalCounts <- TRUE}
+
+options(kableExtra.auto_format = F)
+```
+
+
 # Overview on the data
 
 ## Samples Selected
 
 The following samples were selected in this analysis : 
 
-```{r, echo = FALSE}
-
-kable(reactives$sampleplan,caption = "samplePlan Table") %>%
+<button title="Click to show answer" type="button" onclick="if(document.getElementById('BE_Genus_C.txt') .style.display=='none') {document.getElementById('BE_Genus_C.txt') .style.display=''}else{document.getElementById('BE_Genus_C.txt') .style.display='none'}">Show/hide</button>
+<div id="BE_Genus_C.txt" style="display:none">
+```{r, echo = FALSE, eval = evalSampleplan}
+kableExtra::kable(reactives$sampleplan,caption = "samplePlan Table") %>%
 kable_styling() %>%
-kableExtra::column_spec(1:ncol(reactives$sampleplan),width = "80em", bold = FALSE, italic = FALSE) %>%
-    scroll_box(width = "100%", height = "250px")
+kableExtra::column_spec(1:ncol(reactives$sampleplan),width = "80em", bold = FALSE, italic = FALSE)# %>%
+  #scroll_box(width = "100%", height = "20%")
+
 ```
 
+```{r, echo = FALSE, eval = !evalSampleplan}
 
-```{r, echo = FALSE}
+print("Please upload SamplePlan file first")
 
-write.table(reactives$sampleplan,file = "/tmp/sampleplan.csv",sep = ",",quote = FALSE)
-br()
-xfun::embed_files(path = "/tmp/sampleplan.csv", text = "SamplePlan file")
 ```
+</div>
 
 
 ## Distributions
 
 ### Read Numbers
 
-```{r, echo = FALSE}
-
-if (!is.null(reactives$joined)){
+```{r, echo = FALSE, eval = evalJoined}
 
   counts <- reactives$joined
       counts <- counts %>%
@@ -49,26 +60,43 @@ if (!is.null(reactives$joined)){
         ggplot(aes(x = .data$Timepoint, y = .data$total)) +
         geom_col(position = position_dodge()) + facet_wrap(vars(.data$Replicate, .data$Cell_line), nrow = 1) +
         labs(title = "Number of reads by sample") #+
-      #scale_x_continuous(breaks = seq(min(counts$day),max(counts$day)))
-      return(plot(counts))
+
       
-}      
-      
+```
+
+
+```{r, echo = FALSE, eval = !evalJoined}
+
+print("Please upload both SamplePlan and counts matrix first")
+
 ```
 
 ## Files 
 
-```{r, echo = FALSE}
-
+```{r, echo = FALSE, eval = evalCounts}
+br()
 write.table(reactives$countsRaw,file = "/tmp/Rawcounts.csv",sep = ",",quote = FALSE)
 br()
 xfun::embed_files(path = "/tmp/Rawcounts.csv", text = "Counts Matrix File")
-
 ```
 
 
+```{r, echo = FALSE, eval = evalSampleplan}
+br()
+write.table(reactives$sampleplan,file = "/tmp/sampleplan.csv",sep = ",",quote = FALSE)
+br()
+xfun::embed_files(path = "/tmp/sampleplan.csv", text = "SamplePlan file")
+```
 
 
+```{r, echo = FALSE, eval = !evalCounts}
+print("Please upload counts matrix first")
+```
+
+
+```{r, echo = FALSE, eval = !evalSampleplan}
+print("Please upload both SamplePlan first")
+```
 
 
 # About COOKIE CRISP'R
@@ -92,7 +120,7 @@ You can contact them by clicking on the buttons below.
 
 If you use `COOKIE CRISP'R` for your analysis, please cite it as here below:
 
-```{r}
+```{r, warning=FALSE}
 citation("CRISPRApp")
 ```
 

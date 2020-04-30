@@ -91,7 +91,7 @@ observeEvent(c(input$sample_plan,
       # inFile <- input$sample_plan
       # samples <- read_delim(inFile$datapath, delim = "|",  col_names = c("Sample_ID", "sample","condition"))
       # samples <- samples %>%
-      #   separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
+      #   separate(sample, into = c("date","rep","Cell_line","day"), remove = FALSE) %>%
       #   mutate(day = as.factor(.data$Timepoint)) %>%
       #   mutate(condition = as.factor(.data$Treatment)) %>%
       #   mutate(Timepoint_num = as.numeric(gsub("DAY","",.data$Timepoint))) %>% 
@@ -114,7 +114,7 @@ observeEvent(reactives$sampleplanRaw,{
       
       if(reactives$sampleplanGood == TRUE){
       samples <- reactives$sampleplanRaw %>%
-      #   #separate(sample, into = c("date","rep","clone","day"), remove = FALSE) %>%
+      #   #separate(sample, into = c("date","rep","Cell_line","day"), remove = FALSE) %>%
           mutate(Timepoint = as.factor(.data$Timepoint)) %>%
           mutate(Treatment = as.factor(.data$Treatment)) %>%
           mutate(Timepoint_num = as.numeric(gsub("[^0-9.-]", "", .data$Timepoint))) %>% 
@@ -178,19 +178,19 @@ observeEvent(c(reactives$counts,reactives$sampleplan,
         filter(.data$Timepoint == firstpoint)  %>%
         mutate(log_cpmt0 = .data$log_cpm) %>%
         mutate(log_cpm = NULL) %>%
-        mutate(day = NULL) %>%
+        mutate(Timepoint = NULL) %>%
         mutate(gene = NULL) %>%
-        mutate(condition = NULL)
+        mutate(Treatment = NULL)
       
-      all <- inner_join(all,t0,c("sgRNA","clone","rep")) %>%
+      all <- inner_join(all,t0,c("sgRNA","Cell_line","Replicate")) %>%
         mutate(diff = .data$log_cpm - .data$log_cpmt0) %>%
-        mutate(log_cpm = NULL) %>%
-        mutate(condtion = NULL)
+        mutate(log_cpm = NULL)
+        #mutate(Treatment = NULL)
       
       fin <- inner_join(reactives$joined %>% 
                           mutate(gene=NULL) %>%
-                          mutate(day=NULL) %>%
-                          mutate(condition = NULL), all, by=c("sgRNA","clone","rep"))
+                          mutate(Timepoint=NULL) %>%
+                          mutate(Treatment = NULL), all, by=c("sgRNA","Cell_line","Replicate"))
       return(fin)
     })
     #
@@ -375,7 +375,7 @@ observe({
       diff_box_all <- diff_t0() %>%
         filter(.data$Timepoint != firstpoint) %>%
         ggplot(aes(x = .data$Timepoint, y = .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.data$Treatment ~ .data$Cell_line) +
-        #ggplot(aes(x = day, y = diff_DAY1, fill = rep)) + geom_boxplot() + facet_grid(.~ clone) +
+        #ggplot(aes(x = .data$Timepoint, y = .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(paste0(".data$",input$FacetChoice,collapse = " ~ ")) +
         ylab(paste0("diff_",firstpoint)) + 
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - all guides"))
       
@@ -429,8 +429,10 @@ observe({
       
       ess_genes <- ess_genes()
       non_ess_genes <- non_ess_genes()
+      print(head(diff_t0()))
       
-      d <- diff_t0() %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$log_cpm, .data$gene, .data$Treatment, .data$diff) %>%
+      
+      d <- diff_t0() %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$gene, .data$Treatment, .data$diff) %>%
         group_by(.data$Timepoint, .data$Treatment, .data$Cell_line, .data$Replicate) %>%
         arrange(.data$diff) %>% 
         mutate(type = case_when(
@@ -441,6 +443,7 @@ observe({
         mutate(TP = cumsum(.data$type == "+") / sum(.data$type == "+"), FP = cumsum(.data$type == "-") / sum(.data$type == "-")) %>%
         ungroup()
       
+      print(head(d))
       write.csv(diff_t0(),"~/to_shiny.csv")
       
       d <- d %>% ggplot(aes(x = .data$FP, y = .data$TP, color = .data$Timepoint)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(.data$Treatment + .data$Cell_line ~ .data$Replicate) + coord_equal()
@@ -761,13 +764,13 @@ observeEvent(input$restore,priority = 10,{
 # server report editor ---------------------------------------------------------
 ### yaml generation
 rmd_yaml <- reactive({
-  header <- paste0("---",
-                   "\ntitle: '", input$report_title,
-                   "'\nauthor: '", input$report_author,
-                   "'\ndate: '", Sys.Date(),
-                   "'\noutput:\n  html_document:\n    toc: ", input$report_toc, "\n    number_sections: ", input$report_ns, "\n    theme: ", input$report_theme,"\n code_folding: hide", "\n---\n\n",collapse = "\n")
-  return(header)
+  paste0("---",
+         "\ntitle: '", input$report_title,
+         "'\nauthor: '", input$report_author,
+         "'\ndate: '", Sys.Date(),
+         "'\noutput:\n  html_document:\n    toc: ", input$report_toc, "\n    number_sections: ", input$report_ns, "\n    theme: ", input$report_theme, "\n---\n\n",collapse = "\n")
 })
+
 
 
 ### loading report template
@@ -842,9 +845,7 @@ output$saveRmd <- downloadHandler(
   },
   content = function(file) {
     # knit2html(text = input$rmd, fragment.only = TRUE, quiet = TRUE))
-    tmp_content <-
-      paste0(rmd_yaml(),
-             input$acereport_rmd,collapse = "\n")
+    tmp_content <- paste0(rmd_yaml(),input$acereport_rmd,collapse = "\n")
     # input$acereport_rmd
     if(input$rmd_dl_format == "rmd") {
       cat(tmp_content,file=file,sep="\n")
@@ -859,12 +860,13 @@ output$saveRmd <- downloadHandler(
         
         # temporarily switch to the temp dir, in case you do not have write
         # permission to the current working directory
-        owd <- setwd(tempdir())
-        on.exit(setwd(owd))
+        # owd <- setwd(tempdir())
+        # on.exit(setwd(owd))
         
-        cat(tmp_content,file="tempreport.Rmd",sep="\n")
-        rmarkdown::render(input = "tempreport.Rmd",
+        cat(tmp_content,file="/tmp/tempreport.Rmd",sep="\n")
+        rmarkdown::render(input = "/tmp/tempreport.Rmd",
                           output_file = file,
+                          "html_document",
                           # fragment.only = TRUE,
                           quiet = TRUE)
       }
