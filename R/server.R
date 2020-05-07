@@ -494,15 +494,23 @@ observe({
     output$Totguidenumber <- renderInfoBox(
       infoBox(
         "Total guides number :",
-        as.numeric(nrow(reactives$counts))
+        as.numeric(nrow(reactives$countsRaw))
       )
     )
+    
+    mean_depth <- reactive({
+      req(reactives$counts)
+      depth <- reactives$counts %>% 
+        group_by(Sample_ID) %>% 
+        summarise(m = mean(count)) %>% 
+        summarise(m_all = mean(m))
+      return(round(depth$m_all))
+    })
     
     output$Depth <- renderInfoBox(
       infoBox(
         "Average sequencing depth across samples :",
-        round(sum(reactives$counts$count)/(nrow(reactives$sampleplan) + nrow(reactives$counts)))
-        
+        mean_depth()
       )
     )
     
