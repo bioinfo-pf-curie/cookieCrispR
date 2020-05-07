@@ -13,6 +13,7 @@
 #' @import knitr
 #' @importFrom xfun embed_files
 #' @import kableExtra
+#' @importFrom dplyr first
 
 server_crispr_app <- function(input, output, session) {
     
@@ -169,29 +170,16 @@ observeEvent(c(reactives$counts,reactives$sampleplan,
     #Compute difference to 0
     diff_t0 <- reactive({
       req(input$timepoints_order)
-      counts <- reactives$counts
+      counts <- reactives$joined
       firstpoint <- input$timepoints_order[[1]]
+
+      counts$Timepoint <- relevel(as.factor(counts$Timepoint), ref = firstpoint)
       
-      all <- reactives$joined %>%
-        select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$log_cpm, .data$gene, .data$Treatment)
-      
-      t0 <- all %>%  
-        filter(.data$Timepoint == firstpoint)  %>%
-        mutate(log_cpmt0 = .data$log_cpm) %>%
-        mutate(log_cpm = NULL) %>%
-        mutate(Timepoint = NULL) %>%
-        mutate(gene = NULL) %>%
-        mutate(Treatment = NULL)
-      
-      all <- inner_join(all,t0,c("sgRNA","Cell_line","Replicate")) %>%
-        mutate(diff = .data$log_cpm - .data$log_cpmt0) %>%
-        mutate(log_cpm = NULL)
-        #mutate(Treatment = NULL)
-      
-      fin <- inner_join(reactives$joined %>% 
-                          mutate(gene=NULL) %>%
-                          mutate(Timepoint=NULL) %>%
-                          mutate(Treatment = NULL), all, by=c("sgRNA","Cell_line","Replicate"))
+      fin <- counts %>%
+        group_by(sgRNA, Cell_line, Replicate) %>%
+        arrange(Timepoint) %>%
+        mutate(diff = log_cpm - first(log_cpm)) %>% 
+        ungroup()
       return(fin)
     })
     #
