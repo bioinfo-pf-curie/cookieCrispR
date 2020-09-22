@@ -55,7 +55,7 @@ server_crispr_app <- function(input, output, session) {
       inFile <- input$counts
 
       if (is.null(separators$counts)){
-        counts <- read.table(inFile$datapath, sep = ";", header = TRUE)
+        counts <- read.table(inFile$datapath, sep = ",", header = TRUE)
       } else {
         counts <- read.table(inFile$datapath, sep = separators$counts, header = TRUE)
       }
