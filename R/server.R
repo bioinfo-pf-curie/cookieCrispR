@@ -14,6 +14,7 @@
 #' @importFrom xfun embed_files
 #' @import kableExtra
 #' @importFrom dplyr first
+#' @importFrom gridExtra grid.arrange
 
 server_crispr_app <- function(input, output, session) {
     
@@ -356,12 +357,13 @@ observe({
     })
     
     ############## NEGATIV SCREENING ################
-    
-    diff_box_all <- reactive({
-      firstpoint <- input$timepoints_order[[1]]
+    diff_boxes <- reactiveValues(diff_box_ess = NULL,diff_box_all = NULL)
+    #diff_box_all <- reactive({
+    observe({
+    firstpoint <- input$timepoints_order[[1]]
       
       print("diff box all")
-      diff_box_all <- diff_t0() %>%
+      diff_boxes$diff_box_all <- diff_t0() %>%
         filter(.data$Timepoint != firstpoint) %>%
         ggplot(aes(x = .data$Timepoint, y = .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.data$Treatment ~ .data$Cell_line) +
         #ggplot(aes(x = .data$Timepoint, y = .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(paste0(".data$",input$FacetChoice,collapse = " ~ ")) +
@@ -369,20 +371,20 @@ observe({
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - all guides"))
       
       print('DONE')
-      plot(diff_box_all)
+      #plot(diff_boxes$diff_box_all)
     })
     
     output$diff_box_all <- renderPlot({
-      plot(diff_box_all())
+      #plot(diff_box_all())
+      plot(diff_boxes$diff_box_all)
     })
     
-    
-    diff_box_ess <- reactive({
-      
+    # diff_box_ess <- reactive({
+    observe({
       firstpoint <- input$timepoints_order[[1]]
       ess_genes <- ess_genes()
       
-      diff_box_ess <-  diff_t0() %>% 
+      diff_boxes$diff_box_ess <-  diff_t0() %>% 
         #select(-condition, -log_cpmt0, -diff) %>%
         filter(.data$Timepoint != !!firstpoint) %>%
         filter(.data$gene %in% ess_genes[,1]) %>%
@@ -390,11 +392,12 @@ observe({
         ylab(paste0("diff_",firstpoint)) + 
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - essential genes's guides"))
       
-      plot(diff_box_ess)
+      #plot(diff_boxes$diff_box_ess)
     })
     
     output$diff_box_ess <- renderPlot({
-      plot(diff_box_ess())
+      #plot(diff_box_ess())
+      plot(diff_boxes$diff_box_ess)
     })
     
     output$dldiffboxes <- downloadHandler(

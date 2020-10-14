@@ -1,7 +1,3 @@
-# About this report
-
-This content has been loaded from the template report `.Rmd` file. Please edit it at your best convenience!
-
 
 ```{r setup, include=FALSE, eval = TRUE, echo = FALSE}
 opts_chunk$set(
@@ -15,15 +11,43 @@ opts_chunk$set(
 evalJoined <- FALSE
 evalSampleplan <- FALSE
 evalCounts <- FALSE
+evalGenesList <- FALSE
 if (!is.null(reactives$joined)){evalJoined <- TRUE}
 if (!is.null(reactives$sampleplan)){evalSampleplan <- TRUE}
 if (!is.null(reactives$countsRaw)){evalCounts <- TRUE}
-
+if(evalJoined == TRUE){
+if (!is.null(input$essential) && !is.null(input$nonessential)){
+  evalGenesList <- TRUE
+}
+}
 options(kableExtra.auto_format = F)
 ```
 
 
-# Overview on the data
+# Data overview
+
+## Files 
+```{r, echo = FALSE, eval = evalCounts}
+br()
+write.table(reactives$countsRaw,file = "/tmp/Rawcounts.csv",sep = ",",quote = FALSE)
+br()
+xfun::embed_files(path = "/tmp/Rawcounts.csv", text = "Counts Matrix File")
+```
+
+```{r, echo = FALSE, eval = evalSampleplan}
+br()
+write.table(reactives$sampleplan,file = "/tmp/sampleplan.csv",sep = ",",quote = FALSE)
+br()
+xfun::embed_files(path = "/tmp/sampleplan.csv", text = "SamplePlan file")
+```
+
+```{r, echo = FALSE, eval = !evalCounts}
+print("Please upload counts matrix first")
+```
+
+```{r, echo = FALSE, eval = !evalSampleplan}
+print("Please upload both SamplePlan first")
+```
 
 ## Samples Selected
 
@@ -40,17 +64,17 @@ kableExtra::column_spec(1:ncol(reactives$sampleplan),width = "80em", bold = FALS
 ```
 
 ```{r, echo = FALSE, eval = !evalSampleplan}
-
 print("Please upload SamplePlan file first")
-
 ```
 </div>
   
-
 ## Distributions
 
-### Read Numbers
+```{r, echo = FALSE, eval = !evalJoined}
+print("Please upload both SamplePlan and counts matrix first")
+```
 
+### Read Numbers
 ```{r, echo = FALSE, eval = evalJoined}
 
   counts <- reactives$joined
@@ -64,39 +88,95 @@ print("Please upload SamplePlan file first")
 
 plot(counts)    
 ```
+<br/><br/>
 
+### Log cpm distributions
+<br/>
 
-```{r, echo = FALSE, eval = !evalJoined}
-
-print("Please upload both SamplePlan and counts matrix first")
-
+```{r, echo = FALSE, eval = evalJoined}
+    counts <- reactives$joined
+      counts %>% 
+        ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) + 
+        labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
 ```
 
-## Files 
+<br/><br/>
 
-```{r, echo = FALSE, eval = evalCounts}
-br()
-write.table(reactives$countsRaw,file = "/tmp/Rawcounts.csv",sep = ",",quote = FALSE)
-br()
-xfun::embed_files(path = "/tmp/Rawcounts.csv", text = "Counts Matrix File")
+### Density ridges
+
+#### All guides
+<br/>
+```{r, echo = FALSE, eval = evalJoined, message=FALSE}
+ counts <- reactives$joined
+      counts %>%
+        ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
+        geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
+        facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
+        labs(title = "Distribution of normalzed log-cpm by sample", subtitle = "All guides")
+```
+<br/><br/><br/>
+#### Per gene type
+
+```{r, echo = FALSE, eval = evalGenesList,message=FALSE}
+### Essential genes
+counts <- reactives$joined
+ess_genes <- ess_genes()
+counts <- filter(counts, .data$gene %in% ess_genes$V1)
+plot1 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) + 
+  geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
+  facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
+  scale_fill_viridis_c() +
+  labs(title = "Distribution of normalised log-cpms", subtitle = "Essential genes")
+
+# Non essential genes
+counts <- reactives$joined
+ess_genes <- non_ess_genes()
+counts <- counts %>%
+  filter(.data$gene %in% ess_genes$V1)
+plot2 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
+  geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
+  facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
+  scale_fill_viridis_c() +
+  labs(title = "Distribution of normalised log-cpms", subtitle = "Non Essential genes")
 ```
 
+```{r, echo = FALSE, eval = evalGenesList,message=FALSE,figures-side, fig.show="hold"}
+grid.arrange(plot1,plot2,ncol = 2)
+```
+<br/>
 
-```{r, echo = FALSE, eval = evalSampleplan}
-br()
-write.table(reactives$sampleplan,file = "/tmp/sampleplan.csv",sep = ",",quote = FALSE)
-br()
-xfun::embed_files(path = "/tmp/sampleplan.csv", text = "SamplePlan file")
+```{r, echo = FALSE, eval = !evalGenesList}
+print("Please provide essential and non essential genes lists first")
 ```
 
+## Results
 
-```{r, echo = FALSE, eval = !evalCounts}
-print("Please upload counts matrix first")
+### Difference to initial timepoint
+
+```{r, echo = FALSE, eval = !evalGenesList}
+print("Please provide essential and non essential genes lists first")
 ```
 
+##### All guides
 
-```{r, echo = FALSE, eval = !evalSampleplan}
-print("Please upload both SamplePlan first")
+```{r, echo = FALSE, eval = evalGenesList}
+
+if(is.null(diff_boxes$diff_box_all) | is.null(diff_boxes$diff_box_ess)){
+  print("Please perform positive screening in the dedicated app tab first")
+} else { 
+plot(diff_boxes$diff_box_all)
+}
+```
+
+#### Essential genes
+
+```{r, echo = FALSE, eval = evalGenesList}
+
+if(is.null(diff_boxes$diff_box_all) | is.null(diff_boxes$diff_box_ess)){
+  print("Please perform positive screening in the dedicated app tab first")
+} else { 
+plot(diff_boxes$diff_box_ess)
+}
 ```
 
 
@@ -121,13 +201,13 @@ You can contact them by clicking on the buttons below.
 
 If you use `COOKIE CRISP'R` for your analysis, please cite it as here below:
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, echo = FALSE}
 citation("CRISPRApp")
 ```
 
 # Session Information
 
-```{r}
+```{r,echo=FALSE}
 sessionInfo()
 ```
 

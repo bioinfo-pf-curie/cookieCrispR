@@ -175,8 +175,9 @@ ui_crispr_app <- function(request){
         tabItem(tabName = "Report",
                         tabPanel(
                           "Report Editor",
-                          icon = icon("pencil"),
-                          
+                          h2("About this report"),
+                          h4("This content has been loaded from the template report `.Rmd` file. Please edit it at your best convenience!"),
+                          h4("Some <!–html_preserve–> text may appear on this preview. Do not worry it will disappear when generating and saving the report."),            icon = icon("pencil"),
                           h1("Report Editor"),
                           fluidRow(
                             column(
@@ -192,8 +193,7 @@ ui_crispr_app <- function(request){
                                             choices = list("Default" = "default", "Cerulean" = "cerulean",
                                                            "Journal" = "journal", "Flatly" = "flatly",
                                                            "Readable" = "readable", "Spacelab" = "spacelab",
-                                                           "United" = "united", "Cosmo" = "cosmo")),
-                                radioButtons("report_echo", "Echo the commands in the output", choices = list("Yes" = "TRUE", "No" = "FALSE")))),
+                                                           "United" = "united", "Cosmo" = "cosmo")))),
                             column(
                               width = 6,
                               box(
