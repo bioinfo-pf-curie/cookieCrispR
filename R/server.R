@@ -19,7 +19,7 @@ server_crispr_app <- function(input, output, session) {
     
   ######### Global options ##############
   session$onSessionEnded(stopApp)
-  options(shiny.sanitize.errors = TRUE)
+  options(shiny.sanitize.errors = TRUE,shiny.maxRequestSize = 3000*1024^2)
   session$allowReconnect(TRUE)
 
   ##### Usefull variables #############
@@ -31,26 +31,6 @@ server_crispr_app <- function(input, output, session) {
   ## counts table    
   observeEvent(c(input$counts,
                  separators$counts),{
-  #counts <- reactive({
-      
-      # req(input$counts)
-      # inFile <- input$counts
-      # counts <- read_delim(inFile$datapath, delim = input$FSc)
-      # counts <- dplyr::rename(counts, sgRNA = .data$X1)
-      # counts <- dplyr::select(counts, -.data$sequence)
-      # 
-      # annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
-      # 
-      # counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
-      # counts <- dplyr::mutate(counts, Sample_ID = str_remove(.data$Sample_ID, ".R1.fastq"))
-      # 
-      # counts <- counts %>%
-      #   dplyr::group_by(.data$Sample_ID) %>%
-      #   dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + .data$cpm)) %>%
-      #   dplyr::ungroup()
-      # 
-      # return(list(counts, annot_sgRNA))
-      
       req(input$counts)
       inFile <- input$counts
 
@@ -59,11 +39,20 @@ server_crispr_app <- function(input, output, session) {
       } else {
         counts <- read.table(inFile$datapath, sep = separators$counts, header = TRUE)
       }
+      if (!("X" %in% colnames(counts))){
+        print("a")
+      showModal(modalDialog(p(""),
+                              title = "Incorrect count matrix format",
+                              tagList(h6('Check the help section of the app')),
+                              footer = tagList(
+                                modalButton("Got it"))
+      ))
+      } else{
+        print("b")
       counts <- dplyr::rename(counts, sgRNA = .data$X)
       counts <- dplyr::select(counts, -.data$sequence)
-      
       reactives$countsRaw <- counts
-      
+      }
 })
   
 observeEvent(reactives$countsRaw,{
@@ -78,10 +67,8 @@ observeEvent(reactives$countsRaw,{
       dplyr::group_by(.data$Sample_ID) %>%
          dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + .data$cpm)) %>%
          dplyr::ungroup()
-      # 
-      
-      #print(counts)
-      reactives$counts <- counts
+     
+     reactives$counts <- counts
       
   })  # end of observer
     
@@ -115,12 +102,16 @@ observeEvent(c(input$sample_plan,
 observeEvent(reactives$sampleplanRaw,{    
       
       if(reactives$sampleplanGood == TRUE){
+        
+      print(head(reactives$sampleplanRaw))
+      print("Arranging sample plan")
       samples <- reactives$sampleplanRaw %>%
       #   #separate(sample, into = c("date","rep","Cell_line","day"), remove = FALSE) %>%
           mutate(Timepoint = as.factor(.data$Timepoint)) %>%
           mutate(Treatment = as.factor(.data$Treatment)) %>%
           mutate(Timepoint_num = as.numeric(gsub("[^0-9.-]", "", .data$Timepoint))) %>% 
           mutate(Timepoint = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
+      print("DONE")
       
       reactives$sampleplan <- samples
       }
@@ -133,9 +124,26 @@ observeEvent(c(reactives$counts,reactives$sampleplan,
                input$timepoints_order),{
   
       if(!is.null(reactives$counts) & !is.null(reactives$sampleplan)){
-      counts <- reactives$counts
       samples <- reactives$sampleplan
+      counts <- reactives$counts
       
+      if (TRUE %in% unique(!(unique(counts$Sample_ID) %in% samples$Sample_ID))){
+      if(input$sidebarmenu == "DataInput"){
+       showModal(modalDialog(p(""),
+                    title = "Missing samples in provided sampleplan",
+                    tagList(h6('The folowing samples :'),
+                            h6(paste0(unique(counts[!(counts$Sample_ID %in% samples$Sample_ID),]$Sample_ID),collapse = " | "),style="color:red"),
+                            h6("are missing in the sampleplan."),
+                            p(),
+                            h6("Please check that Samples IDs are correctly matching between ssplan and count matrix files, unless they will be removed for the following analysis")),
+                    footer = tagList(
+                      modalButton("Got it"),
+                    ))
+       )
+      }
+      counts <- counts  %>%
+          filter(Sample_ID %in% samples$Sample_ID)
+      }
       if(!(is.null(input$timepoints_order))){
       counts <- full_join(counts, samples) %>%
         #mutate(day = factor(.data$Timepoint, levels = input$timepoints_order))
@@ -166,26 +174,25 @@ observeEvent(c(reactives$counts,reactives$sampleplan,
       return(non_ess)
     })
     
-    
     #Compute difference to 0
     diff_t0 <- reactive({
       req(input$timepoints_order)
+      withProgress(message = 'Difference to initial timepoint calculation', value = 0.5, {
       counts <- reactives$joined
       firstpoint <- input$timepoints_order[[1]]
-
       counts$Timepoint <- relevel(as.factor(counts$Timepoint), ref = firstpoint)
-      
       fin <- counts %>%
         group_by(sgRNA, Cell_line, Replicate) %>%
         arrange(Timepoint) %>%
         mutate(diff = log_cpm - first(log_cpm)) %>% 
         ungroup()
+     
+      print("DONE")
       return(fin)
+      })
     })
-    #
-    
-    ######### Plots and tables outputs ####################################
-   
+
+######### Plots and tables outputs ####################################
 observe({
   print(input$restore)
   
@@ -195,10 +202,8 @@ observe({
       
     })
 }
-
 }) # end of observer
 
-        
 observe({
     print(input$restore)
     output$sample_plan_table <- DT::renderDataTable({
@@ -210,23 +215,20 @@ observe({
       }
     })
 }) # end of observer
-
        
     output$joined <- DT::renderDataTable({
       diff_t0()
     })
     
-    
-    
     read_number <- reactive({
-      counts <- reactives$joined
-      counts <- counts %>%
+
+      counts <- as.data.frame(reactives$joined) %>%
         group_by(.data$Sample_ID, .data$Replicate, .data$Cell_line, .data$Timepoint) %>%
         summarise(total = sum(.data$count)) %>% 
         as.data.frame() %>%
         ggplot(aes(x = .data$Timepoint, y = .data$total)) +
         geom_col(position = position_dodge()) + facet_wrap(vars(.data$Replicate, .data$Cell_line), nrow = 1) +
-        labs(title = "Number of reads by sample") #+
+        labs(title = "Number of reads per sample", xlab ="Timepoint", ylab ="Total counts")
       #scale_x_continuous(breaks = seq(min(counts$day),max(counts$day)))
       return(plot(counts))
       #return(counts)
@@ -247,8 +249,6 @@ observe({
       }
     )
     
-    
-    
     boxplot_all <- reactive({
       counts <- reactives$joined
       counts %>% 
@@ -259,7 +259,6 @@ observe({
     output$boxplot_all <- renderPlot({
       plot(boxplot_all())
     })
-    
     
     output$dlbox_all <- downloadHandler(
       filename = function(){
@@ -274,19 +273,20 @@ observe({
     
     density_ridge <- reactive({
       counts <- reactives$joined
-      
+      withProgress(message = 'Calculating density ridges', value = 0.5, {
+      incProgress(0.3)
       counts <-  counts %>%
         ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
         facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
         labs(title = "Distribution of normalzed log-cpm by sample", subtitle = "All guides")
       return(plot(counts))
+      }) # end of progress
     })
     
     output$density_ridge <- renderPlot({
       plot(density_ridge())
     })
-    
     
     output$dldensity_ridge <- downloadHandler(
       filename = function(){
@@ -299,10 +299,11 @@ observe({
       }
     )
     
-    
     essential_distribs <- reactive({
       counts <- reactives$joined
       ess_genes <- ess_genes()
+      withProgress(message = 'Calculating density ridges', value = 0.5, {
+        incProgress(0.3)
       counts <- filter(counts, .data$gene %in% ess_genes$V1)
       counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) + 
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
@@ -310,6 +311,7 @@ observe({
         scale_fill_viridis_c() +
         labs(title = "Distribution of normalised log-cpms", subtitle = "Essential genes")
       return(plot(counts_plot))
+      })
     })
     
     output$essential_distribs <- renderPlot({
@@ -347,20 +349,18 @@ observe({
       }
     )
     
-    
     output$orderUI <- renderUI({
       counts <- levels(reactives$sampleplan$Timepoint)
       print(counts)
       orderInput(inputId = 'timepoints', label = 'Re-order your timepoints here :', items = counts, as_source = F)
     })
     
-    
-    
     ############## NEGATIV SCREENING ################
     
     diff_box_all <- reactive({
       firstpoint <- input$timepoints_order[[1]]
       
+      print("diff box all")
       diff_box_all <- diff_t0() %>%
         filter(.data$Timepoint != firstpoint) %>%
         ggplot(aes(x = .data$Timepoint, y = .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.data$Treatment ~ .data$Cell_line) +
@@ -368,6 +368,7 @@ observe({
         ylab(paste0("diff_",firstpoint)) + 
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - all guides"))
       
+      print('DONE')
       plot(diff_box_all)
     })
     
@@ -392,12 +393,9 @@ observe({
       plot(diff_box_ess)
     })
     
-    
-    
     output$diff_box_ess <- renderPlot({
       plot(diff_box_ess())
     })
-    
     
     output$dldiffboxes <- downloadHandler(
       filename = function(){
@@ -412,16 +410,25 @@ observe({
     )
     
     #################### ROC ####################
+    ROC <- reactiveValues(plot = NULL)
     
-    
-    ROC <- reactive({
-      
-      ess_genes <- ess_genes()
+#observeEvent(input$sidebarmenu,{
+observe({
+  if (input$sidebarmenu == "Pscreen"){
+    if(is.null(input$essential) | is.null(input$nonessential)){
+      showModal(
+        modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
+               footer = tagList(
+               modalButton("Got it"))
+               )
+        )
+    } else {
+    ess_genes <- ess_genes()
       non_ess_genes <- non_ess_genes()
-      print(head(diff_t0()))
-      
-      
+      #print(head(diff_t0()))
+      withProgress(message = 'Calculating ROC curves', value = 0.5, {
       d <- diff_t0() %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$gene, .data$Treatment, .data$diff) %>%
+      #d <- as.data.frame(diff_t0()) %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$gene, .data$Treatment, .data$diff) %>%
         group_by(.data$Timepoint, .data$Treatment, .data$Cell_line, .data$Replicate) %>%
         arrange(.data$diff) %>% 
         mutate(type = case_when(
@@ -431,19 +438,17 @@ observe({
         filter(!is.na(.data$type)) %>%
         mutate(TP = cumsum(.data$type == "+") / sum(.data$type == "+"), FP = cumsum(.data$type == "-") / sum(.data$type == "-")) %>%
         ungroup()
-      
+      print("DONE")
+      #d <- d %>% ggplot(aes(x = .data$FP, y = .data$TP, color = .data$Timepoint)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(.data$Treatment + .data$Cell_line ~ .data$Replicate) + coord_equal()
       print(head(d))
-      write.csv(diff_t0(),"~/to_shiny.csv")
-      
-      d <- d %>% ggplot(aes(x = .data$FP, y = .data$TP, color = .data$Timepoint)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(.data$Treatment + .data$Cell_line ~ .data$Replicate) + coord_equal()
-      #   # 
-      return(d)
+      ROC$plot <- d %>% ggplot(aes(x = FP, y = TP, color = Timepoint)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(Treatment + Cell_line ~ Replicate) + coord_equal()
+      })
+      }}
     })
     
-    
-    
     output$roc <- renderPlot({
-      ROC()
+      req(ROC$plot)
+      plot(ROC$plot)
     })
     
     output$dlROC <- downloadHandler(
@@ -452,17 +457,14 @@ observe({
       },
       content = function(file){
         pdf(file = file)
-        plot(ROC())
+        #plot(ROC())
+        plot(ROC$plot)
         dev.off()
       }
     )
     
-    
     ########################## Observers ############################
-    
-    
-    
-    observe({
+  observe({
       
       updateSelectInput(session,"conditionreference2",
                         choices = reactives$sampleplan$condition)
@@ -471,13 +473,8 @@ observe({
                         choices = reactives$sampleplan$condition)
     })
     
-    
-    
-    
-    
     ########################################################
     ################## Help section ############
-    
     
     output$Totguidenumber <- renderInfoBox(
       infoBox(
@@ -563,7 +560,6 @@ Gene2<br/>
   "
     )})
     
-    
     metadata_path <- system.file("extdata", "SampleDescriptiondatatest.txt", package = "CRISPRApp")
     counts_path <- system.file("extdata", "global_counts_table_datatest.csv", package = "CRISPRApp")
     essential_path <- system.file("extdata", "essentials.csv", package = "CRISPRApp")
@@ -597,10 +593,6 @@ Gene2<br/>
       }
     )
     
-    
-    
-    
-    
     ## Modal Dialogue 
     
     dataModal <- function(failed = FALSE) {
@@ -625,7 +617,6 @@ Gene2<br/>
       separators$counts <- as.character(input$FSc)
       removeModal()
     })
-    
     
     observeEvent(c(reactives$sampleplanRaw),priority = 10,{
     
@@ -658,8 +649,7 @@ Gene2<br/>
        
     })
     
-    ###### Save State ############
-    
+########### Save State ############
     observeEvent(c(input$init2,
                    input$init)
                  ,priority =10,ignoreInit = TRUE,{
@@ -669,9 +659,7 @@ Gene2<br/>
                  reactives= reactives,
                  separators = separators,
                  input = input)
-      
     })
-    
     
     output$exit_and_save <- downloadHandler(
       filename = function() {
@@ -704,18 +692,12 @@ Gene2<br/>
       }
     )
     
-    ## Restore state 
-    
-
+##########"## Restore state ############
 observeEvent(input$restore,priority = 10,{
-
       withProgress(message = 'Loading analysis state', value = 0.5, {
-
        inFile <- input$restore
        if(!is.null(inFile)) {
-         
          isolate({
-
            tmpEnv <- new.env()
            load(inFile$datapath, envir=tmpEnv)
             if (exists("r_reactives", envir=tmpEnv, inherits=FALSE)) {#
@@ -730,7 +712,6 @@ observeEvent(input$restore,priority = 10,{
               separators$sampleplan <- tmpEnv$r_separators$sampleplan
             }
             incProgress(0.3)
-
             if (exists("r_inputs", envir=tmpEnv, inherits=FALSE)){
             print("load inputs")
               input <- tmpEnv$r_inputs
@@ -740,23 +721,13 @@ observeEvent(input$restore,priority = 10,{
              print(input)
          }
            rm(tmpEnv)
-
          }) #end of isolate
-
        }
        setProgress(1)
 })
-
-
-
 }) # end of observer
   
 ################### Report Section ################
-
-#########" Report section ###########"
-
-
-
 
 # server report editor ---------------------------------------------------------
 ### yaml generation
@@ -767,8 +738,6 @@ rmd_yaml <- reactive({
          "'\ndate: '", Sys.Date(),
          "'\noutput:\n  html_document:\n    toc: ", input$report_toc, "\n    number_sections: ", input$report_ns, "\n    theme: ", input$report_theme, "\n---\n\n",collapse = "\n")
 })
-
-
 
 ### loading report template
 # update aceEditor module
@@ -827,9 +796,6 @@ output$knitDoc <- renderUI({
   )
 })
 
-
-
-
 ## Download Report
 
 output$saveRmd <- downloadHandler(
@@ -870,8 +836,4 @@ output$saveRmd <- downloadHandler(
     }
   })
 
-
-
-
-
-}
+} # end of Server
