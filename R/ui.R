@@ -146,7 +146,9 @@ ui_crispr_app <- function(request){
                       width = 12, status = "success", solidHeader = TRUE,
                       title = "ROC",
                       div(style = 'overflow-x: scroll',plotOutput("roc")),
-                      downloadButton("dlROC","Download ROC plots")
+                      downloadButton("dlROC","Download ROC plots"),
+                      dataTableOutput('auc'),
+                      downloadButton("dlauc","Download AUCs table")
                   )
                 )
         ),

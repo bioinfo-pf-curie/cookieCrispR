@@ -412,8 +412,8 @@ observe({
       }
     )
     
-    #################### ROC ####################
-    ROC <- reactiveValues(plot = NULL)
+#################### ROC ####################
+ROC <- reactiveValues(plot = NULL,AUC = NULL)
     
 #observeEvent(input$sidebarmenu,{
 observe({
@@ -442,17 +442,43 @@ observe({
         mutate(TP = cumsum(.data$type == "+") / sum(.data$type == "+"), FP = cumsum(.data$type == "-") / sum(.data$type == "-")) %>%
         ungroup()
       print("DONE")
-      #d <- d %>% ggplot(aes(x = .data$FP, y = .data$TP, color = .data$Timepoint)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(.data$Treatment + .data$Cell_line ~ .data$Replicate) + coord_equal()
-      print(head(d))
+      
+      print("Calulating AU ROC Curves")
+      by_rep <- split(d, f= d$Replicate)
+      by_rep_cl <- unlist(lapply(X = by_rep, FUN = function(x){split(x, f = x$Cell_line)}),recursive = FALSE)
+      by_rep_cl_treat <- unlist(lapply(X = by_rep_cl, FUN = function(x){split(x, f = x$Treatment)}),recursive = FALSE)
+      by_rep_cl_treat_tpt <- unlist(lapply(X = by_rep_cl_treat, FUN = function(x){split(x, f = x$Timepoint)}),recursive = FALSE)
+      
+      AUC_values <- lapply(X= by_rep_cl_treat_tpt, FUN = function(x){
+        print(x)
+        orders <- order(x$FP)
+        print(sum(diff(x$FP[orders])*rollmean(x$TP[orders],2)))
+      }
+      )
+      print(AUC_values)
+      
+      AUC_table <- data.frame(Replicate = NA, Cell_line = NA, Treatment = NA, Timepoint = NA, AUC = NA)
+      #for (table in by_rep_cl_treat_tpt){
+      for (tablenum in 1:length(by_rep_cl_treat_tpt)){
+        vars <- names(by_rep_cl_treat_tpt)[tablenum]
+        print(vars)
+        row <- unlist(strsplit(vars, split =".",fixed = TRUE))
+        row <- c(row,as.character(AUC_values[tablenum]))
+        print(row)
+        AUC_table <- rbind(AUC_table,row)
+      }
+      ROC$AUC <- AUC_table
+      print("DONE")
+
       ROC$plot <- d %>% ggplot(aes(x = FP, y = TP, color = Timepoint)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(Treatment + Cell_line ~ Replicate) + coord_equal()
       })
-      }}
-    })
+    }}
+})
     
-    output$roc <- renderPlot({
-      req(ROC$plot)
-      plot(ROC$plot)
-    })
+output$roc <- renderPlot({
+   req(ROC$plot)
+   plot(ROC$plot)
+})
     
     output$dlROC <- downloadHandler(
       filename = function(){
@@ -465,6 +491,20 @@ observe({
         dev.off()
       }
     )
+
+output$auc <- renderDataTable({
+   req(ROC$AUC)
+   ROC$AUC
+})    
+
+output$dlauc <- downloadHandler(
+  filename = function(){
+    paste("AUC_table",Sys.Date(),".pdf",sep="")
+  },
+  content = function(file){
+    write.table(x = ROC$plot,file = file,sep = ",", quote = FALSE, row.names = FALSE)
+  }
+)
     
     ########################## Observers ############################
   observe({
