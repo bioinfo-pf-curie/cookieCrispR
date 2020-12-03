@@ -2,70 +2,97 @@
 #'
 #' Function containing all the server side of the Shiny App, must be called inside the run_app() function 
 #'
-#'
 #' @param input input
 #' @param output output
 #' @param session session
 #'
 #' @return None
-#' @import ggplot2
-#' @importFrom shinyjs runjs
-#' @importFrom shinyAce updateAceEditor aceEditor aceAutocomplete
-#' @import knitr
-#' @importFrom xfun embed_files
-#' @import kableExtra
-#' @importFrom dplyr first left_join
-#' @importFrom gridExtra grid.arrange
-#' @importFrom directlabels geom_dl last.polygons
-#' @importFrom zoo rollmean
-#' @import DT
 
 server_crispr_app <- function(input, output, session) {
     
-  ######### Global options ##############
-  session$onSessionEnded(stopApp)
-  options(shiny.sanitize.errors = TRUE,shiny.maxRequestSize = 3000*1024^2)
-  session$allowReconnect(TRUE)
+######### Global options ##############
+session$onSessionEnded(stopApp)
+options(shiny.sanitize.errors = TRUE,shiny.maxRequestSize = 3000*1024^2)
+session$allowReconnect(TRUE)
 
-  ##### Usefull variables #############
-  reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
+##### Usefull variables #############
+reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
                               joined = NULL,countsRaw = NULL, counts = NULL)
-  separators <- reactiveValues(counts = NULL,sampleplan = NULL)
+separators <- reactiveValues(counts = ",",sampleplan = ",")
   
-  ##### Upload files and datatable construction ####################
-  ## counts table    
-  observeEvent(c(input$counts,
+##### Upload files and datatable construction ####################
+## counts table  
+precheck <- reactiveValues(counts = FALSE,sampleplan = FALSE)
+observeEvent(c(input$counts,
                  separators$counts),{
+      print("checking file separator in counts matrix ...")
       req(input$counts)
       inFile <- input$counts
-
-      if (is.null(separators$counts)){
-        counts <- read.table(inFile$datapath, sep = ",", header = TRUE)
-      } else {
-        counts <- read.table(inFile$datapath, sep = separators$counts, header = TRUE)
+      semicolon <- FALSE
+      comma <- FALSE
+      counts <- read.table(inFile$datapath, sep = "", header = TRUE)
+      for(col in 1:ncol(counts)){
+        if (TRUE %in% grepl(";",counts[,col])){
+          semicolon <- TRUE
+        }
+        if (TRUE %in% grepl(",",counts[,col])){
+          comma <- TRUE
+        }
       }
+      if(semicolon ==  TRUE){
+      if (separators$counts == ","){
+        showModal(modalDialog(p(""),
+                              title = "; Detected in your counts matrix file",
+                              tagList(h6('By default the app use files sperated by a comma, to use semicolon please precise it with the Input files settings button')),
+                              footer = tagList(
+                                modalButton("Got it"))
+        ))
+      } else if (separators$counts == ";"){
+        precheck$counts <- TRUE
+      }
+      } else if (comma == "TRUE"){
+        if (separators$counts == ";"){
+          showModal(modalDialog(p(""),
+                                title = h4(HTML("<b>Comma</b> Detected in your counts matrix file"),style="color:red"),
+                                tagList(h6('You have changed file separator to be a semicolon'),
+                                        h6('Please use Input files settings button to reset it as ,')),
+                                footer = tagList(
+                                  modalButton("Got it"))
+          ))
+       } else if (separators$counts == ","){
+         precheck$counts <- TRUE
+       }
+    }
+})
+  
+observeEvent(precheck$counts,{
+  req(input$counts)
+  inFile <- input$counts
+  if(precheck$counts == TRUE){
+        print("reading file...")
+        counts <- read.table(inFile$datapath, sep = separators$counts, header = TRUE)
       if (!("X" %in% colnames(counts))){
-        print("a")
       showModal(modalDialog(p(""),
                               title = "Incorrect count matrix format",
-                              tagList(h6('Check the help section of the app')),
+                              tagList(h6('Check that the first line of the count matrix file starts with a file separator :'),
+                                      h6('You can check it with Notepad, or seeing the first cell of the table as empty after opening it via excel'),
+                                      h6('To use <b> semicolon </b> please specify it with the input file settings button')),
                               footer = tagList(
                                 modalButton("Got it"))
       ))
-      } else{
-        print("b")
+      } else {
       counts <- dplyr::rename(counts, sgRNA = .data$X)
       counts <- dplyr::select(counts, -.data$sequence)
       reactives$countsRaw <- counts
       }
+    precheck$counts <- FALSE
+  }
 })
   
 observeEvent(reactives$countsRaw,{
   
       counts  <- reactives$countsRaw
-      
       annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
-      # 
       counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
       counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
       counts <- counts %>%
@@ -76,32 +103,65 @@ observeEvent(reactives$countsRaw,{
      reactives$counts <- counts
       
   })  # end of observer
-    
-    ## samples annotations
-observeEvent(c(input$sample_plan,
-              separators$sampleplan),{#input$restore
 
-      # req(input$sample_plan)
-      # inFile <- input$sample_plan
-      # samples <- read_delim(inFile$datapath, delim = "|",  col_names = c("Sample_ID", "sample","condition"))
-      # samples <- samples %>%
-      #   separate(sample, into = c("date","rep","Cell_line","day"), remove = FALSE) %>%
-      #   mutate(day = as.factor(.data$Timepoint)) %>%
-      #   mutate(condition = as.factor(.data$Treatment)) %>%
-      #   mutate(Timepoint_num = as.numeric(gsub("DAY","",.data$Timepoint))) %>% 
-      #   mutate(day = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
-      # return(samples)
-      
+
+observeEvent(c(input$sample_plan,
+               separators$sampleplan),{
+                 print("checking file separator in sample plan file ...")
+                 req(input$sample_plan)
+                 inFile <- input$sample_plan
+                 semicolonssplan <- FALSE
+                 commassplan <- FALSE
+                 ssplan <- read.table(inFile$datapath, sep = "", header = TRUE)
+                 for(col in 1:ncol(ssplan)){
+                   if (TRUE %in% grepl(";",ssplan[,col])){
+                     semicolonssplan <- TRUE
+                   }
+                   if (TRUE %in% grepl(",",ssplan[,col])){
+                     commassplan <- TRUE
+                   }
+                 }
+                 if(semicolonssplan ==  TRUE){
+                   if (separators$sampleplan == ","){
+                     showModal(modalDialog(p(""),
+                                           title = h4(HTML("<b>Semicolon</b> Detected in your sample plan file"),style="color:red"),
+                                           tagList(h6(HTML('By default the app use files sperated by a <b>comma</b>')),
+                                                   h6('to use semicolon please precise it with the Input files settings button')),
+                                           footer = tagList(
+                                             modalButton("Got it"))
+                     ))
+                   } else if (separators$sampleplan == ";"){
+                     precheck$sampleplan <- TRUE
+                   }
+                 } else if (commassplan == "TRUE"){
+                   if (separators$sampleplan == ";"){
+                     showModal(modalDialog(p(""),
+                                           title = h4(HTML("<b>Comma</b> detected in your sample plan file"),style="color:red"),
+                                           tagList(h6(HTML('You have changed file separator to be a <b>semicolon</b>')),
+                                                   h6(HTML('Please use Input files settings button to reset it as a <b>comma<b/>'))),
+                                           footer = tagList(
+                                             modalButton("Got it"))
+                     ))
+                   } else if (separators$sampleplan == ","){
+                     precheck$sampleplan <- TRUE
+              }
+            }
+})
+
+observeEvent(c(input$sample_plan,
+              separators$sampleplan),{
       req(input$sample_plan)
       inFile <- input$sample_plan
-      # samples <- read.table(inFile$datapath, sep = input$FSs,header = TRUE)
-      if (is.null(separators$sampleplan)){
-      samples <- read.table(inFile$datapath, sep = ";", header = TRUE)
-      } else {
-      samples <- read.table(inFile$datapath, sep = separators$sampleplan, header = TRUE)
+      if(precheck$sampleplan == TRUE){
+        samples <- read.table(inFile$datapath, sep = separators$sampleplan, header = TRUE)
+        reactives$sampleplanRaw <- samples
       }
-      reactives$sampleplanRaw <- samples
-
+      # if (separators$sampleplan == ";"){
+      # samples <- read.table(inFile$datapath, sep = ";", header = TRUE)
+      # } else if (separators$sampleplan == ","){
+      # samples <- read.table(inFile$datapath, sep = separators$sampleplan, header = TRUE)
+      # }
+      precheck$sampleplan <- FALSE
 }) # end of observer
     
 observeEvent(reactives$sampleplanRaw,{    
