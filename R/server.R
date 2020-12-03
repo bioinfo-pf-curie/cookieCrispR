@@ -8,13 +8,17 @@
 #' @param session session
 #'
 #' @return None
+#' @import ggplot2
 #' @importFrom shinyjs runjs
 #' @importFrom shinyAce updateAceEditor aceEditor aceAutocomplete
 #' @import knitr
 #' @importFrom xfun embed_files
 #' @import kableExtra
-#' @importFrom dplyr first
+#' @importFrom dplyr first left_join
 #' @importFrom gridExtra grid.arrange
+#' @importFrom directlabels geom_dl last.polygons
+#' @importFrom zoo rollmean
+#' @import DT
 
 server_crispr_app <- function(input, output, session) {
     
@@ -415,7 +419,6 @@ observe({
 #################### ROC ####################
 ROC <- reactiveValues(plot = NULL,AUC = NULL)
     
-#observeEvent(input$sidebarmenu,{
 observe({
   if (input$sidebarmenu == "Pscreen"){
     if(is.null(input$essential) | is.null(input$nonessential)){
@@ -428,10 +431,8 @@ observe({
     } else {
     ess_genes <- ess_genes()
       non_ess_genes <- non_ess_genes()
-      #print(head(diff_t0()))
       withProgress(message = 'Calculating ROC curves', value = 0.5, {
       d <- diff_t0() %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$gene, .data$Treatment, .data$diff) %>%
-      #d <- as.data.frame(diff_t0()) %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$gene, .data$Treatment, .data$diff) %>%
         group_by(.data$Timepoint, .data$Treatment, .data$Cell_line, .data$Replicate) %>%
         arrange(.data$diff) %>% 
         mutate(type = case_when(
@@ -458,19 +459,27 @@ observe({
       print(AUC_values)
       
       AUC_table <- data.frame(Replicate = NA, Cell_line = NA, Treatment = NA, Timepoint = NA, AUC = NA)
-      #for (table in by_rep_cl_treat_tpt){
       for (tablenum in 1:length(by_rep_cl_treat_tpt)){
         vars <- names(by_rep_cl_treat_tpt)[tablenum]
-        print(vars)
         row <- unlist(strsplit(vars, split =".",fixed = TRUE))
         row <- c(row,as.character(AUC_values[tablenum]))
-        print(row)
         AUC_table <- rbind(AUC_table,row)
       }
+      AUC_table <- AUC_table[-1,]
+      AUC_table$AUC <- signif(as.numeric(AUC_table$AUC),digits =2)
+      AUC_table$AUC <- as.character(AUC_table$AUC)
       ROC$AUC <- AUC_table
       print("DONE")
-
-      ROC$plot <- d %>% ggplot(aes(x = FP, y = TP, color = Timepoint)) + geom_abline(slope = 1, lty = 3) + geom_line() + facet_grid(Treatment + Cell_line ~ Replicate) + coord_equal()
+      
+      d <- left_join(d,AUC_table, by = c("Cell_line","Replicate","Treatment","Timepoint"))
+      
+      ROC$plot <- d %>% ggplot(aes(x = FP, y = TP, color = Timepoint)) + 
+        geom_abline(slope = 1, lty = 3) + 
+        xlim(0,1.3) +
+        geom_dl(aes(label = AUC), method = "last.polygons")  +
+        geom_line() + facet_grid(Treatment + Cell_line ~ Replicate) + 
+        coord_equal()
+      
       })
     }}
 })
@@ -480,29 +489,33 @@ output$roc <- renderPlot({
    plot(ROC$plot)
 })
     
-    output$dlROC <- downloadHandler(
-      filename = function(){
-        paste("ROC_plots",Sys.Date(),".pdf",sep="")
-      },
-      content = function(file){
-        pdf(file = file)
-        #plot(ROC())
-        plot(ROC$plot)
-        dev.off()
-      }
-    )
+output$dlROC <- downloadHandler(
+  filename = function(){
+  paste("ROC_plots",Sys.Date(),".pdf",sep="")
+  },
+  content = function(file){
+  pdf(file = file)
+  plot(ROC$plot)
+  dev.off()
+}
+)
 
-output$auc <- renderDataTable({
-   req(ROC$AUC)
-   ROC$AUC
-})    
+output$auc <- DT::renderDataTable({
+   DT::datatable(ROC$AUC, filter = "top",
+   options = list(
+    paging =TRUE,
+    pageLength =  5 ,
+    scrollX= TRUE
+  )
+  )
+})
 
 output$dlauc <- downloadHandler(
   filename = function(){
-    paste("AUC_table",Sys.Date(),".pdf",sep="")
+    paste("AUC_table",Sys.Date(),".csv",sep="")
   },
   content = function(file){
-    write.table(x = ROC$plot,file = file,sep = ",", quote = FALSE, row.names = FALSE)
+    write.table(x = ROC$AUC[input[["auc_rows_all"]], ],file = file,sep = ",", quote = FALSE, row.names = FALSE)
   }
 )
     
