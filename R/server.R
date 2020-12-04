@@ -14,23 +14,29 @@ server_crispr_app <- function(input, output, session) {
 session$onSessionEnded(stopApp)
 options(shiny.sanitize.errors = TRUE,shiny.maxRequestSize = 3000*1024^2)
 session$allowReconnect(TRUE)
+#options(bitmapType='cairo')  #set the drawing backend, this may speed up PNG rendering
+#x11(type='cairo') 
 
 ##### Usefull variables #############
 reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
                               joined = NULL,countsRaw = NULL, counts = NULL)
-separators <- reactiveValues(counts = ",",sampleplan = ",")
-  
+
 ##### Upload files and datatable construction ####################
 ## counts table  
 precheck <- reactiveValues(counts = FALSE,sampleplan = FALSE)
 observeEvent(c(input$counts,
-                 separators$counts),{
+                 input$Fsc),{
       print("checking file separator in counts matrix ...")
       req(input$counts)
+      req(input$Fsc)
       inFile <- input$counts
       semicolon <- FALSE
       comma <- FALSE
       counts <- read.table(inFile$datapath, sep = "", header = TRUE)
+      # if(is.null(input$FSc))({
+      #   print('updateFsc')
+      #   updateCheckboxGroupInput("FSc",selected = ",")
+      # })
       for(col in 1:ncol(counts)){
         if (TRUE %in% grepl(";",counts[,col])){
           semicolon <- TRUE
@@ -39,19 +45,19 @@ observeEvent(c(input$counts,
           comma <- TRUE
         }
       }
-      if(semicolon ==  TRUE){
-      if (separators$counts == ","){
+    if(semicolon ==  TRUE){
+      if (input$Fsc == ","){
         showModal(modalDialog(p(""),
-                              title = "; Detected in your counts matrix file",
+                              title = h4(HTML("<b>Semicolon</b> detected in your counts matrix file"),style="color:red"),
                               tagList(h6('By default the app use files sperated by a comma, to use semicolon please precise it with the Input files settings button')),
                               footer = tagList(
                                 modalButton("Got it"))
         ))
-      } else if (separators$counts == ";"){
+      } else if (input$Fsc == ";"){
         precheck$counts <- TRUE
       }
       } else if (comma == "TRUE"){
-        if (separators$counts == ";"){
+        if (input$Fsc == ";"){
           showModal(modalDialog(p(""),
                                 title = h4(HTML("<b>Comma</b> Detected in your counts matrix file"),style="color:red"),
                                 tagList(h6('You have changed file separator to be a semicolon'),
@@ -59,7 +65,7 @@ observeEvent(c(input$counts,
                                 footer = tagList(
                                   modalButton("Got it"))
           ))
-       } else if (separators$counts == ","){
+       } else if (input$Fsc == ","){
          precheck$counts <- TRUE
        }
     }
@@ -70,7 +76,7 @@ observeEvent(precheck$counts,{
   inFile <- input$counts
   if(precheck$counts == TRUE){
         print("reading file...")
-        counts <- read.table(inFile$datapath, sep = separators$counts, header = TRUE)
+        counts <- read.table(inFile$datapath, sep = input$Fsc, header = TRUE)
       if (!("X" %in% colnames(counts))){
       showModal(modalDialog(p(""),
                               title = "Incorrect count matrix format",
@@ -90,7 +96,6 @@ observeEvent(precheck$counts,{
 })
   
 observeEvent(reactives$countsRaw,{
-  
       counts  <- reactives$countsRaw
       annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
       counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
@@ -101,15 +106,17 @@ observeEvent(reactives$countsRaw,{
          dplyr::ungroup()
      
      reactives$counts <- counts
-      
   })  # end of observer
 
 
-observeEvent(c(input$sample_plan,
-               separators$sampleplan),{
+observeEvent(c(input$sample_plan),{
                  print("checking file separator in sample plan file ...")
                  req(input$sample_plan)
                  inFile <- input$sample_plan
+                 if(grepl(".xls",inFile$name) == TRUE){
+                  samples <- openxlsx::read.xlsx(inFile$datapath, colNames = TRUE,rowNames = FALSE)
+                  reactives$sampleplanRaw <- samples
+                 } else {
                  semicolonssplan <- FALSE
                  commassplan <- FALSE
                  ssplan <- read.table(inFile$datapath, sep = "", header = TRUE)
@@ -121,49 +128,23 @@ observeEvent(c(input$sample_plan,
                      commassplan <- TRUE
                    }
                  }
-                 if(semicolonssplan ==  TRUE){
-                   if (separators$sampleplan == ","){
+                 if(semicolonssplan ==  TRUE && commassplan == FALSE){
+                  samples <- read.table(inFile$datapath, sep = ";", header = TRUE)
+                  reactives$sampleplanRaw <- samples
+                 } else if (commassplan == TRUE && semicolonssplan ==  FALSE ){
+                   samples <- read.table(inFile$datapath, sep = ",", header = TRUE)
+                   reactives$sampleplanRaw <- samples
+                 }  else if(semicolonssplan ==  TRUE && commassplan == TRUE){
                      showModal(modalDialog(p(""),
-                                           title = h4(HTML("<b>Semicolon</b> Detected in your sample plan file"),style="color:red"),
-                                           tagList(h6(HTML('By default the app use files sperated by a <b>comma</b>')),
-                                                   h6('to use semicolon please precise it with the Input files settings button')),
+                                           title = h4(HTML("Both <b>Comma</b>  ans <b>semicolon </b> detected in your sample plan file"),style="color:red"),
+                                           h6("Please check for file separators homogeneity"),
                                            footer = tagList(
                                              modalButton("Got it"))
                      ))
-                   } else if (separators$sampleplan == ";"){
-                     precheck$sampleplan <- TRUE
-                   }
-                 } else if (commassplan == "TRUE"){
-                   if (separators$sampleplan == ";"){
-                     showModal(modalDialog(p(""),
-                                           title = h4(HTML("<b>Comma</b> detected in your sample plan file"),style="color:red"),
-                                           tagList(h6(HTML('You have changed file separator to be a <b>semicolon</b>')),
-                                                   h6(HTML('Please use Input files settings button to reset it as a <b>comma<b/>'))),
-                                           footer = tagList(
-                                             modalButton("Got it"))
-                     ))
-                   } else if (separators$sampleplan == ","){
-                     precheck$sampleplan <- TRUE
-              }
-            }
+                 }
+        }
 })
 
-observeEvent(c(input$sample_plan,
-              separators$sampleplan),{
-      req(input$sample_plan)
-      inFile <- input$sample_plan
-      if(precheck$sampleplan == TRUE){
-        samples <- read.table(inFile$datapath, sep = separators$sampleplan, header = TRUE)
-        reactives$sampleplanRaw <- samples
-      }
-      # if (separators$sampleplan == ";"){
-      # samples <- read.table(inFile$datapath, sep = ";", header = TRUE)
-      # } else if (separators$sampleplan == ","){
-      # samples <- read.table(inFile$datapath, sep = separators$sampleplan, header = TRUE)
-      # }
-      precheck$sampleplan <- FALSE
-}) # end of observer
-    
 observeEvent(reactives$sampleplanRaw,{    
       
       if(reactives$sampleplanGood == TRUE){
@@ -238,7 +219,12 @@ observeEvent(c(reactives$counts,reactives$sampleplan,
       non_ess <- read.table(inFile$datapath, header = FALSE)
       return(non_ess)
     })
+
+#########################################################################################################
+#################################### Negative screening #################################################
+#########################################################################################################
     
+        
     #Compute difference to 0
     diff_t0 <- reactive({
       req(input$timepoints_order)
@@ -475,12 +461,11 @@ observe({
         dev.off()
       }
     )
-    
 #################### ROC ####################
 ROC <- reactiveValues(plot = NULL,AUC = NULL)
     
 observe({
-  if (input$sidebarmenu == "Pscreen"){
+  if (input$sidebarmenu == "Nscreen"){
     if(is.null(input$essential) | is.null(input$nonessential)){
       showModal(
         modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
@@ -578,46 +563,65 @@ output$dlauc <- downloadHandler(
     write.table(x = ROC$AUC[input[["auc_rows_all"]], ],file = file,sep = ",", quote = FALSE, row.names = FALSE)
   }
 )
-    
-    ########################## Observers ############################
-  observe({
-      
-      updateSelectInput(session,"conditionreference2",
-                        choices = reactives$sampleplan$condition)
-      
-      updateSelectInput(session,"conditionreference1",
-                        choices = reactives$sampleplan$condition)
-    })
-    
-    ########################################################
-    ################## Help section ############
-    
-    output$Totguidenumber <- renderInfoBox(
-      infoBox(
-        "Total guides number :",
-        as.numeric(nrow(reactives$countsRaw))
-      )
-    )
-    
-    mean_depth <- reactive({
-      req(reactives$counts)
-      depth <- reactives$counts %>% 
-        group_by(Sample_ID) %>% 
-        summarise(m = mean(count)) %>% 
-        summarise(m_all = mean(m))
-      return(round(depth$m_all))
-    })
-    
-    output$Depth <- renderInfoBox(
-      infoBox(
-        "Average sequencing depth across samples :",
-        mean_depth()
-      )
-    )
-    
-    output$Datahelptext <- renderUI({HTML(
-      "
 
+#####################################################################################################
+######################################## Positive screening #########################################
+#####################################################################################################
+
+########################## Observers ############################
+observe({
+  updatePickerInput(session,"conditionreference1",
+                    choices = as.character(unique(reactives$sampleplan$Treatment)))
+})
+## Boxplots 
+output$positive_boxplots <- renderPlotly({
+  req(input$conditionreference1)
+  if(length(input$conditionreference1) >= 2){
+    #req(input$conditionreference2)
+    counts <- reactives$joined %>% filter(Treatment %in% input$conditionreference1)
+    counts$Treatment <- as.character(counts$Treatment)
+    counts$sgRNA <- as.character(counts$sgRNA)
+    
+    interactive_boxplots <- plot_ly(counts, x=~Cell_line, y=~log_cpm, color = ~Treatment, text =~sgRNA,
+                                    labels = ~sgRNA, type = "box",
+                                    boxpoints = "outliers",
+                                    jitter = 0.3,
+                                    pointpos = -1.8,marker = list(size = 1)) %>%
+    layout(boxmode = "group")
+    interactive_boxplots
+  }
+})
+
+    
+#########################################################################
+############################ Help section ###############################
+#########################################################################
+    
+output$Totguidenumber <- renderInfoBox(
+    infoBox(
+      "Total guides number :",
+      as.numeric(nrow(reactives$countsRaw))
+  )
+)
+    
+mean_depth <- reactive({
+  req(reactives$counts)
+  depth <- reactives$counts %>% 
+      group_by(Sample_ID) %>% 
+      summarise(m = mean(count)) %>% 
+      summarise(m_all = mean(m))
+      return(round(depth$m_all))
+})
+    
+output$Depth <- renderInfoBox(
+    infoBox(
+    "Average sequencing depth across samples :",
+      mean_depth()
+    )
+)
+    
+output$Datahelptext <- renderUI({HTML(
+    "
 <ol> 
 <li>Sample infos file :
 <br/><br/>
@@ -667,73 +671,66 @@ Gene2<br/>
 
 ...
 
-
 </ol>
-
-  
-  
-  
-  "
-    )})
+"
+)})
     
-    metadata_path <- system.file("extdata", "SampleDescriptiondatatest.txt", package = "CRISPRApp")
-    counts_path <- system.file("extdata", "global_counts_table_datatest.csv", package = "CRISPRApp")
-    essential_path <- system.file("extdata", "essentials.csv", package = "CRISPRApp")
-    non_essential_path <- system.file("extdata", "non_essentials_datatest.csv", package = "CRISPRApp")
+metadata_path <- system.file("extdata", "SampleDescriptiondatatest.txt", package = "CRISPRApp")
+counts_path <- system.file("extdata", "global_counts_table_datatest.csv", package = "CRISPRApp")
+essential_path <- system.file("extdata", "essentials.csv", package = "CRISPRApp")
+non_essential_path <- system.file("extdata", "non_essentials_datatest.csv", package = "CRISPRApp")
     
-    output$DlTestCounts <- downloadHandler(
-      filename = function() {
-        paste("COOKIE_CRISPR_COUNTS_EXAMPLE-", Sys.Date(), ".csv", sep="")
-      },
-      content = function(file) {
-        file.copy(from = counts_path, to = file)
-      }
-    )
-    
-    output$DlTestSplan <- downloadHandler(
-      filename = function() {
-        paste("COOKIE_CRISPR_SAMPLEPLAN_EXAMPLE-", Sys.Date(), ".csv", sep="")
-      },
-      content = function(file) {
-        file.copy(from = metadata_path, to = file)
-      }
-    )
-    
-    output$DlTesGuideList <- downloadHandler(
-      filename = function() {
-        paste("COOKIE_CRISPR_GENESLIST_EXAMPLE-", Sys.Date(), ".csv", sep="")
-      },
-      content = function(file) {
-        file.copy(from = essential_path, to = file)
-        #file.copy(from = non_essential_path , to = file)
-      }
-    )
-    
-    ## Modal Dialogue 
-    
-    dataModal <- function(failed = FALSE) {
-        modalDialog(p(""),
-                    title = "Set up inputs files formats specifications",
-                    selectInput("FSc","Field separator (counts)",choices=c(";",","), selected = separators$counts),
-                    selectInput("FSs","Field separator (sampleplan)",choices=c(";",","), selected = separators$sampleplan),
-                    footer = tagList(
-                      actionButton("apply",label = "Apply this parameters",icon = icon("check")),
-                      modalButton("Dismiss"),
-                    )
-            )
-    
+output$DlTestCounts <- downloadHandler(
+    filename = function() {
+      paste("COOKIE_CRISPR_COUNTS_EXAMPLE-", Sys.Date(), ".csv", sep="")
+},
+   content = function(file) {
+     file.copy(from = counts_path, to = file)
     }
+)
     
-    observeEvent(input$settings,{
-    showModal(dataModal())
-    })
+output$DlTestSplan <- downloadHandler(
+    filename = function() {
+      paste("COOKIE_CRISPR_SAMPLEPLAN_EXAMPLE-", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+        file.copy(from = metadata_path, to = file)
+    }
+)
     
-    observeEvent(input$apply,{
-      separators$sampleplan <- as.character(input$FSs)
-      separators$counts <- as.character(input$FSc)
-      removeModal()
-    })
+output$DlTesGuideList <- downloadHandler(
+    filename = function() {
+      paste("COOKIE_CRISPR_GENESLIST_EXAMPLE-", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      file.copy(from = essential_path, to = file)
+      #file.copy(from = non_essential_path , to = file)
+})
     
+    # ## Modal Dialog
+    # 
+    # dataModal <- function(failed = FALSE) {
+    #     modalDialog(p(""),
+    #                 title = "Set up inputs files formats specifications",
+    #                 selectInput("FSc","Field separator (counts)",choices=c(";",","), selected = input$Fsc),
+    #                 selectInput("FSs","Field separator (sampleplan)",choices=c(";",","), selected = separators$sampleplan),
+    #                 footer = tagList(
+    #                   actionButton("apply",label = "Apply this parameters",icon = icon("check")),
+    #                   modalButton("Dismiss"),
+    #                 )
+    #         )
+    # 
+    # }
+    # observeEvent(input$settings,{
+    # showModal(dataModal())
+    # })
+    
+    # observeEvent(input$apply,{
+    #   separators$sampleplan <- as.character(input$FSs)
+    #   input$Fsc <- as.character(input$FSc)
+    #   removeModal()
+    # })
+    # 
     observeEvent(c(reactives$sampleplanRaw),priority = 10,{
     
     colnames <- colnames(reactives$sampleplanRaw)
@@ -762,8 +759,7 @@ Gene2<br/>
     } else {
     reactives$sampleplanGood <- TRUE
     }
-       
-    })
+})
     
 ########### Save State ############
     observeEvent(c(input$init2,
@@ -773,7 +769,7 @@ Gene2<br/>
       cat("save data \n")
       saveState(filename = "/tmp/WorkingEnvironment.rda",
                  reactives= reactives,
-                 separators = separators,
+                 separators = input$Fsc,
                  input = input)
     })
     
@@ -824,8 +820,7 @@ observeEvent(input$restore,priority = 10,{
            incProgress(0.3)
             if (exists("r_separators", envir=tmpEnv, inherits=FALSE)){
               print("load separators")
-              separators$counts <- tmpEnv$r_separators$counts
-              separators$sampleplan <- tmpEnv$r_separators$sampleplan
+              input$Fsc <- tmpEnv$r_input$Fsc
             }
             incProgress(0.3)
             if (exists("r_inputs", envir=tmpEnv, inherits=FALSE)){

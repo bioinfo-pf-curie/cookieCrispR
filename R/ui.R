@@ -55,16 +55,21 @@ ui_crispr_app <- function(request){
                     tabsetPanel(type = "tabs",
                                 tabPanel("Uploads",
                                          fluidRow(
-                                           column(width=3,fileInput("sample_plan","Sample infos")),
-                                           column(width=3,fileInput("counts","Global counts")),
-                                           column(width=3,fileInput("essential","Essential genes")),
-                                           column(width=3,fileInput("nonessential","Non Essential genes"))),
+                                           column(width=4,fileInput("sample_plan","Sample infos")),
+                                           column(width=4,fileInput("essential","Essential genes")),
+                                           column(width=4,fileInput("nonessential","Non Essential genes"))),
+                                           fluidRow(column(width = 12,fileInput("counts","Global counts"),
+                                                                               radioButtons("Fsc","Global counts Field separator",
+                                                                                                  choices=c('comma'= ",",'semicolon' = ";"), 
+                                                                                                  selected = ",",
+                                                                                                  inline = TRUE),
+                                           )),
                                            fluidRow(downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;"),
                                                     downloadButton("exit_and_save","Save State as .rda",style = "visibility: hidden;")),
                                            fluidRow(
-                                           column(width = 6,actionButton(inputId = "settings", label = "Input files settings",
-                                                        icon = icon("gear"))),
-                                           column(width = 6,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
+                                           # column(width = 6,actionButton(inputId = "settings", label = "Input files settings",
+                                           #              icon = icon("gear"))),
+                                           column(width = 12,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
                                                                       buttonLabel=list(icon("angle-double-up"))))
                                            )),
                                 tabPanel("Help",
@@ -128,12 +133,10 @@ ui_crispr_app <- function(request){
                       downloadButton("splited_distribs","Download distributions per gene categories")
                   ))
         ),
-        tabItem(tabName = "Pscreen",
+        tabItem(tabName = "Nscreen",
                 box(title = "Comparison settings : ", solidHeader = TRUE, collapsible = TRUE, status = "success", width = 12,
                     column(width=12,uiOutput("orderUI")),
                     fluidRow()),
-                #column(width=6,selectInput(inputId = "conditionreference2", "Choose a condition :", choices = c())),
-                #column(width=6,selectInput(inputId = "conditionreference1", "Choose a second condition compare with :", choices = c()))),
                 fluidRow(
                   box(collapsible = TRUE, collapsed = TRUE,
                       width = 12, status = "success", solidHeader = TRUE,
@@ -155,27 +158,26 @@ ui_crispr_app <- function(request){
                   )
                 )
         ),
-        tabItem(tabName = "Nscreen",
-                # box(title = "Comparison settings : ", solidHeader = TRUE, collapsible = TRUE, status = "success", width = 12,
-                #     column(width=12,uiOutput("orderUI")),
-                #     fluidRow()),
-                # #column(width=6,selectInput(inputId = "conditionreference2", "Choose a condition :", choices = c())),
-                # #column(width=6,selectInput(inputId = "conditionreference1", "Choose a second condition compare with :", choices = c()))),
-                # fluidRow(
-                #   box(collapsible = TRUE, collapsed = TRUE,
-                #       width = 12, status = "success", solidHeader = TRUE,
-                #       title = "Difference to initial timepoint",
-                #       column(width=6,plotOutput("diff_box_all", width = "100%", height = 600)),
-                #       column(width=6,plotOutput("diff_box_ess", width = "100%", height = 600)),
-                #       downloadButton("dldiffboxes","Download difference to zero boxes")
-                #   ),
-                #   box(collapsible = TRUE, collapsed = TRUE,
-                #       width = 12, status = "success", solidHeader = TRUE,
-                #       title = "ROC",
-                #       div(style = 'overflow-x: scroll',plotOutput("roc")),
-                #       downloadButton("dlROC","Download ROC plots")
-                #   )
-                # )
+        tabItem(tabName = "Pscreen",
+                # column(width=6,selectInput(inputId = "conditionreference2", "Choose a condition :", choices = c())),
+                # column(width=6,selectInput(inputId = "conditionreference1", "Choose a second condition compare with :", choices = c()))),
+                fluidRow(column(width=12,pickerInput(inputId = "conditionreference1","Choose conditions to compare",
+                                           choices = NULL,
+                                           selected = NULL,
+                                           multiple = TRUE,
+                                           choicesOpt = NULL,
+                                           inline = FALSE,
+                                           options = pickerOptions(
+                                             actionsBox = TRUE,
+                                             title = "Select multiple conditions here",
+                                             liveSearch = TRUE,
+                                             liveSearchStyle = "contains",
+                                           ))),
+                #column(width=6,pickerInput(inputId = "conditionreference2", "What is the control condition ?", choices = c()))
+                ), # end of fluidRow
+                #fluidRow(girafeOutput("positive_boxplots"))
+                fluidRow(plotlyOutput("positive_boxplots"))
+                
         ),
         tabItem(tabName = "Report",
                         tabPanel(
