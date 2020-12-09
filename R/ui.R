@@ -34,11 +34,13 @@ ui_crispr_app <- function(request){
       ),
       sidebarMenu(id ="sidebarmenu",
         menuItem("Data Input", tabName = "DataInput"),
-        menuItem("Descriptive data analysis", tabName = "Descriptive_data_analysis"),
-        menuItem("Screening", tabName = "Results",
-                 menuSubItem("Positive screening","Pscreen"),
-                 menuSubItem("Negative screening","Nscreen")
-        ),
+        menuItem("Descriptive data analysis", tabName = "Descriptive_data_analysis",
+                 menuSubItem("Raw distributions","Rawdist"),
+                 menuSubItem("Temporal evolution","Tev"),
+                 menuSubItem("ROC Curves","Roc"),
+                 menuSubItem("Clustering","Clustering"),
+                 menuSubItem('Compare conditions','CompCond')
+                 ),
         menuItem("Report", tabName = "Report")
       )
     ),
@@ -46,32 +48,33 @@ ui_crispr_app <- function(request){
       tabItems(
         tabItem(tabName = "DataInput",
                 useShinyjs(),
-                infoBoxOutput("Totguidenumber"),
-                valueBoxOutput("Depth"),
+                infoBoxOutput("Totguidenumber",width = 6),
+                valueBoxOutput("Depth",width = 6),
                 fluidRow(
                   box(
                     width = 12,status = "success",solidHeader = TRUE,
                     title="Inputs",
                     tabsetPanel(type = "tabs",
                                 tabPanel("Uploads",
-                                         fluidRow(
-                                           column(width=4,fileInput("sample_plan","Sample infos")),
-                                           column(width=4,fileInput("essential","Essential genes")),
-                                           column(width=4,fileInput("nonessential","Non Essential genes"))),
-                                           fluidRow(column(width = 12,fileInput("counts","Global counts"),
-                                                                               radioButtons("Fsc","Global counts Field separator",
-                                                                                                  choices=c('comma'= ",",'semicolon' = ";"), 
-                                                                                                  selected = ",",
-                                                                                                  inline = TRUE),
-                                           )),
-                                           fluidRow(downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;"),
-                                                    downloadButton("exit_and_save","Save State as .rda",style = "visibility: hidden;")),
-                                           fluidRow(
-                                           # column(width = 6,actionButton(inputId = "settings", label = "Input files settings",
-                                           #              icon = icon("gear"))),
+                                         #fluidRow(
+                                           column(width=6,fileInput("sample_plan","Sample infos")),
+                                           column(width=6,
+                                                  uiOutput("orderUI")),
+                                         fluidRow(),
+                                           column(width=6,fileInput("essential","Essential genes")),
+                                           column(width=6,fileInput("nonessential","Non Essential genes")),#),
+                                           #fluidRow(
+                                          column(width = 6,
+                                                 fileInput("counts","Global counts")),
+                                          column(width = 6,              
+                                                 radioButtons("Fsc","Global counts field separator",
+                                                              choices=c('comma'= ",",'semicolon' = ";"), 
+                                                              selected = ",",
+                                                              inline = TRUE)
+                                           ),#),
                                            column(width = 12,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
                                                                       buttonLabel=list(icon("angle-double-up"))))
-                                           )),
+                                           ),
                                 tabPanel("Help",
                                          uiOutput("Datahelptext"),
                                          fluidRow(
@@ -79,11 +82,11 @@ ui_crispr_app <- function(request){
                                                   downloadButton("DlTestSplan","DL sample plan example", class = "butt"),
                                                   tags$head(tags$style(".butt{background-color:#add8e6;} .butt{color: #337ab7;}"))
                                                   ),
-                                           column(width = 4,downloadButton("DlTestCounts","DL counts matrix example", class = "butt"),
-),
-                                           column(width = 4,downloadButton("DlTesGuideList","DL Genes list example", class = "butt"),
-)
-                                         )
+                                           column(width = 4,downloadButton("DlTestCounts","DL counts matrix example", class = "butt")),
+                                           column(width = 4,downloadButton("DlTesGuideList","DL Genes list example", class = "butt"))
+                                           ),
+                                         downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;"),
+                                         downloadButton("exit_and_save","Save State as .rda",style = "visibility: hidden;")
                                 )
                     ))),
                 
@@ -99,10 +102,9 @@ ui_crispr_app <- function(request){
                     title = "Sample plan",
                     div(style = 'overflow-x: scroll',DT::dataTableOutput("sample_plan_table")),
                   ))),
-        tabItem(tabName = "Descriptive_data_analysis",
-                
+        tabItem(tabName = "Rawdist",
                 fluidRow(
-                  box(collapsible = TRUE, collapsed = TRUE,
+                  box(collapsible = TRUE, collapsed = FALSE,
                       width = 12,status = "success",solidHeader = TRUE,
                       title="Read counts",
                       column(width=12,
@@ -133,51 +135,67 @@ ui_crispr_app <- function(request){
                       downloadButton("splited_distribs","Download distributions per gene categories")
                   ))
         ),
-        tabItem(tabName = "Nscreen",
-                box(title = "Comparison settings : ", solidHeader = TRUE, collapsible = TRUE, status = "success", width = 12,
-                    column(width=12,uiOutput("orderUI")),
-                    fluidRow()),
+        #tabItem("ScreeningResults",
+        tabItem("Tev",
                 fluidRow(
-                  box(collapsible = TRUE, collapsed = TRUE,
-                      width = 12, status = "success", solidHeader = TRUE,
-                      title = "Difference to initial timepoint",
+                  # box(collapsible = TRUE, collapsed = TRUE,
+                  #     width = 12, status = "success", solidHeader = TRUE,
+                  #     title = "Difference to initial timepoint",
                       column(width=6,plotOutput("diff_box_all", width = "100%", height = 600)),
                       column(width=6,plotOutput("diff_box_ess", width = "100%", height = 600)),
+                      br(),
                       downloadButton("dldiffboxes","Download difference to zero boxes")
-                  ),
-                  box(collapsible = TRUE, collapsed = FALSE,
-                      width = 12, status = "success", solidHeader = TRUE,
-                      title = "ROC",
-                      div(style = 'overflow-x: scroll',plotOutput("roc")),
-                      downloadButton("dlROC","Download ROC plots", class = "butt"),
-                      br(),
-                      br(),
-                      DT::dataTableOutput('auc'),
-                      br(),
-                      downloadButton("dlauc","Download AUCs table", class = "butt")
+                #  )
+                )
+            ),
+            tabItem("Roc",
+                    fluidRow(
+                      # box(collapsible = TRUE, collapsed = FALSE,
+                      #    width = 12, status = "success", solidHeader = TRUE,
+                      #    title = "ROC",
+                      column(width = 12,
+                         div(style = 'overflow-x: scroll',plotOutput("roc")),
+                         downloadButton("dlROC","Download ROC plots", class = "butt"),
+                         br(),
+                         br(),
+                         DT::dataTableOutput('auc'),
+                         br(),
+                         downloadButton("dlauc","Download AUCs table", class = "butt")
+                    #)
                   )
                 )
+            ),
+            tabItem("Clustering",
+                  fluidRow(
+                  box(collapsible = TRUE, collapsed = FALSE,
+                      width = 12, status = "success", solidHeader = TRUE,
+                      title = "Clustering on Essential genes",
+                      column(width = 12,ClusteringUI(id = "heatmapIDess"))
+                      ),
+                  box(collapsible = TRUE, collapsed = TRUE,
+                      width = 12, status = "success", solidHeader = TRUE,
+                      title = "Clustering on Non Essential genes",
+                      column(width = 12,ClusteringUI(id = "heatmapIDnoness"))
+                     )
+                  )
         ),
-        tabItem(tabName = "Pscreen",
-                # column(width=6,selectInput(inputId = "conditionreference2", "Choose a condition :", choices = c())),
-                # column(width=6,selectInput(inputId = "conditionreference1", "Choose a second condition compare with :", choices = c()))),
-                fluidRow(column(width=12,pickerInput(inputId = "conditionreference1","Choose conditions to compare",
-                                           choices = NULL,
-                                           selected = NULL,
-                                           multiple = TRUE,
-                                           choicesOpt = NULL,
-                                           inline = FALSE,
-                                           options = pickerOptions(
-                                             actionsBox = TRUE,
-                                             title = "Select multiple conditions here",
-                                             liveSearch = TRUE,
-                                             liveSearchStyle = "contains",
-                                           ))),
-                #column(width=6,pickerInput(inputId = "conditionreference2", "What is the control condition ?", choices = c()))
+        tabItem("CompCond",
+                fluidRow(
+                column(width=12,pickerInput(inputId = "conditionreference1","Choose conditions to compare",
+                                                     choices = NULL,
+                                                     selected = NULL,
+                                                     multiple = TRUE,
+                                                     choicesOpt = NULL,
+                                                     inline = FALSE,
+                                                     options = pickerOptions(
+                                                       actionsBox = TRUE,
+                                                       title = "Select multiple conditions here",
+                                                       liveSearch = TRUE,
+                                                       liveSearchStyle = "contains",
+                                                     ))),
                 ), # end of fluidRow
                 #fluidRow(girafeOutput("positive_boxplots"))
                 fluidRow(plotlyOutput("positive_boxplots"))
-                
         ),
         tabItem(tabName = "Report",
                         tabPanel(

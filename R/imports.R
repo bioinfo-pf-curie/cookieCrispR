@@ -23,6 +23,9 @@
 #' @importFrom zoo rollmean
 #' @importFrom shinyWidgets updatePickerInput pickerInput pickerOptions
 #' @importFrom ggiraph girafeOutput renderGirafe girafe geom_boxplot_interactive geom_point_interactive
-#' @importFrom plotly plotlyOutput plot_ly renderPlotly
+#' @importFrom plotly plotlyOutput plot_ly renderPlotly layout
+#' @importFrom BioshinyModules ClusteringUI ClusteringServer
+#' @importFrom textshape column_to_rownames
+#' @importFrom DESeq2 vst
 #' 
 NULL

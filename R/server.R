@@ -14,8 +14,6 @@ server_crispr_app <- function(input, output, session) {
 session$onSessionEnded(stopApp)
 options(shiny.sanitize.errors = TRUE,shiny.maxRequestSize = 3000*1024^2)
 session$allowReconnect(TRUE)
-#options(bitmapType='cairo')  #set the drawing backend, this may speed up PNG rendering
-#x11(type='cairo') 
 
 ##### Usefull variables #############
 reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
@@ -33,10 +31,6 @@ observeEvent(c(input$counts,
       semicolon <- FALSE
       comma <- FALSE
       counts <- read.table(inFile$datapath, sep = "", header = TRUE)
-      # if(is.null(input$FSc))({
-      #   print('updateFsc')
-      #   updateCheckboxGroupInput("FSc",selected = ",")
-      # })
       for(col in 1:ncol(counts)){
         if (TRUE %in% grepl(";",counts[,col])){
           semicolon <- TRUE
@@ -108,7 +102,6 @@ observeEvent(reactives$countsRaw,{
      reactives$counts <- counts
   })  # end of observer
 
-
 observeEvent(c(input$sample_plan),{
                  print("checking file separator in sample plan file ...")
                  req(input$sample_plan)
@@ -148,7 +141,6 @@ observeEvent(c(input$sample_plan),{
 observeEvent(reactives$sampleplanRaw,{    
       
       if(reactives$sampleplanGood == TRUE){
-        
       print(head(reactives$sampleplanRaw))
       print("Arranging sample plan")
       samples <- reactives$sampleplanRaw %>%
@@ -164,8 +156,8 @@ observeEvent(reactives$sampleplanRaw,{
     
 }) # end of observer
     
-    ## Join counts and annotations
-    #joined <- reactive({
+## Join counts and annotations
+
 observeEvent(c(reactives$counts,reactives$sampleplan,
                input$timepoints_order),{
   
@@ -223,11 +215,10 @@ observeEvent(c(reactives$counts,reactives$sampleplan,
 #########################################################################################################
 #################################### Negative screening #################################################
 #########################################################################################################
-    
-        
-    #Compute difference to 0
-    diff_t0 <- reactive({
+  
+      diff_t0 <- reactive({
       req(input$timepoints_order)
+      req(reactives$joined)
       withProgress(message = 'Difference to initial timepoint calculation', value = 0.5, {
       counts <- reactives$joined
       firstpoint <- input$timepoints_order[[1]]
@@ -401,15 +392,15 @@ observe({
     )
     
     output$orderUI <- renderUI({
-      counts <- levels(reactives$sampleplan$Timepoint)
-      print(counts)
-      orderInput(inputId = 'timepoints', label = 'Re-order your timepoints here :', items = counts, as_source = F)
+      timepoints <- levels(reactives$sampleplan$Timepoint)
+      print(timepoints)
+      orderInput(inputId = 'timepoints', label = 'Re-order your timepoints here :', items = timepoints, as_source = F)
     })
     
     ############## NEGATIV SCREENING ################
     diff_boxes <- reactiveValues(diff_box_ess = NULL,diff_box_all = NULL)
-    #diff_box_all <- reactive({
-    observe({
+
+    observeEvent(diff_t0(),{
     firstpoint <- input$timepoints_order[[1]]
       
       print("diff box all")
@@ -421,15 +412,12 @@ observe({
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - all guides"))
       
       print('DONE')
-      #plot(diff_boxes$diff_box_all)
     })
     
     output$diff_box_all <- renderPlot({
-      #plot(diff_box_all())
       plot(diff_boxes$diff_box_all)
     })
     
-    # diff_box_ess <- reactive({
     observe({
       firstpoint <- input$timepoints_order[[1]]
       ess_genes <- ess_genes()
@@ -442,11 +430,9 @@ observe({
         ylab(paste0("diff_",firstpoint)) + 
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - essential genes's guides"))
       
-      #plot(diff_boxes$diff_box_ess)
     })
     
     output$diff_box_ess <- renderPlot({
-      #plot(diff_box_ess())
       plot(diff_boxes$diff_box_ess)
     })
     
@@ -465,7 +451,7 @@ observe({
 ROC <- reactiveValues(plot = NULL,AUC = NULL)
     
 observe({
-  if (input$sidebarmenu == "Nscreen"){
+  if (input$sidebarmenu ==  "Roc"){
     if(is.null(input$essential) | is.null(input$nonessential)){
       showModal(
         modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
@@ -487,8 +473,7 @@ observe({
         filter(!is.na(.data$type)) %>%
         mutate(TP = cumsum(.data$type == "+") / sum(.data$type == "+"), FP = cumsum(.data$type == "-") / sum(.data$type == "-")) %>%
         ungroup()
-      print("DONE")
-      
+
       print("Calulating AU ROC Curves")
       by_rep <- split(d, f= d$Replicate)
       by_rep_cl <- unlist(lapply(X = by_rep, FUN = function(x){split(x, f = x$Cell_line)}),recursive = FALSE)
@@ -496,13 +481,10 @@ observe({
       by_rep_cl_treat_tpt <- unlist(lapply(X = by_rep_cl_treat, FUN = function(x){split(x, f = x$Timepoint)}),recursive = FALSE)
       
       AUC_values <- lapply(X= by_rep_cl_treat_tpt, FUN = function(x){
-        print(x)
         orders <- order(x$FP)
         print(sum(diff(x$FP[orders])*rollmean(x$TP[orders],2)))
       }
       )
-      print(AUC_values)
-      
       AUC_table <- data.frame(Replicate = NA, Cell_line = NA, Treatment = NA, Timepoint = NA, AUC = NA)
       for (tablenum in 1:length(by_rep_cl_treat_tpt)){
         vars <- names(by_rep_cl_treat_tpt)[tablenum]
@@ -514,8 +496,7 @@ observe({
       AUC_table$AUC <- signif(as.numeric(AUC_table$AUC),digits =2)
       AUC_table$AUC <- as.character(AUC_table$AUC)
       ROC$AUC <- AUC_table
-      print("DONE")
-      
+
       d <- left_join(d,AUC_table, by = c("Cell_line","Replicate","Treatment","Timepoint"))
       
       ROC$plot <- d %>% ggplot(aes(x = FP, y = TP, color = Timepoint)) + 
@@ -577,7 +558,6 @@ observe({
 output$positive_boxplots <- renderPlotly({
   req(input$conditionreference1)
   if(length(input$conditionreference1) >= 2){
-    #req(input$conditionreference2)
     counts <- reactives$joined %>% filter(Treatment %in% input$conditionreference1)
     counts$Treatment <- as.character(counts$Treatment)
     counts$sgRNA <- as.character(counts$sgRNA)
@@ -586,13 +566,54 @@ output$positive_boxplots <- renderPlotly({
                                     labels = ~sgRNA, type = "box",
                                     boxpoints = "outliers",
                                     jitter = 0.3,
-                                    pointpos = -1.8,marker = list(size = 1)) %>%
-    layout(boxmode = "group")
+                                    pointpos = -1.8,marker = list(size = 1)) %>% plotly::layout(boxmode = "group")
+    
     interactive_boxplots
   }
 })
 
+ClustData_ess <- reactiveValues(table = NULL)
+ClustData_non_ess <- reactiveValues(table = NULL)
+ClustMetadata <- reactiveValues(table = NULL)
+observe({
+  if(!is.null(reactives$countsRaw) && !is.null(reactives$sampleplan)){
+    ClustMetadata$table <- reactives$sampleplan %>% column_to_rownames("Sample_ID")
+    ClustDatatable <- vst(as.matrix(reactives$countsRaw[,rownames(ClustMetadata$table)]), blind = TRUE)
+    ClustDatatable <- cbind(ClustDatatable,reactives$countsRaw[,c("sgRNA","gene")])
     
+    if(!is.null(ess_genes())){
+      ess_genes <- ess_genes()
+      ClustDatatable_ess <- ClustDatatable %>%
+        filter(gene %in% ess_genes$V1) %>%
+        select(-gene) %>%
+        column_to_rownames("sgRNA")
+      ClustData_ess$table <- ClustDatatable_ess
+    }
+    if(!is.null(non_ess_genes())){
+      non_ess_genes <- non_ess_genes()
+      ClustDatatable_non_ess <- ClustDatatable %>%
+        filter(gene %in% non_ess_genes$V1) %>%
+        select(-gene) %>%
+        column_to_rownames("sgRNA")
+      ClustData_non_ess$table <- ClustDatatable_non_ess
+    }
+  }
+})
+
+observeEvent(c(ClustData_ess$table,ClustMetadata$table),{
+    if(!is.null(ClustData_ess$table)){
+    heatmap <- callModule(ClusteringServer, id = "heatmapIDess", session = session,
+                           data = ClustData_ess , metadata =  ClustMetadata, printRows = FALSE)
+    }
+})
+
+observeEvent(c(ClustData_non_ess$table,ClustMetadata$table),{
+  if(!is.null(ClustData_non_ess$table)){
+  heatmap <- callModule(ClusteringServer, id = "heatmapIDnoness", session = session,
+                        data = ClustData_non_ess , metadata =  ClustMetadata, printRows = FALSE)
+  }
+})
+
 #########################################################################
 ############################ Help section ###############################
 #########################################################################
@@ -600,7 +621,8 @@ output$positive_boxplots <- renderPlotly({
 output$Totguidenumber <- renderInfoBox(
     infoBox(
       "Total guides number :",
-      as.numeric(nrow(reactives$countsRaw))
+      as.numeric(nrow(reactives$countsRaw)),
+      icon = shiny::icon("arrows-alt-h",lib = "font-awesome")
   )
 )
     
@@ -616,7 +638,8 @@ mean_depth <- reactive({
 output$Depth <- renderInfoBox(
     infoBox(
     "Average sequencing depth across samples :",
-      mean_depth()
+      mean_depth(),
+    icon = shiny::icon("arrows-alt-v",lib = "font-awesome")
     )
 )
     
@@ -707,30 +730,6 @@ output$DlTesGuideList <- downloadHandler(
       #file.copy(from = non_essential_path , to = file)
 })
     
-    # ## Modal Dialog
-    # 
-    # dataModal <- function(failed = FALSE) {
-    #     modalDialog(p(""),
-    #                 title = "Set up inputs files formats specifications",
-    #                 selectInput("FSc","Field separator (counts)",choices=c(";",","), selected = input$Fsc),
-    #                 selectInput("FSs","Field separator (sampleplan)",choices=c(";",","), selected = separators$sampleplan),
-    #                 footer = tagList(
-    #                   actionButton("apply",label = "Apply this parameters",icon = icon("check")),
-    #                   modalButton("Dismiss"),
-    #                 )
-    #         )
-    # 
-    # }
-    # observeEvent(input$settings,{
-    # showModal(dataModal())
-    # })
-    
-    # observeEvent(input$apply,{
-    #   separators$sampleplan <- as.character(input$FSs)
-    #   input$Fsc <- as.character(input$FSc)
-    #   removeModal()
-    # })
-    # 
     observeEvent(c(reactives$sampleplanRaw),priority = 10,{
     
     colnames <- colnames(reactives$sampleplanRaw)
@@ -748,13 +747,11 @@ output$DlTesGuideList <- downloadHandler(
                                     h3("Your current file colnames are : ",strong ="bold"),
                                     #h4(paste(colnames,collapse ="  "))
                                     h4(paste("| ",paste(colnames,collapse =" | ")," |"))
-                                    
                                     ),
                             title = "Anormal sample plan columns naming",
                             footer = tagList(
                               modalButton("Return to input tab"),
                           )))
-      
     reactives$sampleplanGood <- FALSE
     } else {
     reactives$sampleplanGood <- TRUE
@@ -873,7 +870,6 @@ observe({
     "disabled"
   }
   updateAceEditor(session, "acereport_rmd", autoComplete = autoComplete,theme=input$theme, mode=input$mode)
-  # updateAceEditor(session, "plot", autoComplete = autoComplete)
 })
 
 #Enable/Disable R code completion
@@ -931,11 +927,6 @@ output$saveRmd <- downloadHandler(
       # writeLines(tmp_content, fileConn)
       # close(fileConn)
       if(input$rmd_dl_format == "html") {
-        
-        # temporarily switch to the temp dir, in case you do not have write
-        # permission to the current working directory
-        # owd <- setwd(tempdir())
-        # on.exit(setwd(owd))
         
         cat(tmp_content,file="/tmp/tempreport.Rmd",sep="\n")
         rmarkdown::render(input = "/tmp/tempreport.Rmd",
