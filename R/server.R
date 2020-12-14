@@ -30,7 +30,7 @@ observeEvent(c(input$counts,
       inFile <- input$counts
       semicolon <- FALSE
       comma <- FALSE
-      counts <- read.table(inFile$datapath, sep = "", header = TRUE)
+      counts <- read.table(inFile$datapath, sep = "d", header = TRUE)
       for(col in 1:ncol(counts)){
         if (TRUE %in% grepl(";",counts[,col])){
           semicolon <- TRUE
@@ -112,7 +112,7 @@ observeEvent(c(input$sample_plan),{
                  } else {
                  semicolonssplan <- FALSE
                  commassplan <- FALSE
-                 ssplan <- read.table(inFile$datapath, sep = "", header = TRUE)
+                 ssplan <- read.table(inFile$datapath, sep = "d", header = TRUE)
                  for(col in 1:ncol(ssplan)){
                    if (TRUE %in% grepl(";",ssplan[,col])){
                      semicolonssplan <- TRUE
