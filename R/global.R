@@ -17,3 +17,22 @@ saveState <- function(filename,reactives,separators,input) {
 
   })
 }
+
+###### Normalisation function #################
+sg_norm <- function(counts, control_sgRNA = NULL, sample_annot = NULL, sgRNA_annot = NULL, ...){
+  
+  # contruct DGEList
+  dge_all <- DGEList(counts = counts, samples = sample_annot, genes = sgRNA_annot)
+  
+  # compute normFactors on control if present
+  if (!is.null(control_sgRNA)) {
+    norm_factors <- calcNormFactors(counts[control_sgRNA, , drop = FALSE], ...)
+  } else norm_factors <- calcNormFactors(counts, ...)
+  
+  # set normFactors to all data
+  dge_all$samples$norm.factors <- norm_factors
+  # set lib.size to number of control reads
+  dge_all$samples$lib.size <- colSums(counts[control_sgRNA, , drop = FALSE])
+  
+  return(dge_all)
+}

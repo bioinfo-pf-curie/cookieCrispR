@@ -34,13 +34,14 @@ ui_crispr_app <- function(request){
       ),
       sidebarMenu(id ="sidebarmenu",
         menuItem("Data Input", tabName = "DataInput"),
-        menuItem("Descriptive data analysis", tabName = "Descriptive_data_analysis",
+        menuItem("Descriptive analysis", tabName = "Descriptive_data_analysis",
                  menuSubItem("Raw distributions","Rawdist"),
                  menuSubItem("Temporal evolution","Tev"),
                  menuSubItem("ROC Curves","Roc"),
                  menuSubItem("Clustering","Clustering"),
                  menuSubItem('Compare conditions','CompCond')
                  ),
+        menuItem("Statistical analysis",tabName = "Statistical_analysis"),
         menuItem("Report", tabName = "Report")
       )
     ),
@@ -197,6 +198,8 @@ ui_crispr_app <- function(request){
                 #fluidRow(girafeOutput("positive_boxplots"))
                 fluidRow(plotlyOutput("positive_boxplots"))
         ),
+        tabItem(tabName = "Statistical_analysis",
+                CRISPRDeaModUI(id = "DEA")),
         tabItem(tabName = "Report",
                         tabPanel(
                           "Report Editor",
