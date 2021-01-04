@@ -4,9 +4,9 @@
 #' @importFrom graphics plot
 #' @importFrom utils read.table write.csv
 #' @importFrom dplyr rename select mutate group_by ungroup full_join filter arrange case_when inner_join summarise first left_join
-#' @importFrom tidyr gather separate
+#' @importFrom tidyr gather separate spread
 #' @importFrom forcats fct_reorder
-#' @importFrom stringr str_remove
+#' @importFrom stringr str_remove str_detect
 #' @importFrom ggplot2 theme position_jitterdodge ggplot position_dodge scale_fill_viridis_c geom_boxplot geom_abline facet_grid facet_wrap geom_col geom_line coord_equal aes labs .data vars ylab xlim
 #' @importFrom ggridges geom_density_ridges
 #' @importFrom DT datatable renderDataTable dataTableOutput

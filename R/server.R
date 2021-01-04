@@ -22,48 +22,55 @@ reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplan
 
 ##### Upload files and datatable construction ####################
 ## counts table  
-precheck <- reactiveValues(counts = FALSE,sampleplan = FALSE)
+precheck <- reactiveValues(counts = FALSE,sampleplan = FALSE,Fs = NULL)
 observeEvent(c(input$counts,
                  input$Fsc),{
       print("checking file separator in counts matrix ...")
       req(input$counts)
-      req(input$Fsc)
+      #req(input$Fsc)
       inFile <- input$counts
       semicolon <- FALSE
       comma <- FALSE
-      counts <- read.table(inFile$datapath, sep = "d", header = TRUE)
+      tabssplan <- FALSE
+      counts <- read.table(inFile$datapath, sep = "d", header = TRUE,fill = TRUE)
       for(col in 1:ncol(counts)){
         if (TRUE %in% grepl(";",counts[,col])){
           semicolon <- TRUE
+          precheck$Fs <- ";" 
         }
         if (TRUE %in% grepl(",",counts[,col])){
           comma <- TRUE
+          precheck$Fs <- "," 
+        }
+        if (TRUE %in% grepl("\t",counts[,col])){
+          tabssplan <- TRUE
+          precheck$Fs <- "\t"
         }
       }
-    if(semicolon ==  TRUE){
-      if (input$Fsc == ","){
+    if(semicolon ==  TRUE & comma == TRUE){
         showModal(modalDialog(p(""),
-                              title = h4(HTML("<b>Semicolon</b> detected in your counts matrix file"),style="color:red"),
-                              tagList(h6('By default the app use files sperated by a comma, to use semicolon please precise it with the Input files settings button')),
+                              title = h4(HTML("<b>Both semicolon and comma</b> detected in your counts matrix file"),style="color:red"),
+                              h6('Please use a unique field separator'),
                               footer = tagList(
                                 modalButton("Got it"))
         ))
-      } else if (input$Fsc == ";"){
-        precheck$counts <- TRUE
-      }
-      } else if (comma == "TRUE"){
-        if (input$Fsc == ";"){
+      } else if(semicolon ==  TRUE & tabssplan == TRUE){
+        showModal(modalDialog(p(""),
+                              title = h4(HTML("<b>Both semicolon and tabulation</b> detected in your counts matrix file"),style="color:red"),
+                              h6('Please use a unique field separator'),
+                              footer = tagList(
+                                modalButton("Got it"))
+        ))
+      } else if(comma ==  TRUE & tabssplan == TRUE){
           showModal(modalDialog(p(""),
-                                title = h4(HTML("<b>Comma</b> Detected in your counts matrix file"),style="color:red"),
-                                tagList(h6('You have changed file separator to be a semicolon'),
-                                        h6('Please use Input files settings button to reset it as ,')),
+                                title = h4(HTML("<b>Both comma and tabulation</b> detected in your counts matrix file"),style="color:red"),
+                                h6('Please use a unique field separator'),
                                 footer = tagList(
                                   modalButton("Got it"))
           ))
-       } else if (input$Fsc == ","){
-         precheck$counts <- TRUE
-       }
-    }
+      } else {
+        precheck$counts <- TRUE
+      }
 })
   
 observeEvent(precheck$counts,{
@@ -71,7 +78,8 @@ observeEvent(precheck$counts,{
   inFile <- input$counts
   if(precheck$counts == TRUE){
         print("reading file...")
-        counts <- read.table(inFile$datapath, sep = input$Fsc, header = TRUE)
+        #counts <- read.table(inFile$datapath, sep = input$Fsc, header = TRUE)
+        counts <- read.table(inFile$datapath, sep = precheck$Fs, header = TRUE)
       if (!("X" %in% colnames(counts))){
       showModal(modalDialog(p(""),
                               title = "Incorrect count matrix format",
