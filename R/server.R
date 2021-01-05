@@ -18,7 +18,7 @@ session$allowReconnect(TRUE)
 ##### Usefull variables #############
 reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
                               joined = NULL,countsRaw = NULL, counts = NULL,
-                            annot_sgRNA = NULL)
+                            annot_sgRNA = NULL, norm_data =  NULL)
 
 ##### Upload files and datatable construction ####################
 ## counts table  
@@ -170,9 +170,9 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
         counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
         counts <- counts %>%
           dplyr::group_by(.data$Sample_ID) %>%
-          dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + .data$cpm)) %>%
+          dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log2(1 + cpm))  %>%
           dplyr::ungroup()
-
+        
       if (TRUE %in% unique(!(unique(counts$Sample_ID) %in% samples$Sample_ID))){
       if(input$sidebarmenu == "DataInput"){
        showModal(modalDialog(p(""),
@@ -191,24 +191,38 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
           filter(Sample_ID %in% samples$Sample_ID)
       }
       reactives$counts <- counts
+      
+      #############################################
+      #### Comment this block to retrieve old cpm way
       counts <- counts %>%
            dplyr::select(sgRNA, Sample_ID,count) %>%
            spread(key = Sample_ID, value = count) %>%
            as.data.frame() %>%
            column_to_rownames("sgRNA")
 
+      save(list = c("counts","annot_sgRNA","samples"), file = "~/coockiecrisprtestRDA/norm_cpm.rda")
+
       control_sgRNA <- filter(annot_sgRNA, str_detect(Gene,"Non-Targeting"))
-      
+      if(nrow(control_sgRNA) == 0){
+        control_sgRNA <- NULL
+      }
+
       norm_data <- sg_norm(counts,
-                             sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(mat_counts), ],
+                             sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
                              sgRNA_annot = annot_sgRNA, control_sgRNA = control_sgRNA$sgRNA)
-      norm_cpm <- cpm(norm_data, log = TRUE)
-      norm_cpm <- cbind(norm_data$counts,norm_data$genes)
+      
+      reactives$norm_data <- norm_data
+
+      norm_cpm <- cpm(norm_data$counts, log = FALSE)
+      norm_cpm <- cbind(norm_cpm,norm_data$genes)
 
       norm_cpm <- gather(norm_cpm, value = "cpm", key = "Sample_ID",-.data$sgRNA, -.data$Gene)
+
       norm_cpm <- norm_cpm %>%
           dplyr::group_by(.data$Sample_ID) %>%
-          dplyr::mutate(log_cpm = log10(1 + .data$cpm)) %>%
+          #dplyr::mutate(log_cpm = log10(1 + .data$cpm)) %>%
+          dplyr::mutate(log_cpm = log2(1 + .data$cpm)) %>%
+          dplyr::mutate(log10_cpm = log10(1 + .data$cpm)) %>%
           dplyr::ungroup()
 
       if(!(is.null(input$timepoints_order))){
@@ -219,6 +233,15 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
           mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint)))
       }
       reactives$joined <- norm_cpm
+      #############################################
+      
+      #######################################################
+      ### Uncommend this block to retrieve old cpm way #####
+      # counts <- full_join(counts, samples) %>%
+      #   mutate(Gene = gene)
+      # reactives$joined <- counts
+      #   
+      ##################################################
       reactives$annot_sgRNA <- annot_sgRNA
       
       }# end of if
@@ -243,19 +266,23 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
 #########################################################################################################
   
       diff_t0 <- reactive({
+        
       req(input$timepoints_order)
       req(reactives$joined)
       withProgress(message = 'Difference to initial timepoint calculation', value = 0.5, {
       counts <- reactives$joined
       firstpoint <- input$timepoints_order[[1]]
       counts$Timepoint <- relevel(as.factor(counts$Timepoint), ref = firstpoint)
+      
       fin <- counts %>%
         group_by(sgRNA, Cell_line, Replicate) %>%
         arrange(Timepoint) %>%
         mutate(diff = log_cpm - first(log_cpm)) %>% 
+        #mutate(diff10 = log10_cpm - first(log10_cpm)) %>% 
         ungroup()
      
       print("DONE")
+      save(list = "fin", file = "~/coockiecrisprtestRDA/diff_T0.rda")
       return(fin)
       })
     })
@@ -494,17 +521,57 @@ observe({
     } else {
     ess_genes <- ess_genes()
       non_ess_genes <- non_ess_genes()
+      
+      ##################################################
+      ### Comment this block to retrieve all cpm way ##########
+      samples <- reactives$sampleplan
+      counts  <- reactives$countsRaw
+      annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
+      counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
+      counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
+      counts <- counts %>%
+        dplyr::group_by(.data$Sample_ID) %>%
+        dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + cpm))  %>%
+        dplyr::ungroup()
+      
+      counts <- counts  %>%
+        filter(Sample_ID %in% samples$Sample_ID)
+      
+      counts <- full_join(counts, samples) %>%
+        mutate(Gene = gene)
+      #   
+      req(input$timepoints_order)
+        firstpoint <- input$timepoints_order[[1]]
+        counts$Timepoint <- relevel(as.factor(counts$Timepoint), ref = firstpoint)
+        
+        fin <- counts %>%
+          group_by(sgRNA, Cell_line, Replicate) %>%
+          arrange(Timepoint) %>%
+          mutate(diff = log_cpm - first(log_cpm)) %>% 
+          ungroup()
+      #########################################################
+        
+        
       withProgress(message = 'Calculating ROC curves', value = 0.5, {
-      d <- diff_t0() %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$Gene, .data$Treatment, .data$diff) %>%
+      #d <- diff_t0() %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$Gene, .data$Treatment, .data$diff) %>%
+      d <- fin %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$Gene, .data$Treatment, .data$diff) %>%
+      #### diff _t0 old cpm way #### fin new cpm way
         group_by(.data$Timepoint, .data$Treatment, .data$Cell_line, .data$Replicate) %>%
         arrange(.data$diff) %>% 
+        mutate(Gene = as.character(Gene)) %>%
         mutate(type = case_when(
           .data$Gene %in% ess_genes[,1] ~ "+",
           .data$Gene %in% non_ess_genes[,1] ~ "-", 
           TRUE ~ NA_character_)) %>%
         filter(!is.na(.data$type)) %>%
-        mutate(TP = cumsum(.data$type == "+") / sum(.data$type == "+"), FP = cumsum(.data$type == "-") / sum(.data$type == "-")) %>%
+        mutate(TP = cumsum(.data$type == "+") / sum(.data$type == "+"), FP = cumsum(.data$type == "-") / sum(.data$type == "-"))
+      
+      save(list = c("d"), file = "~/coockiecrisprtestRDA/Grouped_D.rda")
+      
+      d <- d %>%
         ungroup()
+      
+      save(list = c("d"), file = "~/coockiecrisprtestRDA/D.rda")
 
       print("Calulating AU ROC Curves")
       by_rep <- split(d, f= d$Replicate)
@@ -653,6 +720,7 @@ observeEvent(c(ClustData_non_ess$table,ClustMetadata$table),{
 
 DEAdata <- reactiveValues(table = NULL)
 DEAMetadata <- reactiveValues(table = NULL)
+DEAnormdata <- reactiveValues(data = NULL)
 observe({
   if(!is.null(reactives$countsRaw)){
     DEAdata$table <- reactives$countsRaw %>%
@@ -663,13 +731,21 @@ observe({
     DEAMetadata$table <- reactives$sampleplan %>%
       column_to_rownames("Sample_ID")
   }
+  if(!is.null(reactives$norm_data)){
+    DEAnormdata$data <- reactives$norm_data
+  }
 })
 
 #observeEvent(c(DEAMetadata$table,DEAdata$table),{
 observe({
     if(input$sidebarmenu=="Statistical_analysis"){
+    # DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
+    #                   matrix = DEAdata,
+    #                   sampleplan = DEAMetadata,
+    #                   var = colnames(DEAMetadata$table))
+    #print(head(DEAMetadata$table))
     DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
-                      matrix = DEAdata,
+                      norm_data = DEAnormdata,
                       sampleplan = DEAMetadata,
                       var = colnames(DEAMetadata$table))
   }

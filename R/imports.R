@@ -27,5 +27,6 @@
 #' @importFrom BioshinyModules ClusteringUI ClusteringServer
 #' @importFrom textshape column_to_rownames
 #' @importFrom DESeq2 vst
+#' @import edgeR
 #' 
 NULL

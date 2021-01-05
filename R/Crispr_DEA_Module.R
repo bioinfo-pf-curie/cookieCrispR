@@ -233,11 +233,12 @@ CRISPRDeaModUI <- function(id)  {
 #' @import dplyr
 #' @importFrom tictoc tic toc
 
-CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan = NULL, var = NULL) {
+CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan = NULL, var = NULL,
+                               norm_data = NULL) {
   
   ### Define reactives #############
   req(sampleplan)
-  req(matrix)
+  #req(matrix)
   ns <- session$ns
   
   reactives <- reactiveValues(design = NULL, formula = NULL, contrast = NULL)
@@ -264,7 +265,9 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
   ),{
     if(!is.null(sampleplanmodel$table)){
       if(!is.null(input$var)){
-        if(!is.null(matrix$table)){
+        #if(!is.null(matrix$table)){
+        if(!is.null(norm_data$data)){
+            
           
           sampleplan <- sampleplanmodel$table
           print("sampleplanformula")
@@ -306,7 +309,8 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
       if(!is.null(input$var)){
         if(!is.null(input$Group2sel)){
           if(!is.null(input$Group1sel)){
-            if(!is.null(matrix$table)){
+            #if(!is.null(matrix$table)){
+            if(!is.null(norm_data$data)){
               if(!is.null(reactives$formula)){
                 data <- sampleplanmodel$table
                 if (input$var == "Create your own groups"){
@@ -315,23 +319,25 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
                   completeVec <- complete.cases(data[,"personalisedGroup"])
                   data <- data[completeVec,]
                 }
-                mat <- matrix$table[,rownames(data)]
-                design <- model.matrix(reactives$formula, data=data)
-                design <- design[which(rownames(design) %in% colnames(mat)), ]
+                ########### OLD ##########
+                #mat <- matrix$table[,rownames(data)]
+                #design <- model.matrix(reactives$formula, data=data)
+                #design <- design[which(rownames(design) %in% colnames(mat)), ]
+                
+                ##### NEW ########
+                design <- model.matrix(reactives$formula, data=norm_data$data$samples)
+                #design <- model.matrix(~ 0 + Sample_description * Timepoint * Cell_line, data = norm_data$data$samples)
+                design <- design[which(rownames(design) %in% colnames(norm_data$data$counts)), ]
                 colnames(design) <- make.names(colnames(design))
-                print("design2")
-                print(head(design))
-                print("group1sel")
-                print(input$Group1sel)
-                print("group2sel")
-                print(input$Group2sel)
+                
                 if (input$var == "Create your own groups"){
                   contrast <-makeContrasts(contrasts = paste0(paste0("personalisedGroup","Group1"),"-",(paste0("personalisedGroup","Group2"))) ,
                                            levels=design)
                 } else {
-                  contrast <-makeContrasts(contrasts = paste0(paste0(input$var,input$Group1sel),"-",(paste0(input$var,input$Group2sel))) ,
+                  contrast <-makeContrasts(contrasts = paste0(paste0(input$var,input$Group1sel),"-",(paste0(input$var,input$Group2sel))),
                                            levels=design)
                 }
+                save(list = c('contrast'),file = "~/coockiecrisprtestRDA/CRISPR_contrast.rda")
                 reactives$contrast <- contrast
                 reactives$design <- design
               }
@@ -495,8 +501,6 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
     }
   })
   
-  
-  
   output$group1table <- renderText({
     groups$Group1
   })
@@ -511,7 +515,6 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
     
   })
   
-  
   observe({
     if(!is.null(input$var)) {
       if(input$var != "Create your own groups"){
@@ -524,16 +527,11 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
     groups$Group2
   })
   
-  
   observeEvent(c(input$Group1sel,input$Group2sel),ignoreInit = TRUE,{
     if(!is.null(input$Group1sel)){
       #if(length(input$Group1sel) != 0){
       if(input$Group1sel != "" & input$Group2sel != ""){
         if(input$Group1sel == input$Group2sel){
-          print("group1")
-          print(input$Group1sel)
-          print("group2")
-          print(input$Group2sel)
           showModal(modalDialog(p("You must select two different groups to make a comparison"),
                                 title = "Identical groups",
                                 footer = tagList(
@@ -546,14 +544,12 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
   
   observeEvent({input$var
     input$covar},{
-      
       if(input$var %in% input$covar){
         validationModalModel(
           msg = "You can not use the same sample Plan column for variable and covariable ",
         )
         return(-1)
       }
-      
     })
   
   ## Function def
@@ -566,20 +562,33 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
     
   }
   
-  observeEvent(c(matrix$table,
+################ Compute Model new block ##########################
+  # observeEvent(c(matrix$table,
+  #                reactives$contrast),priority = 10,{
+  observeEvent(c(norm_data$data$counts,
                  reactives$contrast),priority = 10,{
-                   
-                   if (!is.null(matrix$table) && !is.null(reactives$design)){
+
+                   #if (!is.null(matrix$table) && !is.null(reactives$design)){
+                   if (!is.null(norm_data$data$counts) && !is.null(reactives$design)){
+                     print("a")
+                       
                      tictoc::tic("Voom transormation and fitting linear model..")
-                     counts <- matrix$table[,colnames(matrix$table)%in%rownames(reactives$design)]
+                     #counts <- matrix$table[,colnames(matrix$table)%in%rownames(reactives$design)]
+                     counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
+                     print("nrow1")
+                     print(nrow(counts))
                      kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
                      counts <- counts[kept,]
+                     print("nrow2")
+                     print(nrow(counts))
                      results$v <- limma::voomWithQualityWeights(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
                      res_fit <- limma::lmFit(results$v, method = "ls")
-                     fit <- contrasts.fit(res_fit, contrasts = reactives$contrast)
                      res_eb <- eBayes(res_fit, robust = FALSE)
                      
-                     save(list = c('fit','res_eb'),file = "~/CRISPR_DEA.RData")
+                     fit <- contrasts.fit(res_fit, contrasts = reactives$contrast)
+                     res_eb <- eBayes(fit, robust = FALSE)
+                     
+                     save(list = c('fit','res_eb'),file = "~/coockiecrisprtestRDA/CRISPR_DEA.RData")
                      print("res saved")
                      tab <- biobroom::tidy.MArrayLM(res_eb)
                      ## add unilateral pvalues
@@ -591,39 +600,55 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
                      tab$adj_p.value_enrich <- p.adjust(tab$p.value_enrich, method = input$AdjMeth)
                      tab <- tab[order(tab$adj_p.value),]
                      results$res <- tab
+                     save(list = c("tab"), file = "~/coockiecrisprtestRDA/results_res_new.rda")
+                     
                      # res <- topTable(fit, number=nrow(counts), adjust.method=input$AdjMeth)
                      # res <- res[order(res$adj.P.Val),]
                      # res$genes <- rownames(res)
                      #results$res <- res
-
                    } # end of if NULL
                    toc(log = TRUE)
                  }) # end of observer
+###########################################################################
   
   createLink <- function(val) {
     sprintf('<a href="https://www.ensembl.org/Homo_sapiens/Gene/Summary?g=%s" target="_blank" class="btn btn-primary">Info</a>',val)
   }
   
-  # observeEvent(c(results$res,
-  #                input$FCT,
-  #                input$PvalsT),ignoreInit = TRUE,{
-  # 
-  #                  res <- results$res
-  #                  nsign <- length(which(res$adj.P.Val < input$PvalsT))
-  #                  results$nsignfc <- length(which(res$adj.P.Val < input$PvalsT & abs(res$logFC) > input$FCT))
-  #                  up <- which(res$adj.P.Val < input$PvalsT & res$logFC > input$FCT)
-  #                  down <- which(res$adj.P.Val < input$PvalsT & res$logFC < -input$FCT)
-  #                  res$t <- NULL
-  #                  res$P.Value <- NULL
-  #                  res$B <- NULL
-  #                  res$label <- NULL
-  #                  res$ENSEMBL <- createLink(rownames(res))
-  #                  print('end of DEG')
-  #                  results$up <- res[up,]
-  #                  results$down <- res[down,]
-  #                  results$restable <- res
-  #                }) # end of observer
+  ################ Compute Model old block ##########################
+  observeEvent(c(results$res,
+                 input$FCT,
+                 input$PvalsT),ignoreInit = TRUE,{
 
+                   res <- results$res
+                   nsign <- length(which(res$adj_p.value < input$PvalsT))
+                   results$nsignfc <- length(which(res$adj_p.value < input$PvalsT & abs(res$estimate) > input$FCT))
+                   #up <- which(res$adj_p.value_enrich < input$PvalsT & res$estimate > input$FCT)
+                   #down <- which(res$adj_p.value_dep < input$PvalsT & res$estimate < -input$FCT)
+                   up <- which(res$adj_p.value_enrich < input$PvalsT)
+                   down <- which(res$adj_p.value_dep < input$PvalsT)
+                   #res$t <- NULL
+                   #res$P.Value <- NULL
+                   #res$B <- NULL
+                   #res$label <- NULL
+                   res$ENSEMBL <- createLink(rownames(res))
+                   print('end of DEG')
+                   results$up <- res[up,]
+                   results$down <- res[down,]
+                   results$restable <- res
+                 }) # end of observer
+
+
+# observeEvent(c(norm_data$data,
+#              reactives$contrast),priority = 10,{
+#   
+#   mod <- compute_model(norm_data$data, reactives$design, plot_voom = TRUE, sample_thr = 0, cpm_thr = 0, span = 0.2)
+#   n_perm <- 20000
+#   alpha_thr <- 0.3
+#   
+#   save(list = c("mod"), file = "~/coockiecrisprtestRDA/model.rda")
+#   
+# })
   
   
   output$Pvals_distrib <- renderGirafe({
@@ -633,8 +658,9 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
     # build  <- ggplot_build(plot)
     # plot <- plot +  labs(title = "P values distribution", x = "P values", y = "Occurences")# +
     # ggiraph::girafe(code = {print(plot)})
-    plot <- ggplot(data = results$res) + aes(x = `p.value`) +
-      geom_histogram_interactive(fill = "steelblue",breaks = seq(0, 1, length.out = 20))
+    #plot <- ggplot(data = results$res) + aes(x = `p.value`) +
+    plot <- ggplot(data = results$res) + aes(x = `adj_p.value`) +
+      geom_histogram_interactive(fill = "steelblue",breaks = seq(0, 1, length.out = 30))
     build  <- ggplot_build(plot)
     plot <- plot +  labs(title = "P values distribution", x = "P values", y = "Occurences")# +
     ggiraph::girafe(code = {print(plot)})
@@ -643,7 +669,9 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
   
   #input$GeneVolcano
   observe({
-    updatePickerInput("GeneVolcano", session = session, choices = rownames(matrix$table))
+    #updatePickerInput("GeneVolcano", session = session, choices = rownames(matrix$table))
+    updatePickerInput("GeneVolcano", session = session, choices = rownames(norm_data$data$counts))
+    
   })
   
   Volcano <- reactiveValues(plot = NULL)
@@ -679,14 +707,17 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
     req(Volcano$plot)
     tic("Rendering Volcano...")
     ggplot <- Volcano$plot +
-      geom_point(data = subset(results$res,genes %in% input$GeneVolcano),
+      #geom_point(data = subset(results$res,genes %in% input$GeneVolcano),
+      geom_point(data = subset(results$res,gene %in% input$GeneVolcano),
                  color = "purple", alpha = 0.6) +
       ggrepel::geom_text_repel(
         #data = subset(results$res, adj.P.Val < input$PvalsT),
         #data = results$res[which(rownames(results$res) %in% input$GeneVolcano),],
-        data = subset(results$res,genes %in% input$GeneVolcano),
+        #data = subset(results$res,genes %in% input$GeneVolcano),
+        data = subset(results$res,gene %in% input$GeneVolcano),
         #aes(label = results$res$label),
-        aes(label = genes),
+        #aes(label = genes),
+        aes(label = gene),
         size = 5,
         force = 2,
         box.padding = unit(0.35, "lines"),
@@ -696,49 +727,49 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
     toc(log = TRUE)
   })
   
-  # observeEvent(input$GeneVolcano,{
-  #   
-  #   if(length(input$GeneVolcano) >1){
-  #     req(matrix$table)
-  #     req(sampleplanmodel$table)
-  #     groups_table <- sampleplanmodel$table
-  #     groups_table$Samples <- rownames(groups_table)
-  #     if(input$var != "Create your own groups"){
-  #       groups_table <- groups_table[,c(input$var,"Samples")]
-  #     } else {
-  #       groups_table[groups$Group2,"personalisedGroup"] <- "Group2"
-  #       groups_table[groups$Group1,"personalisedGroup"] <- "Group1"
-  #       completeVec <- complete.cases(groups_table[,"personalisedGroup"])
-  #       groups_table <- groups_table[completeVec,]
-  #       groups_table <- groups_table[,c("personalisedGroup","Samples")]
-  #     }
-  #     boxplotdata <- results$v$E[which(rownames(results$v$E) %in% input$GeneVolcano),]
-  #     boxplotdata <- rbind(boxplotdata,colnames(boxplotdata))
-  #     rownames(boxplotdata)[nrow(boxplotdata)] <- "Samples"
-  #     boxplotdata <- as.data.frame(t(boxplotdata)) %>%  gather(key = "GENE",value = "COUNTS", -Samples)
-  #     boxplotdata$Samples <- as.character(boxplotdata$Samples)
-  #     boxplotdata <- inner_join(boxplotdata,groups_table, by = "Samples")
-  #     boxplotdata$COUNTS <- as.numeric(boxplotdata$COUNTS)
-  #     if(input$var != "Create your own groups"){
-  #       boxplotdata[,input$var] <- as.character(boxplotdata[,input$var])
-  #       results$boxplots <- ggplot(boxplotdata, aes(x=GENE, y=COUNTS, fill = GENE)) +
-  #         geom_boxplot() +
-  #         geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
-  #                                                  seed = 1234),
-  #                    pch=21,
-  #                    aes_string(fill=input$var), show.legend = T)
-  #     } else {
-  #       boxplotdata[,"personalisedGroup"] <- as.character(boxplotdata[,"personalisedGroup"])
-  #       results$boxplots <- ggplot(boxplotdata, aes(x=GENE, y=COUNTS, fill = GENE)) +
-  #         geom_boxplot() +
-  #         geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
-  #                                                  seed = 1234),
-  #                    pch=21,
-  #                    # size = 2,
-  #                    aes_string(fill="personalisedGroup"), show.legend = T)
-  #     }
-  #   }
-  # })
+  observeEvent(input$GeneVolcano,{
+
+    if(length(input$GeneVolcano) >1){
+      req(matrix$table)
+      req(sampleplanmodel$table)
+      groups_table <- sampleplanmodel$table
+      groups_table$Samples <- rownames(groups_table)
+      if(input$var != "Create your own groups"){
+        groups_table <- groups_table[,c(input$var,"Samples")]
+      } else {
+        groups_table[groups$Group2,"personalisedGroup"] <- "Group2"
+        groups_table[groups$Group1,"personalisedGroup"] <- "Group1"
+        completeVec <- complete.cases(groups_table[,"personalisedGroup"])
+        groups_table <- groups_table[completeVec,]
+        groups_table <- groups_table[,c("personalisedGroup","Samples")]
+      }
+      boxplotdata <- results$v$E[which(rownames(results$v$E) %in% input$GeneVolcano),]
+      boxplotdata <- rbind(boxplotdata,colnames(boxplotdata))
+      rownames(boxplotdata)[nrow(boxplotdata)] <- "Samples"
+      boxplotdata <- as.data.frame(t(boxplotdata)) %>%  gather(key = "GENE",value = "COUNTS", -Samples)
+      boxplotdata$Samples <- as.character(boxplotdata$Samples)
+      boxplotdata <- inner_join(boxplotdata,groups_table, by = "Samples")
+      boxplotdata$COUNTS <- as.numeric(boxplotdata$COUNTS)
+      if(input$var != "Create your own groups"){
+        boxplotdata[,input$var] <- as.character(boxplotdata[,input$var])
+        results$boxplots <- ggplot(boxplotdata, aes(x=GENE, y=COUNTS, fill = GENE)) +
+          geom_boxplot() +
+          geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
+                                                   seed = 1234),
+                     pch=21,
+                     aes_string(fill=input$var), show.legend = T)
+      } else {
+        boxplotdata[,"personalisedGroup"] <- as.character(boxplotdata[,"personalisedGroup"])
+        results$boxplots <- ggplot(boxplotdata, aes(x=GENE, y=COUNTS, fill = GENE)) +
+          geom_boxplot() +
+          geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
+                                                   seed = 1234),
+                     pch=21,
+                     # size = 2,
+                     aes_string(fill="personalisedGroup"), show.legend = T)
+      }
+    }
+  })
   
   # output$boxplots <- renderPlot(results$boxplots)
   # output$boxplots_error <- renderText({
@@ -748,10 +779,12 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
   # })
   
   output$results_table <- DT::renderDataTable({
-    a <- results$restable
-    a$genes <- NULL
+    a <- results$restable %>%
+      column_to_rownames("gene")
+    #a$genes <- NULL
     datatable(
-      a,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))})
+      a,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
+    })
   
   
   output$resdl <- downloadHandler(
@@ -764,8 +797,9 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
   )
   
   output$up_table <- DT::renderDataTable({
-    a <- results$up
-    a$genes <- NULL
+    a <- results$up %>%
+      column_to_rownames("gene")
+    #a$genes <- NULL
     datatable(
       a,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))})
   
@@ -780,8 +814,9 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
   
   
   output$down_table <- DT::renderDataTable({
-    a <- results$down
-    a$genes <- NULL
+    a <- results$down %>%
+      column_to_rownames("gene")
+    #a$genes <- NULL
     datatable(
       a,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))})
   
