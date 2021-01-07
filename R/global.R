@@ -62,3 +62,37 @@ compute_model <- function(norm_data, design, cpm_thr = 1, sample_thr = 2,
   res_eb <- limma::eBayes(res_fit, robust = robust)
   return(list(v = v, res_eb = res_eb))
 }
+
+
+compute_RRA <- function(x, alpha_thr = 1){
+  x <- x[x <= alpha_thr]
+  l <- length(x)
+  if (length(x)){
+    pb <- pbeta(sort(x), 1:l, l + 1 - 1:l) ## ~Beta(k, n + 1 -k)
+    score <- min(pb)
+    w <- which.min(pb)
+  } else {
+    score <- 1
+    w <- 1
+  }
+  res <- data.frame(score = score,  which = w)
+  return(res)
+}
+
+compute_score_RRA <- function(object, alpha_thr = 1){
+  RRA_pvalue <- tapply(object$p.value, object$gene, compute_RRA, alpha_thr = alpha_thr) %>%
+    # bind_rows(.id = "Gene") %>%
+    imap_dfr(~mutate(.x, gene = .y)) %>%
+    dplyr::rename(RRA_score = score, RRA_which = which)
+  RRA_pvalue_dep <- tapply(object$p.value_dep, object$gene, compute_RRA, alpha_thr = alpha_thr) %>%
+    # bind_rows(.id = "Gene") %>%
+    imap_dfr( ~mutate(.x, gene = .y)) %>%
+    dplyr::rename(RRA_dep_score = score, RRA_dep_which = which)
+  RRA_pvalue_enrich <- tapply(object$p.value_enrich, object$gene, compute_RRA, alpha_thr = alpha_thr) %>%
+    # bind_rows(.id = "Gene") %>%
+    imap_dfr( ~mutate(.x, gene = .y)) %>%
+    dplyr::rename(RRA_enrich_score = score, RRA_enrich_which = which)
+  object <- group_by(object, gene) %>% nest
+  res <- suppressMessages(reduce(list(object, RRA_pvalue, RRA_pvalue_dep, RRA_pvalue_enrich), full_join, by = "gene"))
+  return(res)
+}

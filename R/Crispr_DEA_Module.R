@@ -29,18 +29,22 @@ CRISPRDeaModUI <- function(id)  {
     fluidPage(
       fluidRow(
         #div(class = "span161",
-        tabsetPanel(type = "pills",id = "DEGtabs",
+        tabsetPanel(type = "pills",id = ns("DEGtabs"),
                     tabPanel("RUN DEA",
                              #fluidPage(
                              br(),
-                             #fluidRow(
+                             fluidRow(
+                             #fluidPage(
                              box(title = "Creates DEG model",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                  status = "primary",width= 12,
-                                 uiOutput(ns("vars_selUI"))
+                                 #fluidPage(
+                                 uiOutput(ns("vars_selUI")
+                                 )
+                                )
                                  #)
                              ), # end of box
                              #), # end of fluidRow
-                             #fluidRow(
+                             fluidRow(
                              box(title = "Comparison",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                  status = "primary",width= 12,
                                  column(width=6,
@@ -109,7 +113,7 @@ CRISPRDeaModUI <- function(id)  {
                                           multiple = TRUE,
                                           choicesOpt = NULL,
                                           inline = FALSE
-                                        ))),
+                                        )))),
                              br(),
                              br(),
                              actionButton(ns("Build"),"Build Model")
@@ -202,6 +206,9 @@ CRISPRDeaModUI <- function(id)  {
                                           downloadButton(ns("downdl"),"Down-regulated",class = "butt"))
                                  )#,
                              ) # end of box
+                    ),
+                    tabPanel("RRAscores",
+                    DT::dataTableOutput("RRAscores")
                     ) # end of 3 tab
         )
         #) # end of div
@@ -243,8 +250,14 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
   
   reactives <- reactiveValues(design = NULL, formula = NULL, contrast = NULL)
   groups <- reactiveValues(Group1 = NULL, Group2 = NULL)
-  sampleplanmodel <- reactiveValues(table = sampleplan$table)
-  results <- reactiveValues(res = NULL, up = NULL, down = NULL,nsignfc = NULL,v = NULL,boxplots = NULL)
+  #sampleplanmodel <- reactiveValues(table = sampleplan$table)
+  sampleplanmodel <- reactiveValues(table = NULL)
+  results <- reactiveValues(res = NULL, up = NULL, down = NULL,nsignfc = NULL,v = NULL,boxplots = NULL,
+                            scores = NULL)
+  
+  observe({
+  sampleplanmodel$table <- sampleplan$table
+  })
   
   observeEvent(input$remove1,{
     sampleplanmodel$table[input$remove1,input$var] <- "removed"
@@ -271,10 +284,10 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
           
           sampleplan <- sampleplanmodel$table
           print("sampleplanformula")
-          print(nrow(sampleplan))
+          #print(nrow(sampleplan))
           design.idx <- colnames(sampleplan)
           if(input$covar != ""){
-            print("with covar")
+            #print("with covar")
             vector <- c(input$var,input$covar)
             if(input$var != "Create your own groups"){
               formula <- as.formula(
@@ -287,7 +300,7 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
                 )} } else {
                   
                   if(input$var != "Create your own groups"){
-                    print("without covar")
+                    #print("without covar")
                     formula <- as.formula(
                       paste0('~0+',as.character(input$var))
                     )} else if (input$var == "Create your own groups"){
@@ -375,23 +388,24 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
     
   })
   
+observe({
   output$vars_selUI <- renderUI({
-    
     tagList(
-      fluidRow(
-        column(width = 10,
+      column(width = 5,
                selectInput(ns("var"),"Variable of interest :",choices = c(var,"Create your own groups"),
-                           multiple = FALSE, selected = var[1])),
-        column(width = 10,
+                           multiple = FALSE, selected = var[1],width = "100%")),
+      column(width = 5,
                selectInput(ns("covar"),"Covariables :",choices = c("None" = "",var),
-                           multiple = FALSE, selectize = TRUE, selected = "")),
-        column(width = 2,
-               actionButton(ns("help1"),"",icon = icon("info")))
-      )
+                           multiple = FALSE, selectize = TRUE, selected = "",width = "100%")),
+      column(width = 2,
+               br(),
+               actionButton(ns("help1"),"",icon = icon("info"),width = "100%"))
+      #) # end of fluidRrow
     )
   })
-  
-  
+})
+
+observe({ 
   output$Group1 <- renderUI({
     tagList(
       if(!is.null(input$var)) {
@@ -404,7 +418,7 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
       }
     )
   })
-  
+})
   observe({
     
     if(!is.null(input$var)) {
@@ -504,7 +518,8 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
   output$group1table <- renderText({
     groups$Group1
   })
-  
+
+  observe({  
   output$Group2 <- renderUI({
     tagList(
       if(input$var != "Create your own groups"){
@@ -514,7 +529,8 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
     )
     
   })
-  
+})
+
   observe({
     if(!is.null(input$var)) {
       if(input$var != "Create your own groups"){
@@ -570,17 +586,12 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
 
                    #if (!is.null(matrix$table) && !is.null(reactives$design)){
                    if (!is.null(norm_data$data$counts) && !is.null(reactives$design)){
-                     print("a")
-                       
+
                      tictoc::tic("Voom transormation and fitting linear model..")
                      #counts <- matrix$table[,colnames(matrix$table)%in%rownames(reactives$design)]
                      counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
-                     print("nrow1")
-                     print(nrow(counts))
                      kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
                      counts <- counts[kept,]
-                     print("nrow2")
-                     print(nrow(counts))
                      results$v <- limma::voomWithQualityWeights(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
                      res_fit <- limma::lmFit(results$v, method = "ls")
                      res_eb <- eBayes(res_fit, robust = FALSE)
@@ -589,7 +600,6 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
                      res_eb <- eBayes(fit, robust = FALSE)
                      
                      save(list = c('fit','res_eb'),file = "~/coockiecrisprtestRDA/CRISPR_DEA.RData")
-                     print("res saved")
                      tab <- biobroom::tidy.MArrayLM(res_eb)
                      ## add unilateral pvalues
                      tab$p.value_dep <- pt(tab$statistic, df = res_eb$df.total[1], lower.tail = TRUE)
@@ -638,17 +648,36 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
                    results$restable <- res
                  }) # end of observer
 
+n_perm <- 20000
+alpha_thr <- 0.3
+observeEvent(c(input$DEGtabs),{
+      if(input$DEGtabs == "RRAscores") {
+        if(!is.null(results$res)){
+        print(results$res)
+        withProgress(message = 'Computing per gene RRA score from DEA results', value = 0.5,{
+        incProgress(0.3)
+          results$scores <- compute_score_RRA(results$res,alpha_thr = alpha_thr)
+          scores <- results$scores
+          save(list = c("scores"), file = "~/coockiecrisprtestRDA/RRA_scores_table.rda")
+        setProgress(1)
+        print(score_RRA)
+       }) # end of progress
+      } else {
+      showModal(modalDialog(HTML(
+        "<b>Please perform differential analysis first : </b></br>
+         To do so select at least two variables for the comparison then click on the build button.
+        "),
+      title = "Variables infos",
+      footer = tagList(
+      modalButton("Got it"),
+      )))
+    }
+  } # end of if
+}) # end of observer
 
-# observeEvent(c(norm_data$data,
-#              reactives$contrast),priority = 10,{
-#   
-#   mod <- compute_model(norm_data$data, reactives$design, plot_voom = TRUE, sample_thr = 0, cpm_thr = 0, span = 0.2)
-#   n_perm <- 20000
-#   alpha_thr <- 0.3
-#   
-#   save(list = c("mod"), file = "~/coockiecrisprtestRDA/model.rda")
-#   
-# })
+output$RRAscores <- DT::renderDataTable({
+  results$scores
+})
   
   
   output$Pvals_distrib <- renderGirafe({

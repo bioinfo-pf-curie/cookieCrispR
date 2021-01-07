@@ -736,20 +736,25 @@ observe({
   }
 })
 
-#observeEvent(c(DEAMetadata$table,DEAdata$table),{
-observe({
-    if(input$sidebarmenu=="Statistical_analysis"){
-    # DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
-    #                   matrix = DEAdata,
-    #                   sampleplan = DEAMetadata,
-    #                   var = colnames(DEAMetadata$table))
-    #print(head(DEAMetadata$table))
+#observe({
+observeEvent(input$sidebarmenu,{
+  if(input$sidebarmenu=="Statistical_analysis"){
+    if(!is.null(DEAnormdata$data) & !is.null(DEAMetadata$table)){
     DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                       norm_data = DEAnormdata,
                       sampleplan = DEAMetadata,
                       var = colnames(DEAMetadata$table))
+    } else{
+      showModal(modalDialog(
+      title = "Please upload both count marix and sampleplan first",
+      footer = tagList(
+        modalButton("Got it"),
+      )))
+    }
   }
 })
+
+
 
 #########################################################################
 ############################ Help section ###############################
