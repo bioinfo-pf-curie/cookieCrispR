@@ -95,12 +95,50 @@ ui_crispr_app <- function(request){
                   box(
                     width = 12, status = "success", solidHeader = TRUE, collapsible = TRUE,collapsed = FALSE,
                     title = "Counts table",
+                    column(width = 6,
+                    pickerInput("removeguides", "Remove guides for further analysis",
+                                choices = NULL,
+                                selected = NULL,
+                                multiple = TRUE,
+                                choicesOpt = NULL,
+                                inline = FALSE,
+                                options = pickerOptions(
+                                  actionsBox = TRUE,
+                                  title = "Select guides you want to remove",
+                                  liveSearch = TRUE,
+                                  liveSearchStyle = "contains"
+                                ))),
+                    column(width = 6,
+                           pickerInput("removegenes", "Remove genes for further analysis",
+                                       choices = NULL,
+                                       selected = NULL,
+                                       multiple = TRUE,
+                                       choicesOpt = NULL,
+                                       inline = FALSE,
+                                       options = pickerOptions(
+                                         actionsBox = TRUE,
+                                         title = "Select genes you want to remove",
+                                         liveSearch = TRUE,
+                                         liveSearchStyle = "contains"
+                                       ))),
                     div(style = 'overflow-x: scroll', DT::dataTableOutput("counts_table"))
                   )),
                 fluidRow(
                   box(
                     width = 12, status = "success", solideHeader = TRUE, collapsed = FALSE,collapsible = TRUE,
                     title = "Sample plan",
+                    pickerInput("removesamples", "Remove samples for further analysis",
+                                choices = NULL,
+                                selected = NULL,
+                                multiple = TRUE,
+                                choicesOpt = NULL,
+                                inline = FALSE,
+                                options = pickerOptions(
+                                  actionsBox = TRUE,
+                                  title = "Select samples you want to remove",
+                                  liveSearch = TRUE,
+                                  liveSearchStyle = "contains"
+                                )),
                     div(style = 'overflow-x: scroll',DT::dataTableOutput("sample_plan_table")),
                   ))),
         tabItem(tabName = "Rawdist",
@@ -139,14 +177,10 @@ ui_crispr_app <- function(request){
         #tabItem("ScreeningResults",
         tabItem("Tev",
                 fluidRow(
-                  # box(collapsible = TRUE, collapsed = TRUE,
-                  #     width = 12, status = "success", solidHeader = TRUE,
-                  #     title = "Difference to initial timepoint",
                       column(width=6,plotOutput("diff_box_all", width = "100%", height = 600)),
                       column(width=6,plotOutput("diff_box_ess", width = "100%", height = 600)),
                       br(),
                       downloadButton("dldiffboxes","Download difference to zero boxes")
-                #  )
                 )
             ),
             tabItem("Roc",

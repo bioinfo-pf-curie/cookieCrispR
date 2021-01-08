@@ -127,7 +127,7 @@ CRISPRDeaModUI <- function(id)  {
                                    fluidRow(
                                    ),
                                    fluidRow(
-                                     column(width = 6,selectInput(ns("AdjMeth"),"Select an adjustment method", choices = c("BH","none","BY","holm"), selected = "BH")),
+                                     column(width = 6,selectInput(ns("AdjMeth"),"Select an adjustment method", choices = c("BH","BY","holm","none"), selected = "BH")),
                                      column(width = 6,numericInput(ns("PvalsT"),"adjusted P values threshold", min = 0, max = 1 , value = 0.05, step = 0.01))),
                                    fluidRow(
                                      column(width = 12,numericInput(ns("FCT"),"LogFC threshold", min = 0, max = 10 , value = 1, step = 0.05))#,
@@ -280,8 +280,6 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
       if(!is.null(input$var)){
         #if(!is.null(matrix$table)){
         if(!is.null(norm_data$data)){
-            
-          
           sampleplan <- sampleplanmodel$table
           print("sampleplanformula")
           #print(nrow(sampleplan))
@@ -332,11 +330,6 @@ CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan 
                   completeVec <- complete.cases(data[,"personalisedGroup"])
                   data <- data[completeVec,]
                 }
-                ########### OLD ##########
-                #mat <- matrix$table[,rownames(data)]
-                #design <- model.matrix(reactives$formula, data=data)
-                #design <- design[which(rownames(design) %in% colnames(mat)), ]
-                
                 ##### NEW ########
                 design <- model.matrix(reactives$formula, data=norm_data$data$samples)
                 #design <- model.matrix(~ 0 + Sample_description * Timepoint * Cell_line, data = norm_data$data$samples)
@@ -433,9 +426,6 @@ observe({
               title = "Create two groups for differential analysis",
               fluidRow(
                 column(width = 6,
-                       # checkboxGroupInput(ns("createGroup1"), "select samples to add in group 2",
-                       #                    choices = rownames(sampleplanmodel$table),
-                       #                    selected = NULL)),
                        pickerInput(ns("createGroup1"), "select samples to add in group 1",
                                    choices = rownames(sampleplanmodel$table),
                                    selected = NULL,
@@ -450,9 +440,6 @@ observe({
                                    ))
                 ),
                 column(width = 6,
-                       # checkboxGroupInput(ns("createGroup2"), "select samples to add in group 2",
-                       #                                      choices = rownames(sampleplanmodel$table),
-                       #                                      selected = NULL)
                        pickerInput(ns("createGroup2"), "select samples to add in group 2",
                                    choices = rownames(sampleplanmodel$table),
                                    selected = NULL,
@@ -584,11 +571,9 @@ observe({
   observeEvent(c(norm_data$data$counts,
                  reactives$contrast),priority = 10,{
 
-                   #if (!is.null(matrix$table) && !is.null(reactives$design)){
                    if (!is.null(norm_data$data$counts) && !is.null(reactives$design)){
 
                      tictoc::tic("Voom transormation and fitting linear model..")
-                     #counts <- matrix$table[,colnames(matrix$table)%in%rownames(reactives$design)]
                      counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
                      kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
                      counts <- counts[kept,]
@@ -611,11 +596,6 @@ observe({
                      tab <- tab[order(tab$adj_p.value),]
                      results$res <- tab
                      save(list = c("tab"), file = "~/coockiecrisprtestRDA/results_res_new.rda")
-                     
-                     # res <- topTable(fit, number=nrow(counts), adjust.method=input$AdjMeth)
-                     # res <- res[order(res$adj.P.Val),]
-                     # res$genes <- rownames(res)
-                     #results$res <- res
                    } # end of if NULL
                    toc(log = TRUE)
                  }) # end of observer
@@ -629,7 +609,6 @@ observe({
   observeEvent(c(results$res,
                  input$FCT,
                  input$PvalsT),ignoreInit = TRUE,{
-
                    res <- results$res
                    nsign <- length(which(res$adj_p.value < input$PvalsT))
                    results$nsignfc <- length(which(res$adj_p.value < input$PvalsT & abs(res$estimate) > input$FCT))
@@ -637,10 +616,6 @@ observe({
                    #down <- which(res$adj_p.value_dep < input$PvalsT & res$estimate < -input$FCT)
                    up <- which(res$adj_p.value_enrich < input$PvalsT)
                    down <- which(res$adj_p.value_dep < input$PvalsT)
-                   #res$t <- NULL
-                   #res$P.Value <- NULL
-                   #res$B <- NULL
-                   #res$label <- NULL
                    res$ENSEMBL <- createLink(rownames(res))
                    print('end of DEG')
                    results$up <- res[up,]
@@ -669,8 +644,8 @@ observeEvent(c(input$DEGtabs),{
         "),
       title = "Variables infos",
       footer = tagList(
-      modalButton("Got it"),
-      )))
+      modalButton("Got it"))
+      ))
     }
   } # end of if
 }) # end of observer
@@ -679,15 +654,8 @@ output$RRAscores <- DT::renderDataTable({
   results$scores
 })
   
-  
   output$Pvals_distrib <- renderGirafe({
     req(results$res)
-    # plot <- ggplot(data = results$res) + aes(x = `P.Value`) +
-    #   geom_histogram_interactive(fill = "steelblue",breaks = seq(0, 1, length.out = 20))
-    # build  <- ggplot_build(plot)
-    # plot <- plot +  labs(title = "P values distribution", x = "P values", y = "Occurences")# +
-    # ggiraph::girafe(code = {print(plot)})
-    #plot <- ggplot(data = results$res) + aes(x = `p.value`) +
     plot <- ggplot(data = results$res) + aes(x = `adj_p.value`) +
       geom_histogram_interactive(fill = "steelblue",breaks = seq(0, 1, length.out = 30))
     build  <- ggplot_build(plot)
@@ -696,11 +664,8 @@ output$RRAscores <- DT::renderDataTable({
 
   })
   
-  #input$GeneVolcano
   observe({
-    #updatePickerInput("GeneVolcano", session = session, choices = rownames(matrix$table))
     updatePickerInput("GeneVolcano", session = session, choices = rownames(norm_data$data$counts))
-    
   })
   
   Volcano <- reactiveValues(plot = NULL)
@@ -732,20 +697,13 @@ output$RRAscores <- DT::renderDataTable({
   })
   
   output$Volcano <- renderPlot({
-
     req(Volcano$plot)
     tic("Rendering Volcano...")
     ggplot <- Volcano$plot +
-      #geom_point(data = subset(results$res,genes %in% input$GeneVolcano),
       geom_point(data = subset(results$res,gene %in% input$GeneVolcano),
                  color = "purple", alpha = 0.6) +
       ggrepel::geom_text_repel(
-        #data = subset(results$res, adj.P.Val < input$PvalsT),
-        #data = results$res[which(rownames(results$res) %in% input$GeneVolcano),],
-        #data = subset(results$res,genes %in% input$GeneVolcano),
         data = subset(results$res,gene %in% input$GeneVolcano),
-        #aes(label = results$res$label),
-        #aes(label = genes),
         aes(label = gene),
         size = 5,
         force = 2,
@@ -757,10 +715,11 @@ output$RRAscores <- DT::renderDataTable({
   })
   
   observeEvent(input$GeneVolcano,{
-
     if(length(input$GeneVolcano) >1){
-      req(matrix$table)
+      req(norm_data$data)
       req(sampleplanmodel$table)
+      withProgress(message = 'Drawing boxplots with selected genes', value = 0.5,{
+      incProgress(0.3)
       groups_table <- sampleplanmodel$table
       groups_table$Samples <- rownames(groups_table)
       if(input$var != "Create your own groups"){
@@ -775,6 +734,7 @@ output$RRAscores <- DT::renderDataTable({
       boxplotdata <- results$v$E[which(rownames(results$v$E) %in% input$GeneVolcano),]
       boxplotdata <- rbind(boxplotdata,colnames(boxplotdata))
       rownames(boxplotdata)[nrow(boxplotdata)] <- "Samples"
+      incProgress(0.3)
       boxplotdata <- as.data.frame(t(boxplotdata)) %>%  gather(key = "GENE",value = "COUNTS", -Samples)
       boxplotdata$Samples <- as.character(boxplotdata$Samples)
       boxplotdata <- inner_join(boxplotdata,groups_table, by = "Samples")
@@ -796,68 +756,83 @@ output$RRAscores <- DT::renderDataTable({
                      pch=21,
                      # size = 2,
                      aes_string(fill="personalisedGroup"), show.legend = T)
+        setProgress(1)
       }
-    }
+      }) # end of progress
+      }
   })
   
-  # output$boxplots <- renderPlot(results$boxplots)
-  # output$boxplots_error <- renderText({
-  #   validate(
-  #     need(length(input$GeneVolcano) >= 2, "Select at least two genes to draw boxplots...")
-  #   )
-  # })
-  
+  output$boxplots <- renderPlot(results$boxplots)
+  output$boxplots_error <- renderText({
+    validate(
+      need(length(input$GeneVolcano) >= 2, "Select at least two genes to draw boxplots...")
+    )
+  })
+
   output$results_table <- DT::renderDataTable({
-    a <- results$restable %>%
-      column_to_rownames("gene")
-    #a$genes <- NULL
+    res <- bind_rows(results$up,results$down) %>%
+      column_to_rownames("gene")%>%
+      select(c("estimate","adj_p.value_dep","adj_p.value_enrich")) %>%
+      mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
+      select(c("estimate","adj_p.value"))
+    colnames(res) <- c("logFC","adj_p.value")
     datatable(
-      a,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
+      res,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
     })
-  
-  
-  output$resdl <- downloadHandler(
-    filename = function() {
-      paste("DEA-PDX-Results", Sys.Date(), ".csv", sep=",")
-    },
-    content = function(file) {
-      write.csv(results$res, file)
-    }
-  )
-  
-  output$up_table <- DT::renderDataTable({
-    a <- results$up %>%
-      column_to_rownames("gene")
-    #a$genes <- NULL
-    datatable(
-      a,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))})
-  
+
+output$resdl <- downloadHandler(
+  filename = function() {
+    paste("DEA-PDX-Results", Sys.Date(), ".csv", sep=",")
+  },
+  content = function(file) {
+    write.csv(results$res, file)
+  }
+)
+
+output$up_table <- DT::renderDataTable({
+  ups <- results$up %>%
+    column_to_rownames("gene") %>%
+    select(c("estimate","adj_p.value_enrich"))
+  colnames(ups) <- c("logFC","adj_p.value_enrich")
+  datatable(
+    ups,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
+  })
+
   output$updl <- downloadHandler(
     filename = function() {
       paste("DEA-UPPS-PDX-Results", Sys.Date(), ".csv", sep=",")
     },
     content = function(file) {
-      write.csv(results$up, file)
+      ups <- results$up %>%
+        column_to_rownames("gene") %>%
+        select(c("estimate","adj_p.value_enrich"))
+      colnames(ups) <- c("logFC","adj_p.value_enrich")
+      write.csv(ups, file)
     }
   )
-  
-  
+
   output$down_table <- DT::renderDataTable({
-    a <- results$down %>%
-      column_to_rownames("gene")
-    #a$genes <- NULL
+    downs <- results$down %>%
+      column_to_rownames("gene") %>%
+      select(c("estimate","adj_p.value_dep"))
+    colnames(downs) <- c("logFC","adj_p.value_dep")
     datatable(
-      a,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))})
-  
+      downs,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
+    })
+
   output$downdl <- downloadHandler(
     filename = function() {
       paste("DEA-DOWN-PDX-Results", Sys.Date(), ".csv", sep=",")
     },
     content = function(file) {
-      write.csv(results$down, file)
+      downs <- results$down %>%
+        column_to_rownames("gene")%>%
+        select(c("estimate","adj_p.value_dep"))
+      colnames(downs) <- c("logFC","adj_p.value_dep")
+      write.csv(downs, file)
     }
   )
-  
+
   output$featuress <-
     renderInfoBox({
       req(results$nsignfc)
@@ -869,25 +844,18 @@ output$RRAscores <- DT::renderDataTable({
     })
   
   output$upp_numbers <-
-    #renderInfoBox({
     renderValueBox({
       req(results$up)
-      # column(width = 12,
-      #infoBox(
       valueBox(
         as.character(nrow(results$up)),
         "Upp regulated features",
         icon = icon("dna"),color = "red"
-        # "Number of features passing FC and Pval Filters",
-        # paste(nrow(results$up),"Upp uppregulated features"),
       )
-      # )
     })
   
   output$features_value_box <- renderUI({
     fluidRow(
       column(width = 6,
-             #infoBoxOutput(ns("down_numbers")),
              valueBoxOutput(ns('down_numbers'),width =  12)),
       column(width = 6,
              valueBoxOutput(ns("upp_numbers"),width =  12)
@@ -895,24 +863,15 @@ output$RRAscores <- DT::renderDataTable({
   })
   
   output$down_numbers <-
-    #renderInfoBox({
     renderValueBox({
-      
       req(results$down)
-      #column(width = 12,
       valueBox(
         as.character(nrow(results$down)),
         "Down regulated features",
         icon = icon("dna"),color = "blue"
       )
-      #)
     })
   
-  #observeEvent(c(results$res,results$nsignfc),{
-  #observe({
-  #})
   return(results)
-  #})
-  
-  
+
 }

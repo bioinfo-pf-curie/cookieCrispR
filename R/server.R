@@ -18,7 +18,8 @@ session$allowReconnect(TRUE)
 ##### Usefull variables #############
 reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
                               joined = NULL,countsRaw = NULL, counts = NULL,
-                            annot_sgRNA = NULL, norm_data =  NULL)
+                            annot_sgRNA = NULL, norm_data =  NULL, guidelist = NULL,
+                            genelist =  NULL,sample = NULL)
 
 ##### Upload files and datatable construction ####################
 ## counts table  
@@ -92,12 +93,37 @@ observeEvent(precheck$counts,{
       } else {
       counts <- dplyr::rename(counts, sgRNA = .data$X)
       counts <- dplyr::select(counts, -.data$sequence)
-      reactives$countsRaw <- counts
+      reactives$guidelist <- as.character(unique(counts$sgRNA))
+      print("hahahaha")
+      print(head(reactives$guidelist))
+      reactives$genelist <- as.character(unique(counts$gene))
+      print("grosprout")
+      reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
       }
     precheck$counts <- FALSE
   }
 })
-  
+
+observeEvent(reactives$guidelist,{
+  req(reactives$guidelist)
+  updatePickerInput(session, "removeguides",choices = reactives$guidelist)
+})
+
+observeEvent(reactives$genelist,{
+   req(reactives$genelist)
+   updatePickerInput(session, "removegenes",choices = as.character(reactives$genelist))
+})
+
+observeEvent(c(input$removeguides,input$removegenes,reactives$countsRaw),{
+  if (!is.null(input$removeguides) | !is.null(input$removegenes)){
+  reactives$selectedcountsRaw <-   reactives$countsRaw %>%
+    filter(!(sgRNA %in% input$removeguides)) %>%
+    filter(!(gene %in% input$removegenes))
+  } else {
+    reactives$selectedcountsRaw <- reactives$countsRaw
+  }
+})
+
 observeEvent(c(input$sample_plan),{
                  print("checking file separator in sample plan file ...")
                  req(input$sample_plan)
@@ -124,12 +150,15 @@ observeEvent(c(input$sample_plan),{
                  if(semicolonssplan ==  TRUE && commassplan == FALSE){
                   samples <- read.table(inFile$datapath, sep = ";", header = TRUE, fill = TRUE)
                   reactives$sampleplanRaw <- samples
+                  reactives$samples <- samples$Sample_ID
                  } else if (commassplan == TRUE && semicolonssplan ==  FALSE ){
                    samples <- read.table(inFile$datapath, sep = ",", header = TRUE, fill = TRUE)
                    reactives$sampleplanRaw <- samples
+                   reactives$samples <- samples$Sample_ID
                  } else if (commassplan == FALSE && semicolonssplan ==  FALSE && tabssplan == TRUE ){
                    samples <- read.table(inFile$datapath, sep = "\t", header = TRUE, fill = TRUE)
                    reactives$sampleplanRaw <- samples
+                   reactives$samples <- samples$Sample_ID
                  }  else if(semicolonssplan ==  TRUE && commassplan == TRUE){
                      showModal(modalDialog(p(""),
                                            title = h4(HTML("Both <b>Comma</b>  ans <b>semicolon </b> detected in your sample plan file"),style="color:red"),
@@ -153,7 +182,7 @@ observeEvent(reactives$sampleplanRaw,{
           mutate(Timepoint = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
       print("DONE")
       
-      reactives$sampleplan <- samples
+      reactives$sampleplan <- samples %>% filter(!(Sample_ID %in% input$removesamples))
       }
     
 }) # end of observer
@@ -162,9 +191,10 @@ observeEvent(reactives$sampleplanRaw,{
 observeEvent(c(reactives$countsRaw,reactives$sampleplan,
                input$timepoints_order),{
                  
-      if(!is.null(reactives$countsRaw) & !is.null(reactives$sampleplan)){
+      if(!is.null(reactives$selectedcountsRaw) & !is.null(reactives$sampleplan)){
         samples <- reactives$sampleplan
-        counts  <- reactives$countsRaw
+        counts <- reactives$selectedcountsRaw
+        #counts  <- reactives$countsRaw
         annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
         counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
         counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
@@ -292,16 +322,21 @@ observe({
   print(input$restore)
   if (!is.null(reactives$countsRaw)){
     output$counts_table <- DT::renderDataTable({
-      DT::datatable(reactives$countsRaw, rownames = FALSE)
+      DT::datatable(reactives$selectedcountsRaw, rownames = FALSE)
     })
 }
 }) # end of observer
 
+observeEvent(reactives$samples,{
+req(reactives$samples)
+updatePickerInput(session=session,"removesamples",choices = reactives$samples)
+})
+    
+    
 observe({
     print(input$restore)
     output$sample_plan_table <- DT::renderDataTable({
       if (!is.null(reactives$sampleplan)){
-      print(class(reactives$sampleplan))
       sample_plan <- reactives$sampleplan
       sample_plan <- dplyr::select(sample_plan, -.data$Timepoint_num)
       return(DT::datatable(sample_plan,rownames = FALSE))
@@ -725,12 +760,12 @@ observe({
   if(!is.null(reactives$countsRaw)){
     DEAdata$table <- reactives$countsRaw %>%
       column_to_rownames("sgRNA")
-    #print(head(DEAdata$table))
   }
   if(!is.null(reactives$sampleplan)){
     DEAMetadata$table <- reactives$sampleplan %>%
-      column_to_rownames("Sample_ID")
-  }
+      column_to_rownames("Sample_ID") %>%
+      select(c("Cell_line","Timepoint","Treatment"))
+    }
   if(!is.null(reactives$norm_data)){
     DEAnormdata$data <- reactives$norm_data
   }
@@ -753,8 +788,6 @@ observeEvent(input$sidebarmenu,{
     }
   }
 })
-
-
 
 #########################################################################
 ############################ Help section ###############################
