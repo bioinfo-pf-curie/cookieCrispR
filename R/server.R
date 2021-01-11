@@ -94,10 +94,8 @@ observeEvent(precheck$counts,{
       counts <- dplyr::rename(counts, sgRNA = .data$X)
       counts <- dplyr::select(counts, -.data$sequence)
       reactives$guidelist <- as.character(unique(counts$sgRNA))
-      print("hahahaha")
       print(head(reactives$guidelist))
       reactives$genelist <- as.character(unique(counts$gene))
-      print("grosprout")
       reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
       }
     precheck$counts <- FALSE
@@ -355,8 +353,9 @@ observe({
         counts <- full_join(reactives$counts, reactives$sampleplan) %>%
           mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order))
       } else {
+        print(reactives$sampleplan$Timepoint)
         counts <- full_join(reactives$counts, reactives$sampleplan) %>%
-          mutate(Timepoint = factor(.data$Timepoint, levels = .data$Timepoint))
+          mutate(Timepoint = factor(.data$Timepoint, levels = unique(.data$Timepoint)))
       }
       counts <- as.data.frame(counts) %>%
         group_by(.data$Sample_ID, .data$Replicate, .data$Cell_line, .data$Timepoint) %>%
@@ -578,7 +577,7 @@ observe({
       req(input$timepoints_order)
         firstpoint <- input$timepoints_order[[1]]
         counts$Timepoint <- relevel(as.factor(counts$Timepoint), ref = firstpoint)
-        
+
         fin <- counts %>%
           group_by(sgRNA, Cell_line, Replicate) %>%
           arrange(Timepoint) %>%
