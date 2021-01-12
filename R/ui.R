@@ -121,7 +121,8 @@ ui_crispr_app <- function(request){
                                          liveSearch = TRUE,
                                          liveSearchStyle = "contains"
                                        ))),
-                    div(style = 'overflow-x: scroll', DT::dataTableOutput("counts_table"))
+                    #div(style = 'overflow-x: scroll', DT::dataTableOutput("counts_table"))
+                    DT::dataTableOutput("counts_table")
                   )),
                 fluidRow(
                   box(

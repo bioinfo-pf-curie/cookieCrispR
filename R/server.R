@@ -19,7 +19,8 @@ session$allowReconnect(TRUE)
 reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
                               joined = NULL,countsRaw = NULL, counts = NULL,
                             annot_sgRNA = NULL, norm_data =  NULL, guidelist = NULL,
-                            genelist =  NULL,sample = NULL)
+                            genelist =  NULL,sample = NULL,checkcoherence = TRUE, normalize = TRUE,
+                            checkcountscols = FALSE)
 
 ##### Upload files and datatable construction ####################
 ## counts table  
@@ -94,7 +95,6 @@ observeEvent(precheck$counts,{
       counts <- dplyr::rename(counts, sgRNA = .data$X)
       counts <- dplyr::select(counts, -.data$sequence)
       reactives$guidelist <- as.character(unique(counts$sgRNA))
-      print(head(reactives$guidelist))
       reactives$genelist <- as.character(unique(counts$gene))
       reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
       }
@@ -112,14 +112,21 @@ observeEvent(reactives$genelist,{
    updatePickerInput(session, "removegenes",choices = as.character(reactives$genelist))
 })
 
-observeEvent(c(input$removeguides,input$removegenes,reactives$countsRaw),{
+observeEvent(c(input$removeguides,input$removegenes,reactives$countsRaw,input$removesamples),{
+  print("data filters observer")
+  reactives$checkcountscols <- FALSE
   if (!is.null(input$removeguides) | !is.null(input$removegenes)){
-  reactives$selectedcountsRaw <-   reactives$countsRaw %>%
+  selectedcountsRaw <-   reactives$countsRaw %>%
     filter(!(sgRNA %in% input$removeguides)) %>%
     filter(!(gene %in% input$removegenes))
   } else {
-    reactives$selectedcountsRaw <- reactives$countsRaw
+    selectedcountsRaw  <- reactives$countsRaw
   }
+  if(!is.null(input$removesamples)){
+    selectedcountsRaw <- selectedcountsRaw[,!(colnames(selectedcountsRaw) %in% input$removesamples)]
+    reactives$checkcountscols <- TRUE
+  }
+    reactives$selectedcountsRaw <- selectedcountsRaw
 })
 
 observeEvent(c(input$sample_plan),{
@@ -129,6 +136,7 @@ observeEvent(c(input$sample_plan),{
                  if(grepl(".xls",inFile$name) == TRUE){
                   samples <- openxlsx::read.xlsx(inFile$datapath, colNames = TRUE,rowNames = FALSE)
                   reactives$sampleplanRaw <- samples
+                  reactives$samples <- samples$Sample_ID
                  } else {
                  semicolonssplan <- FALSE
                  commassplan <- FALSE
@@ -169,7 +177,7 @@ observeEvent(c(input$sample_plan),{
       print("end of sampleplan check sep")
 })
 
-observeEvent(reactives$sampleplanRaw,{    
+observeEvent(c(reactives$sampleplanRaw,input$removesamples),{    
       
       if(reactives$sampleplanGood == TRUE){
       print("Arranging sample plan")
@@ -185,15 +193,18 @@ observeEvent(reactives$sampleplanRaw,{
     
 }) # end of observer
     
+observeEvent(c(input$removesamples),{
+  reactives$checkcoherence <- FALSE
+})
+
 ## Join counts and annotations
-observeEvent(c(reactives$countsRaw,reactives$sampleplan,
+observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
                input$timepoints_order),{
-                 
       if(!is.null(reactives$selectedcountsRaw) & !is.null(reactives$sampleplan)){
         samples <- reactives$sampleplan
         counts <- reactives$selectedcountsRaw
         #counts  <- reactives$countsRaw
-        annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
+        reactives$annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
         counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
         counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
         counts <- counts %>%
@@ -201,8 +212,9 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
           dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log2(1 + cpm))  %>%
           dplyr::ungroup()
         
+      if(reactives$checkcoherence ==  TRUE){
       if (TRUE %in% unique(!(unique(counts$Sample_ID) %in% samples$Sample_ID))){
-      if(input$sidebarmenu == "DataInput"){
+      if(input$sidebarmenu == "DataInput" && reactives$checkcountscols == TRUE){
        showModal(modalDialog(p(""),
                     title = "Missing samples in provided sampleplan",
                     tagList(h6('The folowing samples :'),
@@ -217,18 +229,24 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
       }
       counts <- counts  %>%
           filter(Sample_ID %in% samples$Sample_ID)
-      }
+      } # end of check unique
+      } # end of check coherence
       reactives$counts <- counts
-      
-      #############################################
-      #### Comment this block to retrieve old cpm way
-      counts <- counts %>%
+      } # end of if is null
+
+})
+
+observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu),{
+      samples <- reactives$sampleplan
+      if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & input$sidebarmenu != "DataInput" & reactives$normalize == TRUE){
+      reactives$normalize <- "DONE"
+      withProgress(message = 'Data normalization', value = 0.5, {
+      annot_sgRNA <- reactives$annot_sgRNA
+      counts <- reactives$counts %>%
            dplyr::select(sgRNA, Sample_ID,count) %>%
            spread(key = Sample_ID, value = count) %>%
            as.data.frame() %>%
            column_to_rownames("sgRNA")
-
-      save(list = c("counts","annot_sgRNA","samples"), file = "~/coockiecrisprtestRDA/norm_cpm.rda")
 
       control_sgRNA <- filter(annot_sgRNA, str_detect(Gene,"Non-Targeting"))
       if(nrow(control_sgRNA) == 0){
@@ -240,6 +258,7 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
                              sgRNA_annot = annot_sgRNA, control_sgRNA = control_sgRNA$sgRNA)
       
       reactives$norm_data <- norm_data
+      incProgress(0.3)
 
       norm_cpm <- cpm(norm_data$counts, log = FALSE)
       norm_cpm <- cbind(norm_cpm,norm_data$genes)
@@ -252,7 +271,7 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
           dplyr::mutate(log_cpm = log2(1 + .data$cpm)) %>%
           dplyr::mutate(log10_cpm = log10(1 + .data$cpm)) %>%
           dplyr::ungroup()
-
+     
       if(!(is.null(input$timepoints_order))){
       norm_cpm <- full_join(norm_cpm, samples) %>%
         mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order))
@@ -271,7 +290,8 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
       #   
       ##################################################
       reactives$annot_sgRNA <- annot_sgRNA
-      
+      setProgress(1)
+      }) # end of progress
       }# end of if
 }) # End of observer    
 
@@ -297,6 +317,7 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
         
       req(input$timepoints_order)
       req(reactives$joined)
+      #if(input$sidebarmenu != "DataInput"){
       withProgress(message = 'Difference to initial timepoint calculation', value = 0.5, {
       counts <- reactives$joined
       firstpoint <- input$timepoints_order[[1]]
@@ -310,31 +331,26 @@ observeEvent(c(reactives$countsRaw,reactives$sampleplan,
         ungroup()
      
       print("DONE")
-      save(list = "fin", file = "~/coockiecrisprtestRDA/diff_T0.rda")
       return(fin)
       })
+      #} # end of conditionnal sidebarmenu
     })
 
 ######### Plots and tables outputs ####################################
-observe({
-  print(input$restore)
-  if (!is.null(reactives$countsRaw)){
     output$counts_table <- DT::renderDataTable({
-      DT::datatable(reactives$selectedcountsRaw, rownames = FALSE)
+      print("selectedCountsRaw table observer")
+      DT::datatable(reactives$selectedcountsRaw, rownames = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
     })
-}
-}) # end of observer
 
 observeEvent(reactives$samples,{
 req(reactives$samples)
 updatePickerInput(session=session,"removesamples",choices = reactives$samples)
 })
     
-    
 observe({
-    print(input$restore)
     output$sample_plan_table <- DT::renderDataTable({
       if (!is.null(reactives$sampleplan)){
+      print("sampleplan table observer")
       sample_plan <- reactives$sampleplan
       sample_plan <- dplyr::select(sample_plan, -.data$Timepoint_num)
       return(DT::datatable(sample_plan,rownames = FALSE))
@@ -342,13 +358,10 @@ observe({
     })
 }) # end of observer
        
-    output$joined <- DT::renderDataTable({
-      diff_t0()
-    })
-    
     read_number <- reactiveValues(plot = NULL)
     observeEvent(c(reactives$counts,reactives$sampleplan,reactives$timepoints_order),{
     if(!is.null(reactives$counts) & !is.null(reactives$sampleplan)){
+      print("read number observer")
       if(!(is.null(input$timepoints_order))){
         counts <- full_join(reactives$counts, reactives$sampleplan) %>%
           mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order))
@@ -598,15 +611,9 @@ observe({
           .data$Gene %in% non_ess_genes[,1] ~ "-", 
           TRUE ~ NA_character_)) %>%
         filter(!is.na(.data$type)) %>%
-        mutate(TP = cumsum(.data$type == "+") / sum(.data$type == "+"), FP = cumsum(.data$type == "-") / sum(.data$type == "-"))
-      
-      save(list = c("d"), file = "~/coockiecrisprtestRDA/Grouped_D.rda")
-      
-      d <- d %>%
+        mutate(TP = cumsum(.data$type == "+") / sum(.data$type == "+"), FP = cumsum(.data$type == "-") / sum(.data$type == "-")) %>%
         ungroup()
       
-      save(list = c("d"), file = "~/coockiecrisprtestRDA/D.rda")
-
       print("Calulating AU ROC Curves")
       by_rep <- split(d, f= d$Replicate)
       by_rep_cl <- unlist(lapply(X = by_rep, FUN = function(x){split(x, f = x$Cell_line)}),recursive = FALSE)
@@ -747,31 +754,26 @@ observeEvent(c(ClustData_non_ess$table,ClustMetadata$table),{
   }
 })
 
-
 ######################################################################################################
 ######################################## DEA #########################################################
 ######################################################################################################
 
-DEAdata <- reactiveValues(table = NULL)
 DEAMetadata <- reactiveValues(table = NULL)
 DEAnormdata <- reactiveValues(data = NULL)
 observe({
-  if(!is.null(reactives$countsRaw)){
-    DEAdata$table <- reactives$countsRaw %>%
-      column_to_rownames("sgRNA")
-  }
   if(!is.null(reactives$sampleplan)){
     DEAMetadata$table <- reactives$sampleplan %>%
-      column_to_rownames("Sample_ID") %>%
-      select(c("Cell_line","Timepoint","Treatment"))
+       filter(!(Sample_ID %in% input$removesamples)) %>%
+       column_to_rownames("Sample_ID") %>%
+       select(c("Cell_line","Timepoint","Treatment")) 
     }
   if(!is.null(reactives$norm_data)){
     DEAnormdata$data <- reactives$norm_data
   }
 })
 
-#observe({
-observeEvent(input$sidebarmenu,{
+observeEvent(c(DEAnormdata$data,DEAMetadata$table,input$sidebarmenu),{
+    
   if(input$sidebarmenu=="Statistical_analysis"){
     if(!is.null(DEAnormdata$data) & !is.null(DEAMetadata$table)){
     DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
@@ -780,12 +782,20 @@ observeEvent(input$sidebarmenu,{
                       var = colnames(DEAMetadata$table))
     } else{
       showModal(modalDialog(
-      title = "Please upload both count marix and sampleplan first",
+      title = "Please upload both count matrix and sampleplan first",
       footer = tagList(
         modalButton("Got it"),
       )))
     }
   }
+  if(input$sidebarmenu=="Rawdist" | input$sidebarmenu=="Rawdist" | input$sidebarmenu=="Tev" | input$sidebarmenu=="Roc" | input$sidebarmenu == "Clustering" | input$sidebarmenu == "CompCond"){
+    if(is.null(input$counts) | is.null(input$sample_plan)){
+      showModal(modalDialog(
+        title = "Please upload both count matrix and sampleplan first",
+        footer = tagList(
+          modalButton("Got it"),
+        )))
+  }}
 })
 
 #########################################################################
