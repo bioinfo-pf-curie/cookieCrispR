@@ -15,6 +15,7 @@
 #' @importFrom shinyjqui orderInput
 #' @importFrom shinyjs useShinyjs runjs
 #' @importFrom shinyAce updateAceEditor aceEditor aceAutocomplete
+#' @importFrom htmlwidgets JS
 #' @import knitr
 #' @importFrom xfun embed_files
 #' @import kableExtra

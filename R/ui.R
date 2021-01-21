@@ -67,12 +67,6 @@ ui_crispr_app <- function(request){
                                            #fluidRow(
                                           column(width = 6,
                                                  fileInput("counts","Global counts")),
-                                          # column(width = 6,              
-                                          #        radioButtons("Fsc","Global counts field separator",
-                                          #                     choices=c('comma'= ",",'semicolon' = ";"), 
-                                          #                     selected = ",",
-                                          #                     inline = TRUE)
-                                          #  ),#),
                                            column(width = 12,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
                                                                       buttonLabel=list(icon("angle-double-up"))))
                                            ),
@@ -234,7 +228,8 @@ ui_crispr_app <- function(request){
                 fluidRow(plotlyOutput("positive_boxplots"))
         ),
         tabItem(tabName = "Statistical_analysis",
-                CRISPRDeaModUI(id = "DEA")),
+                #CRISPRDeaModUI(id = "DEA")),
+                CRISPRDeaModUIMod(id = "DEA")),
         tabItem(tabName = "Report",
                         tabPanel(
                           "Report Editor",
