@@ -52,14 +52,14 @@ CRISPRDeaModUIMod <- function(id)  {
                             column(width = 6,
                                    pickerInput(ns("comptype"),
                                          label = "Select a type of comparison",
-                                         choices = c("Intra-Treament","Inter-Treatment"),
+                                         choices = c("Intra-Treatment","Inter-Treatment"),
                                          options = pickerOptions(
                                            actionsBox = TRUE,
                                            title = "Select comparison",
                                            liveSearch = TRUE,
                                            liveSearchStyle = "contains",
                                          ),
-                                  selected = "Intra-Treament",
+                                  selected = "Intra-Treatment",
                                   multiple = FALSE,
                                   choicesOpt = NULL,
                                   inline = FALSE)),
@@ -67,7 +67,7 @@ CRISPRDeaModUIMod <- function(id)  {
                                   br(),
                                   actionButton(ns("Build"),"Build Model",width = '100%')),
                                   column(width = 6,
-                                  conditionalPanel(condition = 'input.comptype == "Intra-Treament"' ,ns = NS(id),
+                                  conditionalPanel(condition = 'input.comptype == "Intra-Treatment"' ,ns = NS(id),
                                                    pickerInput(ns("Treatlevel"),
                                                    "Select a treatment to perform intra comparison",choices = NULL,
                                                     options = pickerOptions(
@@ -89,7 +89,7 @@ CRISPRDeaModUIMod <- function(id)  {
                                                         title = "Select Treatment",
                                                         liveSearch = TRUE,
                                                         liveSearchStyle = "contains"))),
-                                              conditionalPanel(condition = 'output.conditionnalTreatment != "1"' ,ns = NS(id),
+                                              conditionalPanel(condition = 'output.conditionnalMutTreatment != "1"' ,ns = NS(id),
                                                  pickerInput(ns("Mut1"),
                                                              "Group1 sample mutation type",choices = NULL,
                                                              options = pickerOptions(
@@ -133,7 +133,8 @@ CRISPRDeaModUIMod <- function(id)  {
                     tabPanel("Figures",
                              br(),
                              tagList(
-                               fluidRow(infoBoxOutput(ns("selected_line"))),
+                               #fluidRow(column(width = 12,infoBoxOutput(ns("selected_line")))),
+                               fluidRow(column(width = 12,uiOutput(ns("selected_line")))),
                                fluidRow(box(title = span(icon("cogs"), "Parameters"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                    status = "success",width= 12,
                                    #fluidRow(
@@ -195,20 +196,19 @@ CRISPRDeaModUIMod <- function(id)  {
                                  #fluidRow(
                                    tags$head(tags$style(".butt{background-color:#2E8B57;}")),
                                    column(width =12,
-                                          h4("All genes :",style="padding-left:20px"),
                                           h4("All genes :"),
                                           br(),
                                           DT::dataTableOutput(ns('results_table')),
                                           downloadButton(ns("resdl"),"All genes",class = "butt")),
                                    column(width = 12,
                                           br(),
-                                          h4("Upp regulated genes :",style="padding-left:20px"),
+                                          h4("Upp regulated genes :"),
                                           br(),
                                           DT::dataTableOutput(ns('up_table')),
                                           downloadButton(ns("uppdl"),"Up-regulated",class = "butt")),
                                    column(width = 12,
                                           br(),
-                                          h4("Down regulated genes :",style="padding-left:20px"),
+                                          h4("Down regulated genes :"),
                                           #br(),
                                           DT::dataTableOutput(ns('down_table')),
                                           downloadButton(ns("downdl"),"Down-regulated",class = "butt"))
@@ -271,43 +271,59 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
     }
   })
   observeEvent(c(sampleplanmodel$table,input$comptype),{
-    print(head(sampleplanmodel$table))
+    #print(head(sampleplanmodel$table))
     updatePickerInput(session=session,"Treatlevel",
                       choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
                       selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[1])
   })
-  observeEvent(c(sampleplanmodel$table,input$newcomparison),{
+  observeEvent(c(sampleplan$table),{
     updatePickerInput(session=session,"celline",
                       choices = unique(sampleplan$table$Cell_line),selected = unique(sampleplan$table$Cell_line)[1])
   })
   observeEvent(c(sampleplanmodel$table,input$comptype),{
+    if(length(unique(sampleplanmodel$table$Treatment)) >= 2){
     updatePickerInput(session=session,"TreatlevelInter1",
                       choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
                       selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[1])
     updatePickerInput(session=session,"TreatlevelInter2",
                       choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
                       selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[2])
+    }
   })
   observeEvent(c(sampleplanmodel$table,input$comptype),{
+    if(length(unique(sampleplanmodel$table$Sample_description)) >= 2){
     updatePickerInput(session=session,"Mut1",
                       choices = unique(as.character(sampleplanmodel$table[,"Sample_description"])),
                       selected = unique(as.character(sampleplanmodel$table[,"Sample_description"]))[1])
     updatePickerInput(session=session,"Mut2",
                       choices = unique(as.character(sampleplanmodel$table[,"Sample_description"])),
-                      selected = unique(as.character(sampleplanmodel$table[,"Sample_description"]))[1])
+                      selected = unique(as.character(sampleplanmodel$table[,"Sample_description"]))[2])
+    }
   })
   #observeEvent(c(input$TreatlevelInter1,input$TreatlevelInter2,input$Mut1,input$Mut2),{
     output$Intercompresume1 <- renderText({
       paste0("You are about to compare these samples : ")
     })
     output$Intercompresume2 <- renderText({
+      if(length(unique(sampleplanmodel$table$Treatment)) >= 2 & length(unique(sampleplanmodel$table$Sample_description)) >= 2){
       paste0(input$TreatlevelInter1,"_",input$Mut1)
+      } else if (length(unique(sampleplanmodel$table$Treatment)) == 1  & length(unique(sampleplanmodel$table$Sample_description)) >= 2){
+        paste0(input$Mut1)
+      } else if (length(unique(sampleplanmodel$table$Treatment)) >=2  & length(unique(sampleplanmodel$table$Sample_description)) == 1){
+        paste0(input$TreatlevelInter1)
+      }
     })
     output$Intercompresume3 <- renderText({
       "vs"
     })
     output$Intercompresume4 <- renderText({
+      if(length(unique(sampleplanmodel$table$Treatment)) >= 2 & length(unique(sampleplanmodel$table$Sample_description)) >= 2){
       paste0(input$TreatlevelInter2,"_",input$Mut2)
+      } else if (length(unique(sampleplanmodel$table$Treatment)) == 1  & length(unique(sampleplanmodel$table$Sample_description)) >= 2){
+      paste0(input$Mut2)
+      } else if (length(unique(sampleplanmodel$table$Treatment)) >=2  & length(unique(sampleplanmodel$table$Sample_description)) == 1){
+      paste0(input$TreatlevelInter2)
+      }
     })
     output$Intercompresume5 <- renderText({
       "samples"
@@ -321,9 +337,6 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
     })
     outputOptions(output, "conditionnalTreatment", suspendWhenHidden = FALSE)  
       
-    #   renderText({
-    #   as.character(length(sampleplanmodel$table$Treatment))
-    # })
 
   observeEvent(input$Build,{
     if(!is.null(sampleplanmodel$table)){
@@ -335,25 +348,61 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
                 T0 <- min(Tnums[order(Tnums)])
                 minT <- min(Tnums[order(Tnums)][-1])
                 maxT <- max(Tnums)
-                if(input$comptype == "Intra-Treament"){
-                data$Intra <- paste0(data$Treatment,"_",data$Timepoint)
-                design <- model.matrix(~ 0 + Intra, data = data)
-                colnames(design) <- make.names(gsub("Intra","",colnames(design)))
+                if(input$comptype == "Intra-Treatment"){
+                  data$Intra <- paste0(data$Treatment,"_",data$Timepoint)
+                  design <- model.matrix(~ 0 + Intra, data = data)
+                  colnames(design) <- make.names(gsub("Intra","",colnames(design)))
                 } else if(input$comptype == "Inter-Treatment"){
                   data$Inter <- paste0(data$Treatment,"_",data$Sample_description,"_",data$Timepoint)
-                  print(data$Inter)
                   design <- model.matrix(~ 0 + Inter, data = data)
                   colnames(design) <- make.names(gsub("Inter","",colnames(design)))
-                  print(colnames(design))
                 } 
                 save(list = c('design'),file = "~/coockiecrisprtestRDA/CRISPR_contrast.rda")
-                if(input$comptype == "Intra-Treament"){
+                if(input$comptype == "Intra-Treatment"){
                   contrast <- purrr::map(glue::glue("{input$Treatlevel}_T{minT:maxT}-{input$Treatlevel}_T{T0}"),~makeContrasts(contrasts = .x,levels=design))
                 } else if (input$comptype == "Inter-Treatment"){
-                  print("Inter contrast")
-                  #print(head(design))
-                  contrast <- purrr::map(glue::glue("{input$TreatlevelInter1}_{input$Mut1}_{data$Timepoint}-{input$TreatlevelInter2}_{input$Mut2}_{data$Timepoint}"),~makeContrasts(contrasts = .x,levels=design))
-                  #print(head(contrast))
+                  if (length(unique(sampleplanmodel$table$Sample_description)) > 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+                    gluelist <- data.frame(gluelistcol = unique(glue::glue("{input$TreatlevelInter1}_{input$Mut1}_{data$Timepoint}-{input$TreatlevelInter2}_{input$Mut2}_{data$Timepoint}")))
+                    missing1 <- unique(glue::glue("{input$TreatlevelInter1}_{input$Mut1}_{data$Timepoint}"))
+                    missing2 <- unique(glue::glue("{input$TreatlevelInter2}_{input$Mut2}_{data$Timepoint}"))
+                    missing2 <- missing2[!(missing2 %in% data$Inter)]
+                    missing1 <- missing1[!(missing1 %in% data$Inter)]
+                    for (missing in missing2){
+                      gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                    }
+                    for (missing in missing1){
+                      gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                    }
+                    gluelist <- as.list(gluelist$gluelistcol)
+                  } else if (length(unique(sampleplanmodel$table$Sample_description)) > 1 & length(unique(sampleplanmodel$table$Treatment)) == 1){
+                  gluelist <- data.frame(gluelistcol = unique(glue::glue("{unique(sampleplanmodel$table$Treatment)}_{input$Mut1}_{data$Timepoint}-{unique(sampleplanmodel$table$Treatment)}_{input$Mut2}_{data$Timepoint}")))
+                  missing1 <- unique(glue::glue("{unique(sampleplanmodel$table$Treatment)}_{input$Mut1}_{data$Timepoint}"))
+                  missing2 <- unique(glue::glue("{unique(sampleplanmodel$table$Treatment)}_{input$Mut2}_{data$Timepoint}"))
+                  missing2 <- missing2[!(missing2 %in% data$Inter)]
+                  missing1 <- missing1[!(missing1 %in% data$Inter)]
+                  for (missing in missing2){
+                    gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                  }
+                  for (missing in missing1){
+                    gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                  } 
+                  gluelist <- as.list(gluelist$gluelistcol)
+
+                  } else if (length(unique(sampleplanmodel$table$Sample_description)) == 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+                  gluelist <- data.frame(gluelistcol = unique(glue::glue("{input$TreatlevelInter1}_{unique(sampleplanmodel$table$Sample_description)}_{data$Timepoint}-{input$TreatlevelInter2}_{unique(sampleplanmodel$table$Sample_description)}_{data$Timepoint}")))
+                  missing1 <- unique(glue::glue("{input$TreatlevelInter1}_{unique(sampleplanmodel$table$Sample_description)}_{data$Timepoint}"))
+                  missing2 <- unique(glue::glue("{input$TreatlevelInter2}_{unique(sampleplanmodel$table$Sample_description)}_{data$Timepoint}"))
+                  missing2 <- missing2[!(missing2 %in% data$Inter)]
+                  missing1 <- missing1[!(missing1 %in% data$Inter)]
+                  for (missing in missing2){
+                    gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                  }
+                  for (missing in missing1){
+                    gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                  } 
+                  gluelist <- as.list(gluelist$gluelistcol)
+                  }
+                  contrast <- purrr::map(gluelist,~makeContrasts(contrasts = .x,levels=design))
                 }
                 save(list = c('contrast'),file = "~/coockiecrisprtestRDA/CRISPR_contrast.rda")
                 reactives$contrast <- contrast
@@ -370,10 +419,10 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
                  reactives$contrast),priority = 10,{
                    if (!is.null(norm_data$data$counts) && !is.null(reactives$design)){
                      
-                     print("contrast")
-                     print(reactives$contrast)
-                     print("design")
-                     print(reactives$design)
+                     # print("contrast")
+                     # print(reactives$contrast)
+                     # print("design")
+                     # print(reactives$design)
                      
                      tictoc::tic("Voom transormation and fitting linear model..")
                      counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
@@ -383,7 +432,6 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
                      res_fit <- limma::lmFit(results$v, method = "ls")
                      res_eb <- eBayes(res_fit, robust = FALSE)
                      fit <- purrr::map(reactives$contrast, ~contrasts.fit(res_fit, contrasts = .x))
-                     #print(fit)
                      res_eb <- purrr::map(fit, ~eBayes(.x, robust = FALSE))
                      
                      tab <- purrr::map(res_eb,~process_res(.x))
@@ -426,7 +474,7 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
                    req(input$ExploreIntra)
                    req(results$res)
                    res <- results$res[[input$ExploreIntra]]
-                   print(res)
+                   #print(res)
                    nsign <- length(which(res$adj_p.value < input$PvalsT))
                    results$nsignfc <- length(which(res$adj_p.value < input$PvalsT & abs(res$estimate) > input$FCT))
                    #up <- which(res$adj_p.value_enrich < input$PvalsT & res$estimate > input$FCT)
@@ -545,19 +593,37 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
         incProgress(0.3)
         groups_table <- sampleplanmodel$table
         groups_table$Samples <- rownames(groups_table)
-        print(head(groups_table))
-        if(input$comptype == "Intra-Treament"){
-          print("a")
+        #print(head(groups_table))
+        if(input$comptype == "Intra-Treatment"){
           group1 <- stringr::str_split_fixed(gsub(paste0(input$Treatlevel,"_"),"",input$ExploreIntra),"-",n=2)[,1]
           group2 <- stringr::str_split_fixed(gsub(paste0(input$Treatlevel,"_"),"",input$ExploreIntra),"-",n=2)[,2]
-          print(group1)
-          print(group2)
-          #groups_table <- groups_table[c(group1,group2),"Samples"]
           groups_table <- groups_table[,c("Treatment","Timepoint","Samples")] %>%
-            #filter(Treatment == input$Treatlevel & Timepoint %in% c(group1,group2))
             filter(Treatment == input$Treatlevel)
-          print(groups_table)
-        }
+         } else if(input$comptype == "Inter-Treatment"){
+           if (length(unique(sampleplanmodel$table$Sample_description)) > 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+             group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
+             group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
+             groups_table <- groups_table[,c("Treatment","Timepoint","Samples","Sample_description")] %>%
+               filter(Treatment == c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
+               filter(Sample_description == c(input$Mut1,input$Mut2))  %>%
+               mutate(COMP = paste0(Treatment,"_",Sample_description))
+           } else if (length(unique(sampleplanmodel$table$Sample_description)) > 1 & length(unique(sampleplanmodel$table$Treatment)) == 1){
+             group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
+             group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
+             groups_table <- groups_table[,c("Treatment","Timepoint","Samples","Sample_description")] %>%
+               filter(Treatment %in% unique(sampleplanmodel$table$Treatment)) %>%
+               filter(Sample_description == c(input$Mut1,input$Mut2))  %>%
+               mutate(COMP = paste0(Treatment,"_",Sample_description))
+           } else if (length(unique(sampleplanmodel$table$Sample_description)) == 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+             group1 <- gsub(paste0(unique(sampleplanmodel$table$Sample_description),"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
+             group2 <- gsub(paste0(unique(sampleplanmodel$table$Sample_description),"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
+             groups_table <- groups_table[,c("Treatment","Timepoint","Samples","Sample_description")] %>%
+               filter(Treatment %in% c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
+               filter(Sample_description == unique(sampleplanmodel$table$Sample_description))  %>%
+               mutate(COMP = paste0(Treatment,"_",Sample_description))
+          }
+         }
+
         boxplotdata <- results$v$E[which(rownames(results$v$E) %in% input$GeneVolcano),]
         boxplotdata <- rbind(boxplotdata,colnames(boxplotdata))
         rownames(boxplotdata)[nrow(boxplotdata)] <- "Samples"
@@ -566,9 +632,8 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
         boxplotdata$Samples <- as.character(boxplotdata$Samples)
         boxplotdata <- inner_join(boxplotdata,groups_table, by = "Samples")
         boxplotdata$COUNTS <- as.numeric(boxplotdata$COUNTS)
-        if(input$comptype == "Intra-Treament"){
+        if(input$comptype == "Intra-Treatment"){
             boxplotdata[,c(group1,group2)] <- as.character(boxplotdata[,"Timepoint"])
-            #results$boxplots <- ggplot(boxplotdata, aes(x=GENE, y=COUNTS, fill = GENE)) +
             results$boxplots <- ggplot(boxplotdata, aes(x=Timepoint, y=COUNTS,fill = Timepoint)) +
               geom_boxplot() +
               facet_grid(. ~ GENE) +
@@ -578,6 +643,17 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
                          # size = 2,
                          aes_string(fill="Timepoint"), show.legend = T)
             setProgress(1)
+        } else if(input$comptype == "Inter-Treatment"){
+          boxplotdata[,c(group1,group2)] <- as.character(boxplotdata[,"Timepoint"])
+          results$boxplots <- ggplot(boxplotdata, aes(x=COMP, y=COUNTS,fill = COMP)) +
+            geom_boxplot() +
+            facet_grid(Timepoint ~ GENE) +
+            geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
+                                                     seed = 1234),
+                       pch=21,
+                       # size = 2,
+                       aes_string(fill="COMP"), show.legend = T)
+          setProgress(1)
         }
       }) # end of progress
     }
@@ -593,10 +669,10 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
   output$results_table <- DT::renderDataTable({
     res <- bind_rows(results$up,results$down) %>%
       column_to_rownames("gene")%>%
-      select(c("estimate","adj_p.value_dep","adj_p.value_enrich")) %>%
+      select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
       mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
       select(c("estimate","adj_p.value","ENSEMBL"))
-    colnames(res) <- c("logFC","adj_p.value")
+    colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
     datatable(
       res,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -610,15 +686,15 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
     },
     content = function(file) {
       #write.csv(results$res, file)
-      write.csv(results$res[input$ExploreIntra][],file)
+      write.csv(results$res[[input$ExploreIntra]],file)
     }
   )
 
   output$up_table <- DT::renderDataTable({
     ups <- results$up %>%
       column_to_rownames("gene") %>%
-      select(c("estimate","adj_p.value_enrich"))
-    colnames(ups) <- c("logFC","adj_p.value_enrich")
+      select(c("estimate","adj_p.value_enrich","ENSEMBL"))
+    colnames(ups) <- c("logFC","adj_p.value_enrich","ENSEMBL")
     datatable(
       ups,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -642,8 +718,8 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
   output$down_table <- DT::renderDataTable({
     downs <- results$down %>%
       column_to_rownames("gene") %>%
-      select(c("estimate","adj_p.value_dep"))
-    colnames(downs) <- c("logFC","adj_p.value_dep")
+      select(c("estimate","adj_p.value_dep","ENSEMBL"))
+    colnames(downs) <- c("logFC","adj_p.value_dep","ENSEMBL")
     datatable(
       downs,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -675,13 +751,14 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
     })
   
   output$selected_line <-
-    renderInfoBox({
+    renderUI({
       req(input$celline)
+      fluidRow(
       infoBox(        
         "Selected Cell line : ",
         as.character(input$celline),
-        icon = icon("dna"),color = "red"
-      )
+        icon = icon("dot-circle"),color = "purple",width = 12
+      ))
     })
 
   output$upp_numbers <-
