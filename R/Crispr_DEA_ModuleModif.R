@@ -197,13 +197,11 @@ CRISPRDeaModUIMod <- function(id)  {
                                    tags$head(tags$style(".butt{background-color:#2E8B57;}")),
                                    column(width =12,
                                           h4("All genes :"),
-                                          br(),
                                           DT::dataTableOutput(ns('results_table')),
                                           downloadButton(ns("resdl"),"All genes",class = "butt")),
                                    column(width = 12,
                                           br(),
                                           h4("Upp regulated genes :"),
-                                          br(),
                                           DT::dataTableOutput(ns('up_table')),
                                           downloadButton(ns("uppdl"),"Up-regulated",class = "butt")),
                                    column(width = 12,
@@ -477,12 +475,9 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
                    #print(res)
                    nsign <- length(which(res$adj_p.value < input$PvalsT))
                    results$nsignfc <- length(which(res$adj_p.value < input$PvalsT & abs(res$estimate) > input$FCT))
-                   #up <- which(res$adj_p.value_enrich < input$PvalsT & res$estimate > input$FCT)
-                   #down <- which(res$adj_p.value_dep < input$PvalsT & res$estimate < -input$FCT)
                    up <- which(res$adj_p.value_enrich < input$PvalsT)
                    down <- which(res$adj_p.value_dep < input$PvalsT)
-                   res$ENSEMBL <- createLink(rownames(res))
-                   #print(res$ENSEMBL)
+                   res$ENSEMBL <- createLink(res$gene)
                    print('end of DEG')
                    results$up <- res[up,]
                    results$down <- res[down,]
@@ -490,32 +485,32 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
                    }
                  }) # end of observer
   
-  # n_perm <- 20000
-  # alpha_thr <- 0.3
-  # observeEvent(c(input$DEGtabs),{
-  #   if(input$DEGtabs == "RRAscores") {
-  #     if(!is.null(results$res)){
-  #       print(results$res)
-  #       withProgress(message = 'Computing per gene RRA score from DEA results', value = 0.5,{
-  #         incProgress(0.3)
-  #         results$scores <- compute_score_RRA(results$res,alpha_thr = alpha_thr)
-  #         scores <- results$scores
-  #         save(list = c("scores"), file = "~/coockiecrisprtestRDA/RRA_scores_table.rda")
-  #         setProgress(1)
-  #         print(score_RRA)
-  #       }) # end of progress
-  #     } else {
-  #       showModal(modalDialog(HTML(
-  #         "<b>Please perform differential analysis first : </b></br>
-  #        To do so select at least two variables for the comparison then click on the build button.
-  #       "),
-  #         title = "Variables infos",
-  #         footer = tagList(
-  #           modalButton("Got it"))
-  #       ))
-  #     }
-  #   } # end of if
-  # }) # end of observer
+  n_perm <- 20000
+  alpha_thr <- 0.3
+  observeEvent(c(input$DEGtabs),{
+    if(input$DEGtabs == "RRAscores") {
+      if(!is.null(results$res)){
+        print(results$res)
+        withProgress(message = 'Computing per gene RRA score from DEA results', value = 0.5,{
+          incProgress(0.3)
+          results$scores <- compute_score_RRA(results$res,alpha_thr = alpha_thr)
+          scores <- results$scores
+          save(list = c("scores"), file = "~/coockiecrisprtestRDA/RRA_scores_table.rda")
+          setProgress(1)
+          print(score_RRA)
+        }) # end of progress
+      } else {
+        showModal(modalDialog(HTML(
+          "<b>Please perform differential analysis first : </b></br>
+         To do so select at least two variables for the comparison then click on the build button.
+        "),
+          title = "Variables infos",
+          footer = tagList(
+            modalButton("Got it"))
+        ))
+      }
+    } # end of if
+  }) # end of observer
   
   # output$RRAscores <- DT::renderDataTable({
   #   results$scores
