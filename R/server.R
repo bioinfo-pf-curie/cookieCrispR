@@ -760,36 +760,28 @@ observeEvent(c(ClustData_non_ess$table,ClustMetadata$table),{
 
 DEAMetadata <- reactiveValues(table = NULL)
 DEAnormdata <- reactiveValues(data = NULL)
-observe({
+observeEvent(reactives$sampleplan,{
   if(!is.null(reactives$sampleplan)){
     DEAMetadata$table <- reactives$sampleplan %>%
        filter(!(Sample_ID %in% input$removesamples)) %>%
        column_to_rownames("Sample_ID") %>%
        select(c("Cell_line","Timepoint","Treatment","Sample_description")) 
-    }
+  }
+})
+observeEvent(reactives$norm_data,{
   if(!is.null(reactives$norm_data)){
     DEAnormdata$data <- reactives$norm_data
   }
 })
 
 observeEvent(c(DEAnormdata$data,DEAMetadata$table,input$sidebarmenu),{
-    
   if(input$sidebarmenu=="Statistical_analysis"){
     if(!is.null(DEAnormdata$data) & !is.null(DEAMetadata$table)){
-    deadat <- DEAnormdata$data
-    deamet <- DEAMetadata$table
-    save(list = c('deadat',"deamet"),file = "~/coockiecrisprtestRDA/DEA_data.rda")
     DEA <- callModule(CRISPRDeaModServerMod, "DEA", session = session,
     #DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                       norm_data = DEAnormdata,
                       sampleplan = DEAMetadata,
                       var = colnames(DEAMetadata$table))
-    # } else{
-    #   showModal(modalDialog(
-    #   title = "Please upload both count matrix and sampleplan first",
-    #   footer = tagList(
-    #     modalButton("Got it"),
-    #   )))
     }
   }
   if(input$sidebarmenu=="Rawdist" | input$sidebarmenu=="Rawdist" | input$sidebarmenu=="Tev" | input$sidebarmenu=="Roc" | input$sidebarmenu == "Clustering" | input$sidebarmenu == "CompCond"){
@@ -802,6 +794,16 @@ observeEvent(c(DEAnormdata$data,DEAMetadata$table,input$sidebarmenu),{
   }}
 })
 
+observeEvent(input$sidebarmenu,priority = -1,{
+  if(input$sidebarmenu=="Statistical_analysis"){
+    if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
+  showModal(modalDialog(
+    title = "Please upload both count matrix and sampleplan first",
+    footer = tagList(
+      modalButton("Got it"),
+    )))
+    }}
+})
 #########################################################################
 ############################ Help section ###############################
 #########################################################################

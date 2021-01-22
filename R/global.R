@@ -93,7 +93,8 @@ compute_score_RRA <- function(object, alpha_thr = 1){
     imap_dfr( ~mutate(.x, gene = .y)) %>%
     dplyr::rename(RRA_enrich_score = score, RRA_enrich_which = which)
   object <- group_by(object, gene) %>% nest
-  res <- suppressMessages(reduce(list(object, RRA_pvalue, RRA_pvalue_dep, RRA_pvalue_enrich), full_join, by = "gene"))
+  res <- suppressMessages(reduce(list(object, RRA_pvalue, RRA_pvalue_dep, RRA_pvalue_enrich), full_join, by = "gene")) %>%
+    select(c("RRA_score","RRA_dep_score","RRA_enrich_score"))
   return(res)
 }
 

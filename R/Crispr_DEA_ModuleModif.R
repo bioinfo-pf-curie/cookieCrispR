@@ -138,7 +138,7 @@ CRISPRDeaModUIMod <- function(id)  {
                                fluidRow(box(title = span(icon("cogs"), "Parameters"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                    status = "success",width= 12,
                                    #fluidRow(
-                                     column(width = 6,pickerInput(ns("ExploreIntra"),label= "Select a comparison to Explore", selected = NULL,
+                                     column(width = 6,pickerInput(ns("ExploreIntra"),label= "Select a comparison to explore", selected = NULL,
                                                                   multiple = FALSE,choicesOpt = NULL,inline = FALSE,choices = NULL,
                                                                   options = pickerOptions(
                                                                     title = "Select genes to annotate",
@@ -214,7 +214,15 @@ CRISPRDeaModUIMod <- function(id)  {
                              ) # end of box
                     ),
                     tabPanel("RRAscores",
-                             DT::dataTableOutput("RRAscores")
+                             fluidRow(column(width =12,
+                             pickerInput(ns("ExploreIntra2"),label= "Select a comparison to explore", selected = NULL,
+                                         multiple = FALSE,choicesOpt = NULL,inline = FALSE,choices = NULL,
+                                         options = pickerOptions(
+                                           title = "Select genes to annotate",
+                                           liveSearch = TRUE,
+                                           liveSearchStyle = "contains")))),
+                             fluidRow(DT::dataTableOutput(ns("RRAscores"))),
+                             fluidRow(downloadButton(ns("scoresdl"),"Download RRA scores"))
                     ) # end of 3 tab
         )
         #) # end of div
@@ -256,7 +264,7 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
   reactives <- reactiveValues(design = NULL, formula = NULL, contrast = NULL)
   sampleplanmodel <- reactiveValues(table = NULL)
   results <- reactiveValues(res = NULL, up = NULL, down = NULL,nsignfc = NULL,v = NULL,boxplots = NULL,
-                            scores = NULL)
+                            scores = NULL,old_res = "NULL")
   
   observeEvent(c(input$celline,sampleplan$table),{
     sampleplanmodel$table <- sampleplan$table %>%
@@ -269,7 +277,6 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
     }
   })
   observeEvent(c(sampleplanmodel$table,input$comptype),{
-    #print(head(sampleplanmodel$table))
     updatePickerInput(session=session,"Treatlevel",
                       choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
                       selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[1])
@@ -416,11 +423,7 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
   observeEvent(c(norm_data$data$counts,
                  reactives$contrast),priority = 10,{
                    if (!is.null(norm_data$data$counts) && !is.null(reactives$design)){
-                     
-                     # print("contrast")
-                     # print(reactives$contrast)
-                     # print("design")
-                     # print(reactives$design)
+
                      
                      tictoc::tic("Voom transormation and fitting linear model..")
                      counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
@@ -449,8 +452,9 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
   }
   
   observeEvent(c(results$res,input$DEGtabs),{
-    #updateSelectInput(session = session,"ExploreIntra",
     updatePickerInput(session = session,"ExploreIntra",
+                      choices = names(results$res), selected = names(results$res)[1])
+    updatePickerInput(session = session,"ExploreIntra2",
                       choices = names(results$res), selected = names(results$res)[1])
     # choices = list(
     #   Group1 = c(opt1 = "g11",
@@ -490,15 +494,15 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
   observeEvent(c(input$DEGtabs),{
     if(input$DEGtabs == "RRAscores") {
       if(!is.null(results$res)){
+        if(results$res != results$old_res){
+        results$old_res <- results$res
         print(results$res)
         withProgress(message = 'Computing per gene RRA score from DEA results', value = 0.5,{
           incProgress(0.3)
-          results$scores <- compute_score_RRA(results$res,alpha_thr = alpha_thr)
-          scores <- results$scores
-          save(list = c("scores"), file = "~/coockiecrisprtestRDA/RRA_scores_table.rda")
+          results$scores <- lapply(results$res,function(x){compute_score_RRA(x,alpha_thr = alpha_thr)})
           setProgress(1)
-          print(score_RRA)
-        }) # end of progress
+        })
+        }# end of progress
       } else {
         showModal(modalDialog(HTML(
           "<b>Please perform differential analysis first : </b></br>
@@ -508,14 +512,32 @@ CRISPRDeaModServerMod <- function(input, output, session,sampleplan = NULL, var 
           footer = tagList(
             modalButton("Got it"))
         ))
-      }
     } # end of if
+    }
+    
   }) # end of observer
   
-  # output$RRAscores <- DT::renderDataTable({
-  #   results$scores
-  # })
-  # 
+  output$RRAscores <- DT::renderDataTable({
+    req(input$ExploreIntra2)
+    req(results$scores)
+    datatable(
+      results$scores[[input$ExploreIntra2]],rownames=FALSE,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
+        "function(settings, json) {",
+        "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+        "}")))
+    
+  })
+  output$scoresdl <- downloadHandler(
+    filename = function() {
+      req(results$scores)
+      req(input$ExploreIntra2)
+      paste(input$ExploreIntra2,"_RRAscores", Sys.Date(), ".csv", sep=",")
+    },
+    content = function(file) {
+      write.csv(results$scores[[input$ExploreIntra2]],file)
+    }
+  )
+
   output$Pvals_distrib <- renderGirafe({
     req(results$res)
     res <- results$res[[input$ExploreIntra]]
