@@ -20,7 +20,7 @@ reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplan
                               joined = NULL,countsRaw = NULL, counts = NULL,
                             annot_sgRNA = NULL, norm_data =  NULL, guidelist = NULL,
                             genelist =  NULL,sample = NULL,checkcoherence = TRUE, normalize = TRUE,
-                            checkcountscols = FALSE)
+                            checkcountscols = FALSE,interactive_boxplots = NULL)
 
 ##### Upload files and datatable construction ####################
 ## counts table  
@@ -693,24 +693,66 @@ output$dlauc <- downloadHandler(
 observe({
   updatePickerInput(session,"conditionreference1",
                     choices = as.character(unique(reactives$sampleplan$Treatment)))
+  updatePickerInput(session = session,'selecttimepointscomp',
+                    choices = as.character(unique(reactives$sampleplan$Timepoint)))
+})
+observe({
+  updatePickerInput(session = session,"selectguidescomp",
+                    choices = as.character(unique(reactives$selectedcountsRaw$sgRNA)))
 })
 ## Boxplots 
-output$positive_boxplots <- renderPlotly({
+# output$positive_boxplots <- renderPlotly({
+#   req(input$conditionreference1)
+#   if(length(input$conditionreference1) >= 2){
+#     counts <- reactives$joined %>% filter(Treatment %in% input$conditionreference1)
+#     counts$Treatment <- as.character(counts$Treatment)
+#     counts$sgRNA <- as.character(counts$sgRNA)
+#     
+#     interactive_boxplots <- plot_ly(counts, x=~Cell_line, y=~log_cpm, color = ~Treatment, text =~sgRNA,
+#                                     labels = ~sgRNA, type = "box",
+#                                     boxpoints = "outliers",
+#                                     jitter = 0.3,
+#                                     pointpos = -1.8,marker = list(size = 1)) %>% plotly::layout(boxmode = "group")
+#     
+#     interactive_boxplots
+#   }
+# })
+
+
+observeEvent(c(input$splitcelline,input$conditionreference1,reactives$joined,input$selectguidescomp,input$selecttimepointscomp),{
   req(input$conditionreference1)
   if(length(input$conditionreference1) >= 2){
-    counts <- reactives$joined %>% filter(Treatment %in% input$conditionreference1)
+    counts <- reactives$joined %>% 
+      filter(Treatment %in% input$conditionreference1) %>%
+      filter(!(Timepoint %in% input$selecttimepointscomp))
     counts$Treatment <- as.character(counts$Treatment)
     counts$sgRNA <- as.character(counts$sgRNA)
-    
-    interactive_boxplots <- plot_ly(counts, x=~Cell_line, y=~log_cpm, color = ~Treatment, text =~sgRNA,
-                                    labels = ~sgRNA, type = "box",
-                                    boxpoints = "outliers",
-                                    jitter = 0.3,
-                                    pointpos = -1.8,marker = list(size = 1)) %>% plotly::layout(boxmode = "group")
-    
-    interactive_boxplots
+    counts$Timepoint <- as.character(counts$Timepoint)
+
+    if(input$splitcelline == TRUE){
+      interactive_boxplots <- counts %>%
+        ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
+        geom_boxplot_interactive(outlier.shape = NA) + 
+        geom_point_interactive(data = subset(counts, sgRNA %in% input$selectguidescomp),
+                               aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.2) +
+        facet_grid(.~Cell_line)
+    } else {
+      interactive_boxplots <- counts %>%
+        ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
+        geom_boxplot_interactive(outlier.shape = NA) + theme(axis.title.x=element_blank(),axis.text.x=element_blank()) +
+        geom_point_interactive(data = subset(counts, sgRNA %in% input$selectguidescomp),
+                   aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.2)
+
+    }
+    reactives$interactive_boxplots <- girafe(ggobj = interactive_boxplots)
   }
 })
+
+#output$positive_boxplots <- renderPlot({
+output$positive_boxplots <- renderGirafe({
+  reactives$interactive_boxplots
+})
+
 
 ClustData_ess <- reactiveValues(table = NULL)
 ClustData_non_ess <- reactiveValues(table = NULL)
@@ -765,7 +807,7 @@ observeEvent(reactives$sampleplan,{
     DEAMetadata$table <- reactives$sampleplan %>%
        filter(!(Sample_ID %in% input$removesamples)) %>%
        column_to_rownames("Sample_ID") %>%
-       select(c("Cell_line","Timepoint","Treatment","Sample_description")) 
+       select(c("Cell_line","Timepoint","Treatment","SupplementaryInfo")) 
   }
 })
 observeEvent(reactives$norm_data,{
@@ -842,7 +884,7 @@ output$Datahelptext <- renderUI({HTML(
 <br/>
 <ul>
 <li>A csv file using ';' or ',' as field separator, each line of the file must respects the following format specifications :<br/>
-Sample_ID;Sample_description;Cell_line;Timepoint;Treatment;Replicate</li>
+Sample_ID;SupplementaryInfo;Cell_line;Timepoint;Treatment;Replicate</li>
 <li>Column names must respect Upper and lower case. </li>
 <li>Values in the table must not contain spaces, use '_' instead. </li>
 </ul>
@@ -924,13 +966,13 @@ output$DlTesGuideList <- downloadHandler(
     
     colnames <- colnames(reactives$sampleplanRaw)
     if( (!"Sample_ID" %in% colnames|
-        !"Sample_description" %in% colnames|
+        !"SupplementaryInfo" %in% colnames|
         !"Cell_line" %in% colnames|
         !"Timepoint" %in% colnames|
         !"Treatment" %in% colnames|
         !"Replicate" %in% colnames)  ){
       showModal(modalDialog(tagList(h3('Colnames must contain these values :',style="color:red"),
-                                    h4("| Sample_ID | Sample_description | Cell_line | Timepoint | Treatment | Replicate |"),
+                                    h4("| Sample_ID | Cell_line | Timepoint | Treatment | Replicate | SupplementaryInfo"),
                                     #p(),
                                     h4("colnames must respect majuscules",style="color:red"),
                                     p(),
@@ -1052,6 +1094,8 @@ observe({
   })
 })
 
+shinyjs::hide(id = "acereport_rmd")
+shinyjs::hide(id="editor_options")
 ### ace editor options
 observe({
   autoComplete <- if(input$enableAutocomplete) {
@@ -1085,6 +1129,7 @@ output$knitDoc <- renderUI({
         owd <- setwd(tempdir())
         on.exit(setwd(owd))
         tmp_content <- paste0(rmd_yaml(),input$acereport_rmd,collapse = "\n")
+        #tmp_content <- rmd_yaml()
         incProgress(0.5, detail = "Rendering report...")
         htmlpreview <- knit2html(text = tmp_content, fragment.only = TRUE, quiet = TRUE)
         incProgress(1)
@@ -1106,6 +1151,7 @@ output$saveRmd <- downloadHandler(
   content = function(file) {
     # knit2html(text = input$rmd, fragment.only = TRUE, quiet = TRUE))
     tmp_content <- paste0(rmd_yaml(),input$acereport_rmd,collapse = "\n")
+    #tmp_content <- rmd_yaml()
     # input$acereport_rmd
     if(input$rmd_dl_format == "rmd") {
       cat(tmp_content,file=file,sep="\n")

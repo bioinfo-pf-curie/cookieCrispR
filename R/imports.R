@@ -17,7 +17,9 @@
 #' @importFrom shinyAce updateAceEditor aceEditor aceAutocomplete
 #' @importFrom htmlwidgets JS
 #' @import knitr
+#' @import shinyBS
 #' @importFrom xfun embed_files
+#' @importFrom rlist list.append
 #' @import kableExtra
 #' @importFrom gridExtra grid.arrange
 #' @importFrom directlabels geom_dl last.polygons
