@@ -8,7 +8,6 @@ CRISPRDeaModServer(
   input,
   output,
   session,
-  matrix = NULL,
   sampleplan = NULL,
   var = NULL,
   norm_data = NULL

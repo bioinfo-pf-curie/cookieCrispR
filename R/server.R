@@ -20,7 +20,7 @@ reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplan
                               joined = NULL,countsRaw = NULL, counts = NULL,
                             annot_sgRNA = NULL, norm_data =  NULL, guidelist = NULL,
                             genelist =  NULL,sample = NULL,checkcoherence = TRUE, normalize = TRUE,
-                            checkcountscols = FALSE)
+                            checkcountscols = FALSE,interactive_boxplots = NULL)
 
 ##### Upload files and datatable construction ####################
 ## counts table  
@@ -29,8 +29,9 @@ observeEvent(c(input$counts,
                  input$Fsc),{
       print("checking file separator in counts matrix ...")
       req(input$counts)
-      #req(input$Fsc)
       inFile <- input$counts
+      if(grepl(".xls",inFile$name) == FALSE){
+      #req(input$Fsc)
       semicolon <- FALSE
       comma <- FALSE
       tabssplan <- FALSE
@@ -73,31 +74,32 @@ observeEvent(c(input$counts,
       } else {
         precheck$counts <- TRUE
       }
+      }else{precheck$counts <- TRUE}
 })
   
 observeEvent(precheck$counts,{
   req(input$counts)
   inFile <- input$counts
   if(precheck$counts == TRUE){
+    if(grepl(".xls",inFile$name) == FALSE){
         print("reading file...")
         #counts <- read.table(inFile$datapath, sep = input$Fsc, header = TRUE)
         counts <- read.table(inFile$datapath, sep = precheck$Fs, header = TRUE)
+        print(counts)
       if (!("X" %in% colnames(counts))){
-      showModal(modalDialog(p(""),
-                              title = "Incorrect count matrix format",
-                              tagList(h6('Check that the first line of the count matrix file starts with a file separator :'),
-                                      h6('You can check it with Notepad, or seeing the first cell of the table as empty after opening it via excel'),
-                                      h6('To use <b> semicolon </b> please specify it with the input file settings button')),
-                              footer = tagList(
-                                modalButton("Got it"))
-      ))
-      } else {
-      counts <- dplyr::rename(counts, sgRNA = .data$X)
-      counts <- dplyr::select(counts, -.data$sequence)
-      reactives$guidelist <- as.character(unique(counts$sgRNA))
-      reactives$genelist <- as.character(unique(counts$gene))
-      reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
-      }
+      counts <- tibble::rownames_to_column(counts,"X")
+      } 
+    } else {
+      counts <- openxlsx::read.xlsx(inFile$datapath, colNames = TRUE,rowNames = FALSE)
+      if ("X1" %in% colnames(counts)){
+        colnames(counts)[1] <- "X"
+      } else{colnames(counts) <- c("X",colnames(counts)[-length(colnames(counts))])}
+    }
+    counts <- dplyr::rename(counts, sgRNA = .data$X)
+    counts <- dplyr::select(counts, -.data$sequence)
+    reactives$guidelist <- as.character(unique(counts$sgRNA))
+    reactives$genelist <- as.character(unique(counts$gene))
+    reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
     precheck$counts <- FALSE
   }
 })
@@ -693,24 +695,66 @@ output$dlauc <- downloadHandler(
 observe({
   updatePickerInput(session,"conditionreference1",
                     choices = as.character(unique(reactives$sampleplan$Treatment)))
+  updatePickerInput(session = session,'selecttimepointscomp',
+                    choices = as.character(unique(reactives$sampleplan$Timepoint)))
+})
+observe({
+  updatePickerInput(session = session,"selectguidescomp",
+                    choices = as.character(unique(reactives$selectedcountsRaw$sgRNA)))
 })
 ## Boxplots 
-output$positive_boxplots <- renderPlotly({
+# output$positive_boxplots <- renderPlotly({
+#   req(input$conditionreference1)
+#   if(length(input$conditionreference1) >= 2){
+#     counts <- reactives$joined %>% filter(Treatment %in% input$conditionreference1)
+#     counts$Treatment <- as.character(counts$Treatment)
+#     counts$sgRNA <- as.character(counts$sgRNA)
+#     
+#     interactive_boxplots <- plot_ly(counts, x=~Cell_line, y=~log_cpm, color = ~Treatment, text =~sgRNA,
+#                                     labels = ~sgRNA, type = "box",
+#                                     boxpoints = "outliers",
+#                                     jitter = 0.3,
+#                                     pointpos = -1.8,marker = list(size = 1)) %>% plotly::layout(boxmode = "group")
+#     
+#     interactive_boxplots
+#   }
+# })
+
+
+observeEvent(c(input$splitcelline,input$conditionreference1,reactives$joined,input$selectguidescomp,input$selecttimepointscomp),{
   req(input$conditionreference1)
   if(length(input$conditionreference1) >= 2){
-    counts <- reactives$joined %>% filter(Treatment %in% input$conditionreference1)
+    counts <- reactives$joined %>% 
+      filter(Treatment %in% input$conditionreference1) %>%
+      filter(!(Timepoint %in% input$selecttimepointscomp))
     counts$Treatment <- as.character(counts$Treatment)
     counts$sgRNA <- as.character(counts$sgRNA)
-    
-    interactive_boxplots <- plot_ly(counts, x=~Cell_line, y=~log_cpm, color = ~Treatment, text =~sgRNA,
-                                    labels = ~sgRNA, type = "box",
-                                    boxpoints = "outliers",
-                                    jitter = 0.3,
-                                    pointpos = -1.8,marker = list(size = 1)) %>% plotly::layout(boxmode = "group")
-    
-    interactive_boxplots
+    counts$Timepoint <- as.character(counts$Timepoint)
+
+    if(input$splitcelline == TRUE){
+      interactive_boxplots <- counts %>%
+        ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
+        geom_boxplot_interactive(outlier.shape = NA) + 
+        geom_point_interactive(data = subset(counts, sgRNA %in% input$selectguidescomp),
+                               aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.2) +
+        facet_grid(.~Cell_line)
+    } else {
+      interactive_boxplots <- counts %>%
+        ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
+        geom_boxplot_interactive(outlier.shape = NA) + theme(axis.title.x=element_blank(),axis.text.x=element_blank()) +
+        geom_point_interactive(data = subset(counts, sgRNA %in% input$selectguidescomp),
+                   aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.2)
+
+    }
+    reactives$interactive_boxplots <- girafe(ggobj = interactive_boxplots)
   }
 })
+
+#output$positive_boxplots <- renderPlot({
+output$positive_boxplots <- renderGirafe({
+  reactives$interactive_boxplots
+})
+
 
 ClustData_ess <- reactiveValues(table = NULL)
 ClustData_non_ess <- reactiveValues(table = NULL)
@@ -760,32 +804,27 @@ observeEvent(c(ClustData_non_ess$table,ClustMetadata$table),{
 
 DEAMetadata <- reactiveValues(table = NULL)
 DEAnormdata <- reactiveValues(data = NULL)
-observe({
+observeEvent(reactives$sampleplan,{
   if(!is.null(reactives$sampleplan)){
     DEAMetadata$table <- reactives$sampleplan %>%
        filter(!(Sample_ID %in% input$removesamples)) %>%
        column_to_rownames("Sample_ID") %>%
-       select(c("Cell_line","Timepoint","Treatment")) 
-    }
+       select(c("Cell_line","Timepoint","Treatment","SupplementaryInfo")) 
+  }
+})
+observeEvent(reactives$norm_data,{
   if(!is.null(reactives$norm_data)){
     DEAnormdata$data <- reactives$norm_data
   }
 })
 
 observeEvent(c(DEAnormdata$data,DEAMetadata$table,input$sidebarmenu),{
-    
   if(input$sidebarmenu=="Statistical_analysis"){
     if(!is.null(DEAnormdata$data) & !is.null(DEAMetadata$table)){
     DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                       norm_data = DEAnormdata,
                       sampleplan = DEAMetadata,
                       var = colnames(DEAMetadata$table))
-    } else{
-      showModal(modalDialog(
-      title = "Please upload both count matrix and sampleplan first",
-      footer = tagList(
-        modalButton("Got it"),
-      )))
     }
   }
   if(input$sidebarmenu=="Rawdist" | input$sidebarmenu=="Rawdist" | input$sidebarmenu=="Tev" | input$sidebarmenu=="Roc" | input$sidebarmenu == "Clustering" | input$sidebarmenu == "CompCond"){
@@ -798,6 +837,16 @@ observeEvent(c(DEAnormdata$data,DEAMetadata$table,input$sidebarmenu),{
   }}
 })
 
+observeEvent(input$sidebarmenu,priority = -1,{
+  if(input$sidebarmenu=="Statistical_analysis"){
+    if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
+  showModal(modalDialog(
+    title = "Please upload both count matrix and sampleplan first",
+    footer = tagList(
+      modalButton("Got it"),
+    )))
+    }}
+})
 #########################################################################
 ############################ Help section ###############################
 #########################################################################
@@ -835,10 +884,11 @@ output$Datahelptext <- renderUI({HTML(
 <B>Format description :</B>
 <br/>
 <ul>
-<li>A csv file using ';' or ',' as field separator, each line of the file must respects the following format specifications :<br/>
-Sample_ID;Sample_description;Cell_line;Timepoint;Treatment;Replicate</li>
+<li>A csv file using 'commas'  'semicolons' or 'tabulations' as field separator, each line of the file must respects the following format specifications :<br/>
+Sample_ID;Cell_line;Timepoint;Treatment;Replicate;SupplementaryInfo</li>
 <li>Column names must respect Upper and lower case. </li>
 <li>Values in the table must not contain spaces, use '_' instead. </li>
+<li>Values in the table must not contain dots </li>
 </ul>
 <br/>
 <B>For example :</B>
@@ -852,11 +902,11 @@ D308R1;Ctrl_R1;HEK;T0;Ref_R1;Replica_1
 <B>Format description :</B>
 <br/>
 <ul>
-<li>A csv formated text file using ; or , as field separator. </li>
+<li>A csv formated text file using 'commas'  'semicolons' or 'tabulations' as field separator. </li>
 <li>The first line of the file is a header, it contains samples Sample_IDs as colnames and two supplementary columns called 'gene
 ' and 'sequence'. </li>
-<li>AGuides names' are rownames. </li>
-<li>AValues are read counts.</li>
+<li>Guides names' are rownames. </li>
+<li>Values are read counts.</li>
 </ul>
 <br/>
 <B>For example :</B><br/>
@@ -911,25 +961,22 @@ output$DlTesGuideList <- downloadHandler(
     },
     content = function(file) {
       file.copy(from = essential_path, to = file)
-      #file.copy(from = non_essential_path , to = file)
 })
     
     observeEvent(c(reactives$sampleplanRaw),priority = 10,{
     
     colnames <- colnames(reactives$sampleplanRaw)
     if( (!"Sample_ID" %in% colnames|
-        !"Sample_description" %in% colnames|
+        !"SupplementaryInfo" %in% colnames|
         !"Cell_line" %in% colnames|
         !"Timepoint" %in% colnames|
         !"Treatment" %in% colnames|
         !"Replicate" %in% colnames)  ){
       showModal(modalDialog(tagList(h3('Colnames must contain these values :',style="color:red"),
-                                    h4("| Sample_ID | Sample_description | Cell_line | Timepoint | Treatment | Replicate |"),
-                                    #p(),
+                                    h4("| Sample_ID | Cell_line | Timepoint | Treatment | Replicate | SupplementaryInfo"),
                                     h4("colnames must respect majuscules",style="color:red"),
                                     p(),
                                     h3("Your current file colnames are : ",strong ="bold"),
-                                    #h4(paste(colnames,collapse ="  "))
                                     h4(paste("| ",paste(colnames,collapse =" | ")," |"))
                                     ),
                             title = "Anormal sample plan columns naming",
@@ -1046,6 +1093,8 @@ observe({
   })
 })
 
+shinyjs::hide(id = "acereport_rmd")
+shinyjs::hide(id="editor_options")
 ### ace editor options
 observe({
   autoComplete <- if(input$enableAutocomplete) {
@@ -1079,6 +1128,7 @@ output$knitDoc <- renderUI({
         owd <- setwd(tempdir())
         on.exit(setwd(owd))
         tmp_content <- paste0(rmd_yaml(),input$acereport_rmd,collapse = "\n")
+        #tmp_content <- rmd_yaml()
         incProgress(0.5, detail = "Rendering report...")
         htmlpreview <- knit2html(text = tmp_content, fragment.only = TRUE, quiet = TRUE)
         incProgress(1)
@@ -1100,6 +1150,7 @@ output$saveRmd <- downloadHandler(
   content = function(file) {
     # knit2html(text = input$rmd, fragment.only = TRUE, quiet = TRUE))
     tmp_content <- paste0(rmd_yaml(),input$acereport_rmd,collapse = "\n")
+    #tmp_content <- rmd_yaml()
     # input$acereport_rmd
     if(input$rmd_dl_format == "rmd") {
       cat(tmp_content,file=file,sep="\n")

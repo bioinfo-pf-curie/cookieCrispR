@@ -93,6 +93,29 @@ compute_score_RRA <- function(object, alpha_thr = 1){
     imap_dfr( ~mutate(.x, gene = .y)) %>%
     dplyr::rename(RRA_enrich_score = score, RRA_enrich_which = which)
   object <- group_by(object, gene) %>% nest
-  res <- suppressMessages(reduce(list(object, RRA_pvalue, RRA_pvalue_dep, RRA_pvalue_enrich), full_join, by = "gene"))
+  res <- suppressMessages(reduce(list(object, RRA_pvalue, RRA_pvalue_dep, RRA_pvalue_enrich), full_join, by = "gene")) %>%
+    select(c("RRA_score","RRA_dep_score","RRA_enrich_score"))
   return(res)
+}
+
+
+process_res <- function(object, sgRNA_annot, fdr_method = "BH"){
+  ## tidy results
+  tab <- biobroom::tidy.MArrayLM(object)
+  
+  ## add unilateral pvalues
+  tab$p.value_dep <- pt(tab$statistic, df = object$df.total[1], lower.tail = TRUE)
+  tab$p.value_enrich <- pt(tab$statistic, df = object$df.total[1], lower.tail = FALSE)
+  
+  ## compute FDR
+  tab$adj_p.value <- p.adjust(tab$p.value, method = fdr_method)
+  tab$adj_p.value_dep <- p.adjust(tab$p.value_dep, method = fdr_method)
+  tab$adj_p.value_enrich <- p.adjust(tab$p.value_enrich, method = fdr_method)
+  tab <- tab[order(tab$adj_p.value),]
+  
+  ## add gene info
+  # tab <- left_join(tab, sgRNA_annot, by = c("gene" = "sgRNA"))
+  # tab <- rename_(tab, sgRNA = "gene")
+  
+  return(tab)
 }

@@ -1,124 +1,188 @@
 
-```{r setup, include=FALSE, eval = TRUE, echo = FALSE}
+```{r setup, include=FALSE, eval = TRUE, echo = FALSE, warning=FALSE}
 opts_chunk$set(
   echo=input$report_echo,
   error=TRUE,
   dpi = 100
 )
 ```
-
-```{r evals, echo = FALSE}
+```{r evals, echo = FALSE, warning=FALSE}
+#Files
+evalFiles <- FALSE
 evalJoined <- FALSE
 evalSampleplan <- FALSE
 evalCounts <- FALSE
 evalGenesList <- FALSE
-if (!is.null(reactives$joined)){evalJoined <- TRUE}
-if (!is.null(reactives$sampleplan)){evalSampleplan <- TRUE}
-if (!is.null(reactives$countsRaw)){evalCounts <- TRUE}
-if(evalJoined == TRUE){
+if("DataOverview" %in% input$include){
+  evalFiles <- TRUE
+  if (!is.null(reactives$sampleplan) && !is.null(reactives$countsRaw)){evalJoined <- TRUE}
+  if (!is.null(reactives$sampleplan)){evalSampleplan <- TRUE}
+  if (!is.null(reactives$countsRaw)){evalCounts <- TRUE}
+  if (!is.null(input$essential) && !is.null(input$nonessential)){
+    evalGenesList <- TRUE
+  }
+}
+if (!is.null(reactives$sampleplan) && !is.null(reactives$countsRaw)){evalJoined2 <- TRUE}
+if (!is.null(reactives$sampleplan)){evalSampleplan2 <- TRUE}
+if (!is.null(reactives$countsRaw)){evalCounts2 <- TRUE}
 if (!is.null(input$essential) && !is.null(input$nonessential)){
-  evalGenesList <- TRUE
+  evalGenesList2 <- TRUE
+}
+
+
+evalJoineddistribs <- TRUE
+evaldistribs <- FALSE
+if (TRUE %in% c(c("read_numbers","density_ridges") %in% input$include)){
+  evaldistribs <- TRUE
+  if(!is.null(reactives$sampleplan) && !is.null(reactives$countsRaw)){
+  evalJoineddistribs <- FALSE
+  }
+}
+## Distribs
+evalreadnumbers <- FALSE
+if ("read_numbers" %in% input$include){
+    evalreadnumbers <- TRUE
+}
+
+evaldensity <- FALSE
+evaldensityGenesList <- FALSE
+if ("density_ridges" %in% input$include){
+      evaldensity <- TRUE
+      if (!is.null(reactives$sampleplan) && !is.null(reactives$countsRaw)){
+      evaldensityGenesList <- TRUE
 }
 }
+
+## Descriptive data analysis
+evalJoineddescript <- TRUE
+evalddescript <- FALSE
+evalddescriptGenesList <- FALSE
+if (TRUE %in% c(c("temporal_evolution") %in% input$include)){
+  evalddescript <- TRUE
+  if(!is.null(reactives$sampleplan) && !is.null(reactives$countsRaw)){
+   evalJoineddescript <- FALSE
+  }
+  if (!is.null(input$essential) && !is.null(input$nonessential)){
+  evalddescriptGenesList <- TRUE
+}
+}
+evaltemporal_evolution <- FALSE
+evaltemporal_evolutionGenesList <- FALSE
+if ("temporal_evolution" %in% input$include){
+    evaltemporal_evolution <- TRUE
+    if (!is.null(input$essential) && !is.null(input$nonessential)){
+  evaltemporal_evolutionGenesList <- TRUE
+}
+}
+
+## SessionInfo
+evalSessionInfo <- FALSE
+if("SessionInfo" %in% input$include){
+  evalSessionInfo <- TRUE
+}
+
 options(kableExtra.auto_format = F)
 ```
-
-
+```{asis, echo = TRUE, eval = evalFiles, warning=FALSE}
 # Data overview
-
-## Files 
-```{r, echo = FALSE, eval = evalCounts}
+## Files
+```
+```{r, echo = FALSE, eval = evalCounts, warning=FALSE}
 br()
 write.table(reactives$countsRaw,file = "/tmp/Rawcounts.csv",sep = ",",quote = FALSE)
 br()
 xfun::embed_files(path = "/tmp/Rawcounts.csv", text = "Counts Matrix File")
 ```
-
-```{r, echo = FALSE, eval = evalSampleplan}
+```{r, echo = FALSE, eval = evalSampleplan, warning=FALSE}
 br()
 write.table(reactives$sampleplan,file = "/tmp/sampleplan.csv",sep = ",",quote = FALSE)
 br()
 xfun::embed_files(path = "/tmp/sampleplan.csv", text = "SamplePlan file")
 ```
-
-```{r, echo = FALSE, eval = !evalCounts}
+```{r, echo = FALSE, eval = !evalCounts2, warning=FALSE}
 print("Please upload counts matrix first")
 ```
-
-```{r, echo = FALSE, eval = !evalSampleplan}
+```{r, echo = FALSE, eval = !evalSampleplan2, warning=FALSE}
 print("Please upload both SamplePlan first")
 ```
 
+```{asis, echo = TRUE, eval = evalFiles, warning=FALSE}
 ## Samples Selected
-
-The following samples were selected in this analysis : 
+The following samples were selected in this analysis :
 
 <button title="Click to show answer" type="button" onclick="if(document.getElementById('BE_Genus_C.txt') .style.display=='none') {document.getElementById('BE_Genus_C.txt') .style.display=''}else{document.getElementById('BE_Genus_C.txt') .style.display='none'}">Show/hide</button>
 <div id="BE_Genus_C.txt" style="display:none">
-```{r, echo = FALSE, eval = evalSampleplan}
+  
+```
+
+```{r, echo = FALSE, eval = evalSampleplan, warning=FALSE}
 kableExtra::kable(reactives$sampleplan,caption = "samplePlan Table") %>%
 kable_styling() %>%
-kableExtra::column_spec(1:ncol(reactives$sampleplan),width = "80em", bold = FALSE, italic = FALSE)# %>%
-  #scroll_box(width = "100%", height = "20%")
-
-```
-
-```{r, echo = FALSE, eval = !evalSampleplan}
-print("Please upload SamplePlan file first")
+kableExtra::column_spec(1:ncol(reactives$sampleplan),width = "80em", bold = FALSE, italic = FALSE)
 ```
 </div>
-  
-## Distributions
 
-```{r, echo = FALSE, eval = !evalJoined}
-print("Please upload both SamplePlan and counts matrix first")
+```{r, echo = FALSE, eval = !evalSampleplan2, warning=FALSE}
+print("Please upload SamplePlan file first")
 ```
-
+```{asis, echo = TRUE, eval = evaldistribs, warning=FALSE}
+## Distributions
+```
+```{r, echo = FALSE, eval = TRUE, warning=FALSE}
+if(evalJoineddistribs == TRUE){
+print("Please upload both SamplePlan and counts matrix first")
+}
+```
+```{asis, echo = TRUE, eval = evalreadnumbers, warning=FALSE,message=FALSE}
 ### Read Numbers
-```{r, echo = FALSE, eval = evalJoined}
-
-  counts <- reactives$joined
-      counts <- counts %>%
+```
+```{r, echo = FALSE, eval = evalreadnumbers, warning=FALSE,message=FALSE}
+if(!(is.null(input$timepoints_order))){
+        counts <- full_join(reactives$counts, reactives$sampleplan) %>%
+          mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order))
+      } else {
+        print(reactives$sampleplan$Timepoint)
+        counts <- full_join(reactives$counts, reactives$sampleplan) %>%
+          mutate(Timepoint = factor(.data$Timepoint, levels = unique(.data$Timepoint)))
+      }
+      counts <- as.data.frame(counts) %>%
         group_by(.data$Sample_ID, .data$Replicate, .data$Cell_line, .data$Timepoint) %>%
         summarise(total = sum(.data$count)) %>% 
         as.data.frame() %>%
         ggplot(aes(x = .data$Timepoint, y = .data$total)) +
         geom_col(position = position_dodge()) + facet_wrap(vars(.data$Replicate, .data$Cell_line), nrow = 1) +
-        labs(title = "Number of reads by sample") #+
+        labs(title = "Number of reads per sample", xlab ="Timepoint", ylab ="Total counts")
 
 plot(counts)    
 ```
-<br/><br/>
 
-### Log cpm distributions
-<br/>
+<!-- ### Log cpm distributions -->
+<!-- <br/> -->
 
-```{r, echo = FALSE, eval = evalJoined}
-    counts <- reactives$joined
-      counts %>% 
-        ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) + 
-        labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
-```
+<!-- ```{r, echo = FALSE, eval = evalJoined, warning=FALSE} -->
+<!--     counts <- reactives$joined -->
+<!--       counts %>%  -->
+<!--         ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) +  -->
+<!--         labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides") -->
+<!-- ``` -->
 
-<br/><br/>
-
+```{asis, echo = TRUE, warning= FALSE, message = FALSE, eval = evaldensity}
 ### Density ridges
-
 #### All guides
-<br/>
-```{r, echo = FALSE, eval = evalJoined, message=FALSE}
+```
+```{r, echo = FALSE, eval = evaldensity, message=FALSE, warning=FALSE}
  counts <- reactives$joined
-      counts %>%
+     plot(counts %>%
         ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
         facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
-        labs(title = "Distribution of normalzed log-cpm by sample", subtitle = "All guides")
+        labs(title = "Distribution of normalzed log-cpm by sample", subtitle = "All guides"))
 ```
-<br/><br/><br/>
-#### Per gene type
-
-```{r, echo = FALSE, eval = evalGenesList,message=FALSE}
-### Essential genes
+```{asis, echo = TRUE, warning= FALSE, message = FALSE, eval = evaldensity}
+#### Essential genes
+```
+```{r, echo = FALSE, eval = evaldensity,message=FALSE, warning=FALSE}
+if(evaldensityGenesList == FALSE){
 counts <- reactives$joined
 ess_genes <- ess_genes()
 counts <- filter(counts, .data$gene %in% ess_genes$V1)
@@ -127,8 +191,13 @@ plot1 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
   facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
   scale_fill_viridis_c() +
   labs(title = "Distribution of normalised log-cpms", subtitle = "Essential genes")
-
-# Non essential genes
+}
+```
+```{asis, echo = TRUE, warning= FALSE, message = FALSE, eval = evaldensity}
+#### Non Essential genes
+```
+```{r, echo = FALSE, eval = evaldensity,message=FALSE, warning=FALSE}
+if(evaldensityGenesList == TRUE){
 counts <- reactives$joined
 ess_genes <- non_ess_genes()
 counts <- counts %>%
@@ -138,76 +207,86 @@ plot2 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
   facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
   scale_fill_viridis_c() +
   labs(title = "Distribution of normalised log-cpms", subtitle = "Non Essential genes")
-```
+}
 
-```{r, echo = FALSE, eval = evalGenesList,message=FALSE,figures-side, fig.show="hold"}
 grid.arrange(plot1,plot2,ncol = 2)
 ```
-<br/>
-
-```{r, echo = FALSE, eval = !evalGenesList}
+```{r, echo = FALSE, eval = TRUE, warning=FALSE}
+if(evaldensityGenesList == TRUE){
 print("Please provide essential and non essential genes lists first")
+}
 ```
 
-## Results
 
-### Difference to initial timepoint
-
-```{r, echo = FALSE, eval = !evalGenesList}
-print("Please provide essential and non essential genes lists first")
+```{asis,echo = TRUE,eval = evalddescript}
+## Descriptive data analysis
 ```
-
+```{asis, echo = TRUE, eval = evaltemporal_evolution, warning=FALSE}
+### Temporal evolution
 ##### All guides
-
-```{r, echo = FALSE, eval = evalGenesList}
-
+```
+```{r, echo = FALSE, eval = evaltemporal_evolution, warning=FALSE}
 if(is.null(diff_boxes$diff_box_all) | is.null(diff_boxes$diff_box_ess)){
   print("Please perform positive screening in the dedicated app tab first")
-} else { 
+} else {
 plot(diff_boxes$diff_box_all)
 }
 ```
-
+```{asis, echo = TRUE, eval = evaltemporal_evolution, warning=FALSE}
 #### Essential genes
-
-```{r, echo = FALSE, eval = evalGenesList}
-
+```
+```{r, echo = FALSE, eval = evaltemporal_evolution, warning=FALSE}
+if(evaltemporal_evolutionGenesList == FALSE){
+print("Please provide essential and non essential genes lists first")
+}
+```
+```{r, echo = FALSE, eval = evaltemporal_evolutionGenesList, warning=FALSE}
+if(evaltemporal_evolutionGenesList == TRUE){
 if(is.null(diff_boxes$diff_box_all) | is.null(diff_boxes$diff_box_ess)){
   print("Please perform positive screening in the dedicated app tab first")
-} else { 
+} else {
 plot(diff_boxes$diff_box_ess)
+}
 }
 ```
 
+<!-- ## Statistical data analysis -->
+<!-- ```{r, echo = FALSE, eval = TRUE, warning=FALSE} -->
+<!-- print("aa") -->
+<!-- # req(DEA-input$ExploreIntra) -->
+<!-- # req(DEA-concatenated$results) -->
+<!-- # res <- DEA-concatenated$results[[DEA-input$ExploreIntra]] -->
+<!-- req(DEA$results$res) -->
+<!-- print(DEA$results$res) -->
+<!-- res <- DEA$results$res[["Hbe || No_T5-No_T"]] -->
+<!-- print(res) -->
+<!-- # tic("Ploting Volcano") -->
+<!-- # ggplot <- ggplot(res, aes(x = estimate, y = -log10(p.value))) + -->
+<!-- #           ggtitle(colnames(DEA$reactives$contrast)) + -->
+<!-- #           scale_fill_gradient(low = "lightgray", high = "navy") + -->
+<!-- #           scale_color_gradient(low = "lightgray", high = "navy") + -->
+<!-- #           expand_limits(y = c(min(-log10(res$p.value)), 1)) + -->
+<!-- #           geom_point(data = res, -->
+<!-- #                  color = "grey", alpha = 0.5) + -->
+<!-- #           geom_point(data = subset(res, estimate > input$FCT), -->
+<!-- #                  color = "red", alpha = 0.5) + -->
+<!-- #           geom_point(data = subset(res, estimate < -input$FCT), -->
+<!-- #                  color = "blue", alpha = 0.5) + -->
+<!-- #           geom_point(data = subset(res, adj_p.value < input$PvalsT), -->
+<!-- #                  color = "green", alpha = 0.5) + -->
+<!-- #           geom_hline(yintercept = -log10(max(subset(res, adj_p.value < input$PvalsT)$p.value)), linetype = "dashed") + -->
+<!-- #           geom_vline(xintercept = c(-input$FCT, input$FCT), linetype = "dashed") + -->
+<!-- #           theme_linedraw() + -->
+<!-- #           theme(panel.grid = element_blank()) + -->
+<!-- #           xlab("Fold change (log2)") + -->
+<!-- #           ylab("-log10(P-Value)") -->
+<!-- ``` -->
 
-# About COOKIE CRISP'R
-
-`COOKIE CRISP'R` is a package containing a Shiny application for
-analyzing CRISPR screening experiments data in different conditions and experimental factors.
-
-`COOKIE CRISP'R` was developed by the bio-informatic platform of the Curie's Institute (France). 
-
-## Developers
-
-`COOKIE CRISP'R` is currently maintained by Clément BENOIT and Pierre Gestraud at the Bioinformatic Platform (Institut Curie) (https://curie.fr/).
-You can contact them by clicking on the buttons below.
-
-<a href="mailto:mailto:pierre.gestraud@curie.fr?subject=[COOKIE CRISP'R_feedback]" class="btn btn-primary">Pierre Gestraud</a>
-
-<a href="mailto:mailto:clement.benoit@curie.fr?subject=[COOKIE CRISP'R_feedback]" class="btn btn-primary">Clement BENOIT</a>
-
-
-# Citation info
-
-If you use `COOKIE CRISP'R` for your analysis, please cite it as here below:
-
-```{r, warning=FALSE, echo = FALSE}
-citation("CRISPRApp")
+```{asis,echo=TRUE,eval = evalSessionInfo}
+# Session Information
 ```
 
-# Session Information
-
-```{r,echo=FALSE}
+```{r,echo=FALSE,eval = evalSessionInfo}
 sessionInfo()
 ```
 

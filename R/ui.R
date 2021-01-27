@@ -5,26 +5,25 @@ ui_crispr_app <- function(request){
   themes <- shinyAce::getAceThemes()
   
   tagList(dashboardPage(skin = "green",
-    dashboardHeader(title = "Cookie CRISPR",
-    dropdownMenu(type = "notifications", badgeStatus = "success",
-                 messageItem("Notifications",
-                             "This is the content of a message.",
-                             time = "5 mins" )
-    ),
-    dropdownMenu(
-   
-      type = "tasks",icon = icon("cog"),badgeStatus = NULL,
-      headerText = "pcaExplorer task menu",
-      notificationItem(
-        text = actionButton("init2","Exit App & save",
-                            class = "btn_no_border",
-                            onclick = "setTimeout(function(){window.close();}, 100); "),
-        icon = icon("sign-out"),status = "primary"),
-      menuItem(
-        #text = downloadButton("state_save_sc","Save State as .rda")
-        text = actionButton("init", "Save State as .rda", icon = icon("download"))
-        )
-    ) # end of dropdownMenu
+    dashboardHeader(title = "Cookie CRISPR"#,
+    # dropdownMenu(type = "notifications", badgeStatus = "success",
+    #              messageItem("Notifications",
+    #                          "This is the content of a message.",
+    #                          time = "5 mins" )
+    # ),
+    # dropdownMenu(
+      # type = "tasks",icon = icon("cog"),badgeStatus = NULL,
+      # headerText = "pcaExplorer task menu",
+      # notificationItem(
+      #   text = actionButton("init2","Exit App & save",
+      #                       class = "btn_no_border",
+      #                       onclick = "setTimeout(function(){window.close();}, 100); "),
+      #   icon = icon("sign-out"),status = "primary"),
+      # menuItem(
+      #   #text = downloadButton("state_save_sc","Save State as .rda")
+      #   text = actionButton("init", "Save State as .rda", icon = icon("download"))
+      #   )
+    #) # end of dropdownMenu
     ),  # End of Header
     dashboardSidebar(
       sidebarUserPanel("Institut Curie",
@@ -67,14 +66,8 @@ ui_crispr_app <- function(request){
                                            #fluidRow(
                                           column(width = 6,
                                                  fileInput("counts","Global counts")),
-                                          # column(width = 6,              
-                                          #        radioButtons("Fsc","Global counts field separator",
-                                          #                     choices=c('comma'= ",",'semicolon' = ";"), 
-                                          #                     selected = ",",
-                                          #                     inline = TRUE)
-                                          #  ),#),
-                                           column(width = 12,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
-                                                                      buttonLabel=list(icon("angle-double-up"))))
+                                           # column(width = 12,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
+                                           #                            buttonLabel=list(icon("angle-double-up"))))
                                            ),
                                 tabPanel("Help",
                                          uiOutput("Datahelptext"),
@@ -85,9 +78,9 @@ ui_crispr_app <- function(request){
                                                   ),
                                            column(width = 4,downloadButton("DlTestCounts","DL counts matrix example", class = "butt")),
                                            column(width = 4,downloadButton("DlTesGuideList","DL Genes list example", class = "butt"))
-                                           ),
-                                         downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;"),
-                                         downloadButton("exit_and_save","Save State as .rda",style = "visibility: hidden;")
+                                           )#,
+                                         #downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;"),
+                                         #downloadButton("exit_and_save","Save State as .rda",style = "visibility: hidden;")
                                 )
                     ))),
                 
@@ -217,7 +210,7 @@ ui_crispr_app <- function(request){
         ),
         tabItem("CompCond",
                 fluidRow(
-                column(width=12,pickerInput(inputId = "conditionreference1","Choose conditions to compare",
+                column(width=8,pickerInput(inputId = "conditionreference1","Choose conditions to compare",width = '100%',
                                                      choices = NULL,
                                                      selected = NULL,
                                                      multiple = TRUE,
@@ -229,99 +222,137 @@ ui_crispr_app <- function(request){
                                                        liveSearch = TRUE,
                                                        liveSearchStyle = "contains",
                                                      ))),
-                ), # end of fluidRow
-                #fluidRow(girafeOutput("positive_boxplots"))
-                fluidRow(plotlyOutput("positive_boxplots"))
+                column(width=4,checkboxInput("splitcelline","Split boxplots by cell line ?"))),
+                fluidRow(
+                  column(width=8,
+                         pickerInput(inputId = "selectguidescomp","Annotate guide on boxplots",width = '100%',
+                                                    choices = NULL,
+                                                    selected = NULL,
+                                                    multiple = FALSE,
+                                                    choicesOpt = NULL,
+                                                    inline = FALSE,
+                                                    options = pickerOptions(
+                                                      actionsBox = TRUE,
+                                                      title = "Select guides here",
+                                                      liveSearch = TRUE,
+                                                      liveSearchStyle = "contains",
+                                                    ))),
+                                column(width=4,pickerInput(inputId = "selecttimepointscomp","Remove timepoints from boxplots data",width = '100%',
+                                                            choices = NULL,
+                                                            selected = NULL,
+                                                            multiple = TRUE,
+                                                            choicesOpt = NULL,
+                                                            inline = FALSE,
+                                                            options = pickerOptions(
+                                                              actionsBox = TRUE,
+                                                              title = "Select timepoints conditions here",
+                                                              liveSearch = TRUE,
+                                                              liveSearchStyle = "contains",
+                                                            )))),# end of fluidRow
+                fluidRow(girafeOutput("positive_boxplots"))
         ),
         tabItem(tabName = "Statistical_analysis",
                 CRISPRDeaModUI(id = "DEA")),
         tabItem(tabName = "Report",
-                        tabPanel(
+                        #tabPanel(
                           "Report Editor",
                           h2("About this report"),
                           h4("This content has been loaded from the template report `.Rmd` file. Please edit it at your best convenience!"),
                           h4("Some <!–html_preserve–> text may appear on this preview. Do not worry it will disappear when generating and saving the report."),            icon = icon("pencil"),
                           h1("Report Editor"),
                           fluidRow(
-                            column(
-                              width = 6,
-                              box(
-                                title = "markdown options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE, width = 9,
-                                radioButtons("rmd_dl_format", label = "Choose Format:", c("HTML" = "html", "R Markdown" = "rmd"), inline = TRUE),
+                             column(width = 6,
+                                box(width = '100%',
+                                title = "markdown options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
+                                column(width = 12,radioButtons("rmd_dl_format", label = "Choose Format:", c("HTML" = "html", "R Markdown" = "rmd"), inline = TRUE),
                                 textInput("report_title", "Title: "),
                                 textInput("report_author", "Author: "),
                                 radioButtons("report_toc", "Table of Contents", choices = list("Yes" = "true", "No" = "false")),
                                 radioButtons("report_ns", "Number sections", choices = list("Yes" = "true", "No" = "false")),
-                                selectInput("report_theme", "Theme",
+                                pickerInput("report_theme", "Theme",
                                             choices = list("Default" = "default", "Cerulean" = "cerulean",
                                                            "Journal" = "journal", "Flatly" = "flatly",
                                                            "Readable" = "readable", "Spacelab" = "spacelab",
-                                                           "United" = "united", "Cosmo" = "cosmo")))),
-                            column(
-                              width = 6,
-                              box(
-                                title = "editor options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE, width = 9,
-                                checkboxInput("enableAutocomplete", "Enable AutoComplete", TRUE),
-                                conditionalPanel(
-                                  "input.enableAutocomplete",
-                                  wellPanel(
-                                    checkboxInput("enableLiveCompletion", "Live auto completion", TRUE),
-                                    checkboxInput("enableRCompletion", "R code completion", TRUE)
-                                  )
-                                ),
-                                
-                                selectInput("mode", "Mode: ", choices=modes, selected="markdown"),
-                                selectInput("theme", "Theme: ", choices=themes, selected="solarized_light"))
-                            )
-                            # ,
-                            # column( # kept for debugging purposes!
-                            #   width = 6,
-                            #   verbatimTextOutput("loadedRmd")
-                            # )
-                          ),
+                                                           "United" = "united", "Cosmo" = "cosmo"),multiple = FALSE,
+                                            choicesOpt = NULL,
+                                            inline = FALSE,
+                                            options = pickerOptions(
+                                              actionsBox = TRUE,
+                                              liveSearch = TRUE,
+                                              liveSearchStyle = "contains"
+                                            ))
+                                ))),
+                             fluidRow(
+                               column(width = 6,
+                                   box(width = '100%',
+                                       title = "Sections options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = FALSE,
+                                       #fluidRow(
+                                         column(width = 12,
+                                              #fluidRow(
+                                                checkboxGroupInput("include",label = "Add/remove sections in the report",
+                                                                 choices = c("Data Overview" = "DataOverview","read_numbers","density_ridges","temporal_evolution","SessionInfo")),
+                                                br(),
+                                                br()
+                                         #)
+                                      )
+                                  ))
+                            )),
+                          #),
                           fluidRow(
                             column(3,
                                    actionButton("updatepreview_button", "Update report",class = "btn btn-primary"),p()
                             ),
                             column(3, downloadButton("saveRmd", "Generate & Save",class = "btn btn-success"))
                           ),
-                          
                           tabBox(
                             width = NULL,
                             id="report_tabbox",
                             tabPanel("Report preview",
                                      icon = icon("file-text"),
-                                     htmlOutput("knitDoc")
-                            ),
-                            
-                            tabPanel("Edit report",
-                                     icon = icon("pencil-square-o"),
+                                     htmlOutput("knitDoc"),
                                      aceEditor("acereport_rmd", mode="markdown",theme = "solarized_light",autoComplete = "live",
                                                value="_Initialization of the_ `CRISPRApp` _report generation..._",
                                                placeholder = "You can enter some code and text in R Markdown format",
-                                               height="800px"))
+                                               height="800px"),
+                                     box(
+                                       title = "editor_options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
+                                       column(width = 12,checkboxInput("enableAutocomplete", "Enable AutoComplete", TRUE),
+                                              conditionalPanel(
+                                                "input.enableAutocomplete",
+                                                wellPanel(
+                                                  checkboxInput("enableLiveCompletion", "Live auto completion", TRUE),
+                                                  checkboxInput("enableRCompletion", "R code completion", TRUE)
+                                                )
+                                              ),
+                                              pickerInput("mode", "Mode: ", choices=modes, selected="markdown",
+                                                          multiple = FALSE,
+                                                          choicesOpt = NULL,
+                                                          inline = FALSE,
+                                                          options = pickerOptions(
+                                                            actionsBox = TRUE,
+                                                            liveSearch = TRUE,
+                                                            liveSearchStyle = "contains"
+                                                          )),
+                                              pickerInput("theme", "Theme: ", choices=themes, selected="solarized_light",
+                                                          multiple = FALSE,
+                                                          choicesOpt = NULL,
+                                                          inline = FALSE,
+                                                          options = pickerOptions(
+                                                            actionsBox = TRUE,
+                                                            liveSearch = TRUE,
+                                                            liveSearchStyle = "contains"
+                                                          ))
+                                              
+                                       ))
+                                     ),
+                            tabPanel(
+                              "About the app", icon = icon("institution"),
+                              includeMarkdown(system.file("extdata", "about.md",package = "CRISPRApp")),
+                              hr(),
+                            )
                           )
-                        ),
-                        # ui panel about -------------------------------------------------------
-                        tabPanel(
-                          "About", icon = icon("institution"),
-                          includeMarkdown(system.file("extdata", "about.md",package = "CRISPRApp")),
-                          hr(),
-                          
-                          h4("Session Info"),
-                          verbatimTextOutput("sessioninfo")
-                        )
-                        
-                        #           tabPanel(
-                        #             "Session manager",
-                        #             ## will put here the things to save/restore the sessions
-                        #             p("something"),
-                        #           )
                 ) # end of tabBox
                 )
-        
-        
-        
       )
   ),
   tags$footer(
