@@ -5,25 +5,25 @@ ui_crispr_app <- function(request){
   themes <- shinyAce::getAceThemes()
   
   tagList(dashboardPage(skin = "green",
-    dashboardHeader(title = "Cookie CRISPR",
-    dropdownMenu(type = "notifications", badgeStatus = "success",
-                 messageItem("Notifications",
-                             "This is the content of a message.",
-                             time = "5 mins" )
-    ),
-    dropdownMenu(
-      type = "tasks",icon = icon("cog"),badgeStatus = NULL,
-      headerText = "pcaExplorer task menu",
-      notificationItem(
-        text = actionButton("init2","Exit App & save",
-                            class = "btn_no_border",
-                            onclick = "setTimeout(function(){window.close();}, 100); "),
-        icon = icon("sign-out"),status = "primary"),
-      menuItem(
-        #text = downloadButton("state_save_sc","Save State as .rda")
-        text = actionButton("init", "Save State as .rda", icon = icon("download"))
-        )
-    ) # end of dropdownMenu
+    dashboardHeader(title = "Cookie CRISPR"#,
+    # dropdownMenu(type = "notifications", badgeStatus = "success",
+    #              messageItem("Notifications",
+    #                          "This is the content of a message.",
+    #                          time = "5 mins" )
+    # ),
+    # dropdownMenu(
+      # type = "tasks",icon = icon("cog"),badgeStatus = NULL,
+      # headerText = "pcaExplorer task menu",
+      # notificationItem(
+      #   text = actionButton("init2","Exit App & save",
+      #                       class = "btn_no_border",
+      #                       onclick = "setTimeout(function(){window.close();}, 100); "),
+      #   icon = icon("sign-out"),status = "primary"),
+      # menuItem(
+      #   #text = downloadButton("state_save_sc","Save State as .rda")
+      #   text = actionButton("init", "Save State as .rda", icon = icon("download"))
+      #   )
+    #) # end of dropdownMenu
     ),  # End of Header
     dashboardSidebar(
       sidebarUserPanel("Institut Curie",
@@ -66,8 +66,8 @@ ui_crispr_app <- function(request){
                                            #fluidRow(
                                           column(width = 6,
                                                  fileInput("counts","Global counts")),
-                                           column(width = 12,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
-                                                                      buttonLabel=list(icon("angle-double-up"))))
+                                           # column(width = 12,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
+                                           #                            buttonLabel=list(icon("angle-double-up"))))
                                            ),
                                 tabPanel("Help",
                                          uiOutput("Datahelptext"),
@@ -78,9 +78,9 @@ ui_crispr_app <- function(request){
                                                   ),
                                            column(width = 4,downloadButton("DlTestCounts","DL counts matrix example", class = "butt")),
                                            column(width = 4,downloadButton("DlTesGuideList","DL Genes list example", class = "butt"))
-                                           ),
-                                         downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;"),
-                                         downloadButton("exit_and_save","Save State as .rda",style = "visibility: hidden;")
+                                           )#,
+                                         #downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;"),
+                                         #downloadButton("exit_and_save","Save State as .rda",style = "visibility: hidden;")
                                 )
                     ))),
                 
@@ -250,12 +250,9 @@ ui_crispr_app <- function(request){
                                                               liveSearchStyle = "contains",
                                                             )))),# end of fluidRow
                 fluidRow(girafeOutput("positive_boxplots"))
-                #fluidRow(plotlyOutput("positive_boxplots"))
-                #fluidRow(plotOutput("positive_boxplots"))
         ),
         tabItem(tabName = "Statistical_analysis",
-                #CRISPRDeaModUI(id = "DEA")),
-                CRISPRDeaModUIMod(id = "DEA")),
+                CRISPRDeaModUI(id = "DEA")),
         tabItem(tabName = "Report",
                         #tabPanel(
                           "Report Editor",

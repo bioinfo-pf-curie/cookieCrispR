@@ -82,23 +82,17 @@ observeEvent(precheck$counts,{
         print("reading file...")
         #counts <- read.table(inFile$datapath, sep = input$Fsc, header = TRUE)
         counts <- read.table(inFile$datapath, sep = precheck$Fs, header = TRUE)
+        print(counts)
       if (!("X" %in% colnames(counts))){
-      showModal(modalDialog(p(""),
-                              title = "Incorrect count matrix format",
-                              tagList(h6('Check that the first line of the count matrix file starts with a file separator :'),
-                                      h6('You can check it with Notepad, or seeing the first cell of the table as empty after opening it via excel'),
-                                      h6('To use <b> semicolon </b> please specify it with the input file settings button')),
-                              footer = tagList(
-                                modalButton("Got it"))
-      ))
-      } else {
+      print("missingX")
+      counts <- tibble::rownames_to_column(counts,"X")
+      } 
       counts <- dplyr::rename(counts, sgRNA = .data$X)
       counts <- dplyr::select(counts, -.data$sequence)
       reactives$guidelist <- as.character(unique(counts$sgRNA))
       reactives$genelist <- as.character(unique(counts$gene))
       reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
-      }
-    precheck$counts <- FALSE
+      precheck$counts <- FALSE
   }
 })
 
@@ -819,8 +813,7 @@ observeEvent(reactives$norm_data,{
 observeEvent(c(DEAnormdata$data,DEAMetadata$table,input$sidebarmenu),{
   if(input$sidebarmenu=="Statistical_analysis"){
     if(!is.null(DEAnormdata$data) & !is.null(DEAMetadata$table)){
-    DEA <- callModule(CRISPRDeaModServerMod, "DEA", session = session,
-    #DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
+    DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                       norm_data = DEAnormdata,
                       sampleplan = DEAMetadata,
                       var = colnames(DEAMetadata$table))
@@ -883,10 +876,11 @@ output$Datahelptext <- renderUI({HTML(
 <B>Format description :</B>
 <br/>
 <ul>
-<li>A csv file using ';' or ',' as field separator, each line of the file must respects the following format specifications :<br/>
-Sample_ID;SupplementaryInfo;Cell_line;Timepoint;Treatment;Replicate</li>
+<li>A csv file using 'commas'  'semicolons' or 'tabulations' as field separator, each line of the file must respects the following format specifications :<br/>
+Sample_ID;Cell_line;Timepoint;Treatment;Replicate;SupplementaryInfo</li>
 <li>Column names must respect Upper and lower case. </li>
 <li>Values in the table must not contain spaces, use '_' instead. </li>
+<li>Values in the table must not contain dots </li>
 </ul>
 <br/>
 <B>For example :</B>
@@ -900,11 +894,11 @@ D308R1;Ctrl_R1;HEK;T0;Ref_R1;Replica_1
 <B>Format description :</B>
 <br/>
 <ul>
-<li>A csv formated text file using ; or , as field separator. </li>
+<li>A csv formated text file using 'commas'  'semicolons' or 'tabulations' as field separator. </li>
 <li>The first line of the file is a header, it contains samples Sample_IDs as colnames and two supplementary columns called 'gene
 ' and 'sequence'. </li>
-<li>AGuides names' are rownames. </li>
-<li>AValues are read counts.</li>
+<li>Guides names' are rownames. </li>
+<li>Values are read counts.</li>
 </ul>
 <br/>
 <B>For example :</B><br/>
@@ -959,7 +953,6 @@ output$DlTesGuideList <- downloadHandler(
     },
     content = function(file) {
       file.copy(from = essential_path, to = file)
-      #file.copy(from = non_essential_path , to = file)
 })
     
     observeEvent(c(reactives$sampleplanRaw),priority = 10,{
@@ -973,11 +966,9 @@ output$DlTesGuideList <- downloadHandler(
         !"Replicate" %in% colnames)  ){
       showModal(modalDialog(tagList(h3('Colnames must contain these values :',style="color:red"),
                                     h4("| Sample_ID | Cell_line | Timepoint | Treatment | Replicate | SupplementaryInfo"),
-                                    #p(),
                                     h4("colnames must respect majuscules",style="color:red"),
                                     p(),
                                     h3("Your current file colnames are : ",strong ="bold"),
-                                    #h4(paste(colnames,collapse ="  "))
                                     h4(paste("| ",paste(colnames,collapse =" | ")," |"))
                                     ),
                             title = "Anormal sample plan columns naming",

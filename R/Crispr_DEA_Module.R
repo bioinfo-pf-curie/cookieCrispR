@@ -22,7 +22,7 @@ CRISPRDeaModUI <- function(id)  {
   ns <- NS(id)
   fluidPage(
     tags$head(
-      tags$style(type='text/css', ".span161 { width: 850px; }")#,
+      tags$style(type='text/css', ".span161 { width: 850px; }"),
     ),
     tags$head(tags$style(type = "#boxPopUp1 .modal-body{ min-height:550px}")),
     br(),
@@ -32,120 +32,138 @@ CRISPRDeaModUI <- function(id)  {
         tabsetPanel(type = "pills",id = ns("DEGtabs"),
                     tabPanel("RUN DEA",
                              #fluidPage(
-                             br(),
-                             fluidRow(
-                             #fluidPage(
-                             box(title = "Creates DEG model",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
-                                 status = "primary",width= 12,
-                                 #fluidPage(
-                                 uiOutput(ns("vars_selUI")
-                                 )
-                                )
-                                 #)
-                             ), # end of box
-                             #), # end of fluidRow
-                             fluidRow(
-                             box(title = "Comparison",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
-                                 status = "primary",width= 12,
-                                 column(width=6,
-                                        uiOutput(ns("Group1")),
-                                        textOutput(ns("group1table")),
-                                        pickerInput(
-                                          ns("move1"),
-                                          label = "Move samples to Group 2",
-                                          choices = NULL,
-                                          selected = NULL,
-                                          multiple = TRUE,
-                                          choicesOpt = NULL,
-                                          inline = FALSE,
-                                          options = pickerOptions(
-                                            actionsBox = TRUE,
-                                            title = "Select samples to move",
-                                            liveSearch = TRUE,
-                                            liveSearchStyle = "contains",
-                                          )
-                                        ),
-                                        pickerInput(
-                                          ns("remove1"),
-                                          label = "remove samples from Group1",
-                                          choices = NULL,
-                                          options = pickerOptions(
-                                            actionsBox = TRUE,
-                                            title = "Select samples to remove",
-                                            liveSearch = TRUE,
-                                            liveSearchStyle = "contains",
+                            br(),
+                            fluidRow(
+                            column(width = 6,
+                                   pickerInput(ns("celline"),width = '100%',
+                                       label = "Select a cell line to perform analysis ",
+                                       #choices =  sampleplanmodel$table$Cell_line,
+                                       choices = NULL,
+                                       options = pickerOptions(
+                                         actionsBox = TRUE,
+                                         title = "Select cell line",
+                                         liveSearch = TRUE,
+                                         liveSearchStyle = "contains",
+                                       ),
+                                       selected = NULL,
+                                       multiple = FALSE,
+                                       choicesOpt = NULL,
+                                       inline = FALSE)),
+                            column(width = 6,
+                                   pickerInput(ns("comptype"),width = '100%',
+                                         label = "Select a type of comparison",
+                                         choices = c("Intra-Treatment","Inter-Treatment"),
+                                         options = pickerOptions(
+                                           actionsBox = TRUE,
+                                           title = "Select comparison",
+                                           liveSearch = TRUE,
+                                           liveSearchStyle = "contains",
+                                         ),
+                                  selected = "Intra-Treatment",
+                                  multiple = FALSE,
+                                  choicesOpt = NULL,
+                                  inline = FALSE)),
+                                  column(width = 6,
+                                  br(),
+                                  actionButton(ns("Build"),"Build Model",width = '100%')),
+                                  column(width = 6,
+                                  conditionalPanel(condition = 'input.comptype == "Intra-Treatment"' ,ns = NS(id),
+                                                   pickerInput(ns("Treatlevel"),width = '100%',
+                                                   "Select a treatment to perform intra comparison",choices = NULL,
+                                                    options = pickerOptions(
+                                                     actionsBox = TRUE,
+                                                     title = "Select treament value",
+                                                     liveSearch = TRUE,
+                                                     liveSearchStyle = "contains"))
+                                                   ),
+                                  conditionalPanel(condition = 'input.comptype == "Inter-Treatment"' ,ns = NS(id),
+                                  br(),
+                                  actionButton(ns("newcomparison"),"Set up a new comparison",width='100%'))),
+                                  bsModal(id = ns("compmodal"),"Set up groups two compare",
+                                          trigger = "comptype",
+                                          column(width = 6,
+                                              conditionalPanel(condition = 'output.conditionnalTreatment != "1"' ,ns = NS(id),
+                                                 pickerInput(ns("TreatlevelInter1"),width = '100%',
+                                                      "Group1 Treatment type",choices = NULL,
+                                                      options = pickerOptions(
+                                                        actionsBox = TRUE,
+                                                        title = "Select Treatment",
+                                                        liveSearch = TRUE,
+                                                        liveSearchStyle = "contains"))),
+                                              conditionalPanel(condition = 'output.conditionnalMutTreatment != "1"' ,ns = NS(id),
+                                                 pickerInput(ns("Mut1"),
+                                                             "Group1 sample mutation type",choices = NULL,
+                                                             options = pickerOptions(
+                                                               actionsBox = TRUE,
+                                                               title = "Select mutation type",
+                                                               liveSearch = TRUE,
+                                                               liveSearchStyle = "contains")))),
+                                          column(width = 6, 
+                                                 conditionalPanel(condition = 'output.conditionnalTreatment != "1"' ,ns = NS(id),
+                                                 pickerInput(ns("TreatlevelInter2"),
+                                                             "Group2 Treatment type",choices = NULL,
+                                                             options = pickerOptions(
+                                                               actionsBox = TRUE,
+                                                               title = "Select Treament",
+                                                               liveSearch = TRUE,
+                                                               liveSearchStyle = "contains"))),
+                                                 conditionalPanel(condition = 'output.conditionnalMut != "1"' ,ns = NS(id),
+                                                 pickerInput(ns("Mut2"),
+                                                             "Group2 sample mutation type",choices = NULL,
+                                                             options = pickerOptions(
+                                                               actionsBox = TRUE,
+                                                               title = "Select mutation type",
+                                                               liveSearch = TRUE,
+                                                               liveSearchStyle = "contains")))
+                                                 ),
+                                          column(width = 12,
+                                          textOutput(ns("Intercompresume1"))),
+                                          br(),
+                                          column(width = 4,
+                                          span(textOutput(ns("Intercompresume2")), style="color:red")),
+                                          column(width = 4,
+                                          textOutput(ns("Intercompresume3"))),
+                                          column(width = 4,
+                                          span(textOutput(ns("Intercompresume4")), style="color:red"))
                                           ),
-                                          selected = NULL,
-                                          multiple = TRUE,
-                                          choicesOpt = NULL,
-                                          inline = FALSE
-                                        )),
-                                 column(width = 6,uiOutput(ns("Group2")),
-                                        textOutput(ns("group2table")),
-                                        # selectInput(ns("remove2"),"remove samples from Group 1",multiple = TRUE,selected = NULL,choices = NULL),
-                                        # selectInput(ns("move2"),"Move samples to Group 2",multiple = TRUE,selected = NULL,choices = NULL))
-                                        pickerInput(
-                                          ns("move2"),
-                                          label = "Move samples to Group 1",
-                                          choices = NULL,
-                                          selected = NULL,
-                                          multiple = TRUE,
-                                          choicesOpt = NULL,
-                                          inline = FALSE,
-                                          options = pickerOptions(
-                                            actionsBox = TRUE,
-                                            title = "Select samples to move",
-                                            liveSearch = TRUE,
-                                            liveSearchStyle = "contains"
-                                          )
-                                        ),
-                                        pickerInput(
-                                          ns("remove2"),
-                                          label = "remove samples from Group 2",
-                                          choices = NULL,
-                                          options = pickerOptions(
-                                            actionsBox = TRUE,
-                                            title = "Select samples to remove",
-                                            liveSearch = TRUE,
-                                            liveSearchStyle = "contains",
-                                          ),
-                                          selected = NULL,
-                                          multiple = TRUE,
-                                          choicesOpt = NULL,
-                                          inline = FALSE
-                                        )))),
+                                  tags$head(tags$style("#compmodal .modal-footer{ display:none}"))
+                                  ),
                              br(),
-                             br(),
-                             actionButton(ns("Build"),"Build Model")
+                             br()
                     ), # end of first tabs
-                    
-                    tabPanel("Figures",
+                    tabPanel("Explore results",
                              br(),
                              tagList(
-                               box(title = span(icon("cogs"), "Parameters"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
+                               #fluidRow(column(width = 12,infoBoxOutput(ns("selected_line")))),
+                               fluidRow(column(width = 12,uiOutput(ns("selected_line")))),
+                               fluidRow(box(title = span(icon("cogs"), "Parameters"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                    status = "success",width= 12,
-                                   fluidRow(
-                                   ),
-                                   fluidRow(
-                                     column(width = 6,selectInput(ns("AdjMeth"),"Select an adjustment method", choices = c("BH","BY","holm","none"), selected = "BH")),
-                                     column(width = 6,numericInput(ns("PvalsT"),"adjusted P values threshold", min = 0, max = 1 , value = 0.05, step = 0.01))),
-                                   fluidRow(
-                                     column(width = 12,numericInput(ns("FCT"),"LogFC threshold", min = 0, max = 10 , value = 1, step = 0.05))#,
-                                     #column(width = 6, infoBoxOutput(ns("featuress"),tags$style("#featuress {width:230px;}")))
-                                   ),
-                                   fluidRow(uiOutput(ns('features_value_box')))
-
-                               ), # end of box
-                               #fluidRow(
-                               #column(width = 12 ,
-                               box(title = span(icon("chart-bar"),"DEA figures"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
+                                   #fluidRow(
+                                     column(width = 6,pickerInput(ns("ExploreIntra"),label= "Select a comparison to explore", selected = NULL,
+                                                                  multiple = FALSE,choicesOpt = NULL,inline = FALSE,choices = NULL,
+                                                                  options = pickerOptions(
+                                                                    title = "Select comparison",
+                                                                    liveSearch = TRUE,
+                                                                    liveSearchStyle = "contains"))),
+                                     column(width = 6,numericInput(ns("FCT"),"LogFC threshold", min = 0, max = 10 , value = 1, step = 0.05)),
+                                     column(width = 6,pickerInput(ns("AdjMeth"),"Select an adjustment method", choices = c("BH","BY","holm","none"),
+                                                                  multiple = FALSE,choicesOpt = NULL,inline = FALSE,selected = "BH",
+                                                                  options = pickerOptions(
+                                                                    title = "Select genes to annotate",
+                                                                    liveSearch = TRUE,
+                                                                    liveSearchStyle = "contains"))),
+                                     column(width = 6,numericInput(ns("PvalsT"),"adjusted P values threshold", min = 0, max = 1 , value = 0.05, step = 0.01)))
+                               ),
+                               fluidRow(uiOutput(ns('features_value_box'))),
+                               fluidRow(box(title = span(icon("chart-bar"),"DEA Figures"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                    status = "success",width = 12,
-                                   # fluidRow(column(width =6,girafeOutput(ns("Pvals_distrib"))),
-                                   # column(width =6,plotOutput(ns("scatter")))),
-                                   fluidRow(column(width =12,girafeOutput(ns("Pvals_distrib")))),
+                                   #fluidRow(
+                                     column(width =12,girafeOutput(ns("Pvals_distrib"))),
+                                   #),
                                    br(),
                                    br(),
-                                   fluidRow(column(width = 12,
+                                   #fluidRow(
+                                     column(width = 12,
                                                    pickerInput(ns("GeneVolcano"),"Select Genes to annotate on volcano",
                                                                selected = NULL,
                                                                multiple = TRUE,
@@ -157,58 +175,51 @@ CRISPRDeaModUI <- function(id)  {
                                                                  liveSearch = TRUE,
                                                                  liveSearchStyle = "contains",
                                                                ))
-                                   )),
-                                   fluidRow(column(width = 12,
+                                   ),#),
+                                   #fluidRow(
+                                    column(width = 12,
                                                    plotOutput(ns("Volcano"))),
-                                            column(width = 12,
+                                    column(width = 12,
                                                    conditionalPanel("input.GeneVolcano != undifined && input.GeneVolcano.length <= 1", ns = ns,
-                                                                    #textOutput(ns('boxplots_error'))))
                                                                     textOutput(ns('boxplots_error'))),
                                                    conditionalPanel("input.GeneVolcano != undifined && input.GeneVolcano.length >=2", ns = ns,
-                                                                    #plotOutput(ns("boxplots"))),
                                                                     plotOutput(ns("boxplots"))))
-                                            
-                                            
-                                            
-                                   )
-                                   #girafeOutput(ns("Volcano"))))
-                                   
-                                   
-                                   #)
                                    #)
                                )
-                             ) # end of Taglist
-                    ), # end of second tab
-                    tabPanel("Tables",
-                             br(),
-                             box(title = span(icon("arrow-circle-down"),"Tables"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
-                                 status = "success",width= 12,
-                                 #fluidRow(plotOutput(ns("Volcano"))),
-                                 fluidRow(
+                               ),# end of fluidRow
+                               fluidRow(box(title = span(icon("arrow-circle-down"),"DEA Tables"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
+                                   status = "success",width= 12,
+                                   #fluidRow(
                                    tags$head(tags$style(".butt{background-color:#2E8B57;}")),
                                    column(width =12,
-                                          h4("All genes :",style="padding-left:20px"),
-                                          br(),
+                                          h4("All genes :"),
                                           DT::dataTableOutput(ns('results_table')),
                                           downloadButton(ns("resdl"),"All genes",class = "butt")),
-                                   #tags$br(),
-                                   
                                    column(width = 12,
-                                          h4("Upp regulated genes :",style="padding-left:20px"),
                                           br(),
+                                          h4("Upp regulated genes :"),
                                           DT::dataTableOutput(ns('up_table')),
                                           downloadButton(ns("uppdl"),"Up-regulated",class = "butt")),
-                                   #tags$br(),
                                    column(width = 12,
-                                          h4("Down regulated genes :",style="padding-left:20px"),
                                           br(),
+                                          h4("Down regulated genes :"),
+                                          #br(),
                                           DT::dataTableOutput(ns('down_table')),
                                           downloadButton(ns("downdl"),"Down-regulated",class = "butt"))
-                                 )#,
+                               )#,
                              ) # end of box
-                    ),
+                             ) # end of Taglist
+                    ), # end of second tab
                     tabPanel("RRAscores",
-                    DT::dataTableOutput("RRAscores")
+                             fluidRow(column(width =12,
+                             pickerInput(ns("ExploreIntra2"),label= "Select a comparison to explore", selected = NULL,
+                                         multiple = FALSE,choicesOpt = NULL,inline = FALSE,choices = NULL,
+                                         options = pickerOptions(
+                                           title = "Select genes to annotate",
+                                           liveSearch = TRUE,
+                                           liveSearchStyle = "contains")))),
+                             fluidRow(DT::dataTableOutput(ns("RRAscores"))),
+                             fluidRow(downloadButton(ns("scoresdl"),"Download RRA scores"))
                     ) # end of 3 tab
         )
         #) # end of div
@@ -240,470 +251,383 @@ CRISPRDeaModUI <- function(id)  {
 #' @import dplyr
 #' @importFrom tictoc tic toc
 
-CRISPRDeaModServer <- function(input, output, session, matrix = NULL,sampleplan = NULL, var = NULL,
+CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = NULL,
                                norm_data = NULL) {
   
   ### Define reactives #############
   req(sampleplan)
-  #req(matrix)
   ns <- session$ns
   
   reactives <- reactiveValues(design = NULL, formula = NULL, contrast = NULL)
-  groups <- reactiveValues(Group1 = NULL, Group2 = NULL)
-  #sampleplanmodel <- reactiveValues(table = sampleplan$table)
   sampleplanmodel <- reactiveValues(table = NULL)
   results <- reactiveValues(res = NULL, up = NULL, down = NULL,nsignfc = NULL,v = NULL,boxplots = NULL,
-                            scores = NULL)
+                            scores = NULL,old_res = "NULL")
   
-  observe({
-  sampleplanmodel$table <- sampleplan$table
-  })
-  
-  observeEvent(input$remove1,{
-    sampleplanmodel$table[input$remove1,input$var] <- "removed"
-  })
-  observeEvent(input$move1,{
-    sampleplanmodel$table[input$move1,input$var] <- input$Group2sel
-  })
-  observeEvent(input$remove2,{
-    sampleplanmodel$table[input$remove2,input$var] <- "removed"
-  })
-  observeEvent(input$move2,{
-    sampleplanmodel$table[input$move2,input$var] <- input$Group1sel
+  observeEvent(c(input$celline,sampleplan$table),{
+    sampleplanmodel$table <- sampleplan$table %>%
+      filter(Cell_line == input$celline)
   })
   
-  observeEvent(c(input$var,
-                 input$covar,
-                 input$ok
-  ),{
-    if(!is.null(sampleplanmodel$table)){
-      if(!is.null(input$var)){
-        #if(!is.null(matrix$table)){
-        if(!is.null(norm_data$data)){
-          sampleplan <- sampleplanmodel$table
-          print("sampleplanformula")
-          #print(nrow(sampleplan))
-          design.idx <- colnames(sampleplan)
-          if(input$covar != ""){
-            #print("with covar")
-            vector <- c(input$var,input$covar)
-            if(input$var != "Create your own groups"){
-              formula <- as.formula(
-                paste0('~0+',input$var,"+",paste0(input$covar,collapse = "+"),"+",
-                       paste0(combn(vector,2,FUN = paste,collapse =":"),collapse = "+"))
-              )} else if (input$var == "Create your own groups"){
-                formula <- as.formula(
-                  paste0('~0+',"personalisedGroup","+",paste0(input$covar,collapse = "+"),"+",
-                         paste0(combn(vector,2,FUN = paste,collapse =":"),collapse = "+"))
-                )} } else {
-                  
-                  if(input$var != "Create your own groups"){
-                    #print("without covar")
-                    formula <- as.formula(
-                      paste0('~0+',as.character(input$var))
-                    )} else if (input$var == "Create your own groups"){
-                      print("without covar")
-                      formula <- as.formula(
-                        paste0('~0+',"personalisedGroup"))
-                    }
-                }
-          reactives$formula <- formula
-          print(reactives$formula)
-        }}}
-    
-  })
-  
-  
-  observeEvent(input$Build,{
-    
-    if(!is.null(sampleplanmodel$table)){
-      if(!is.null(input$var)){
-        if(!is.null(input$Group2sel)){
-          if(!is.null(input$Group1sel)){
-            #if(!is.null(matrix$table)){
-            if(!is.null(norm_data$data)){
-              if(!is.null(reactives$formula)){
-                data <- sampleplanmodel$table
-                if (input$var == "Create your own groups"){
-                  data[groups$Group2,"personalisedGroup"] <- "Group2"
-                  data[groups$Group1,"personalisedGroup"] <- "Group1"
-                  completeVec <- complete.cases(data[,"personalisedGroup"])
-                  data <- data[completeVec,]
-                }
-                ##### NEW ########
-                design <- model.matrix(reactives$formula, data=norm_data$data$samples)
-                #design <- model.matrix(~ 0 + Sample_description * Timepoint * Cell_line, data = norm_data$data$samples)
-                design <- design[which(rownames(design) %in% colnames(norm_data$data$counts)), ]
-                colnames(design) <- make.names(colnames(design))
-                
-                if (input$var == "Create your own groups"){
-                  contrast <-makeContrasts(contrasts = paste0(paste0("personalisedGroup","Group1"),"-",(paste0("personalisedGroup","Group2"))) ,
-                                           levels=design)
-                } else {
-                  contrast <-makeContrasts(contrasts = paste0(paste0(input$var,input$Group1sel),"-",(paste0(input$var,input$Group2sel))),
-                                           levels=design)
-                }
-                save(list = c('contrast'),file = "~/coockiecrisprtestRDA/CRISPR_contrast.rda")
-                reactives$contrast <- contrast
-                reactives$design <- design
-              }
-            }
-          }}}
-    }
-    
-  })
-  
-  output$formula <- renderUI({
-    if(!is.null(sampleplan$table)){
-      print(Reduce(paste,deparse(reactives$formula)))
-    } else {
-      print("Provides a sampleplan first ")
+  observeEvent(c(input$comptype,input$newcomparison), {
+    if(input$comptype == "Inter-Treatment"){
+    toggleModal(session=session,"compmodal", toggle = "open")
     }
   })
   
-  
-  observeEvent(input$help1,{
-    
-    showModal(modalDialog(HTML(
-      "<b>Variable of interest :</b></br>
-    The variable that you want to use to create sample groups for the DE analysis </br></br></br>
-
-    <b>Co-variables :</b></br>
-
-    Select co-variables if you want that app to take into account their respective effects on genes' expression.
-
-    "),
-      title = "Variables infos",
-      footer = tagList(
-        modalButton("Got it"),
-      )))
-    
-    
+  observeEvent(c(sampleplanmodel$table,input$comptype),{
+    updatePickerInput(session=session,"Treatlevel",
+                      choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
+                      selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[1])
   })
-  
-observe({
-  output$vars_selUI <- renderUI({
-    tagList(
-      column(width = 5,
-               selectInput(ns("var"),"Variable of interest :",choices = c(var,"Create your own groups"),
-                           multiple = FALSE, selected = var[1],width = "100%")),
-      column(width = 5,
-               selectInput(ns("covar"),"Covariables :",choices = c("None" = "",var),
-                           multiple = FALSE, selectize = TRUE, selected = "",width = "100%")),
-      column(width = 2,
-               br(),
-               actionButton(ns("help1"),"",icon = icon("info"),width = "100%"))
-      #) # end of fluidRrow
-    )
+  observeEvent(c(sampleplan$table),{
+    updatePickerInput(session=session,"celline",
+                      choices = unique(sampleplan$table$Cell_line),selected = unique(sampleplan$table$Cell_line)[1])
   })
-})
-
-observe({ 
-  output$Group1 <- renderUI({
-    tagList(
-      if(!is.null(input$var)) {
-        #if(length(input$var) != 0) {
-        if(input$var != "Create your own groups"){
-          selectInput(ns("Group1sel"),"Group 1", choices = na.omit(levels(sampleplan$table[,input$var])),
-                      selected= na.omit(levels(sampleplanmodel$table[,input$var])[1]))
-          
-        }
-      }
-    )
-  })
-})
-  observe({
-    
-    if(!is.null(input$var)) {
-      if(input$var != "Create your own groups"){
-        groups$Group1 <- rownames(sampleplanmodel$table[which(sampleplanmodel$table[,input$var] == input$Group1sel),])
-      } else if (input$var == "Create your own groups"){
-        
-        #div(class = "#boxPopUp1",
-        showModal(
-          fluidPage(
-            modalDialog(
-              title = "Create two groups for differential analysis",
-              fluidRow(
-                column(width = 6,
-                       pickerInput(ns("createGroup1"), "select samples to add in group 1",
-                                   choices = rownames(sampleplanmodel$table),
-                                   selected = NULL,
-                                   multiple = TRUE,
-                                   choicesOpt = NULL,
-                                   inline = FALSE,
-                                   options = pickerOptions(
-                                     actionsBox = TRUE,
-                                     title = "Select samples to add",
-                                     liveSearch = TRUE,
-                                     liveSearchStyle = "contains"
-                                   ))
-                ),
-                column(width = 6,
-                       pickerInput(ns("createGroup2"), "select samples to add in group 2",
-                                   choices = rownames(sampleplanmodel$table),
-                                   selected = NULL,
-                                   multiple = TRUE,
-                                   choicesOpt = NULL,
-                                   inline = FALSE,
-                                   options = pickerOptions(
-                                     actionsBox = TRUE,
-                                     title = "Select samples to add",
-                                     liveSearch = TRUE,
-                                     liveSearchStyle = "contains"
-                                   ))
-                )),
-              easyClose = TRUE,
-              footer = tagList(
-                modalButton(ns("Cancel")),
-                actionButton(ns("ok"),"OK")
-              )
-            ) # end of fluidRow
-          )
-        )
-        #) # end of div
-      }
+  observeEvent(c(sampleplanmodel$table,input$comptype),{
+    if(length(unique(sampleplanmodel$table$Treatment)) >= 2){
+    updatePickerInput(session=session,"TreatlevelInter1",
+                      choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
+                      selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[1])
+    updatePickerInput(session=session,"TreatlevelInter2",
+                      choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
+                      selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[2])
     }
   })
-  
-  observeEvent(input$ok,{
-    groups$Group1 <- rownames(sampleplanmodel$table)[which(rownames(sampleplanmodel$table) %in% input$createGroup1)]
-    groups$Group2 <- rownames(sampleplanmodel$table)[which(rownames(sampleplanmodel$table) %in% input$createGroup2)]
-    removeModal()
-  })
-  
-  
-  observe({
-    if(!is.null(groups$Group1)){
-      updatePickerInput(session = session,
-                        "remove1","remove samples from Group 1",selected = NULL,choices = groups$Group1,
-                        pickerOptions(
-                          actionsBox = TRUE,
-                          title = "Select samples to remove",
-                          header = "This is a title"
-                        ))
-      updatePickerInput(session = session,
-                        "move1","Move samples to Group 2",selected = NULL,choices = groups$Group1)
-      
+  observeEvent(c(sampleplanmodel$table,input$comptype),{
+    if(length(unique(sampleplanmodel$table$SupplementaryInfo)) >= 2){
+    updatePickerInput(session=session,"Mut1",
+                      choices = unique(as.character(sampleplanmodel$table[,"SupplementaryInfo"])),
+                      selected = unique(as.character(sampleplanmodel$table[,"SupplementaryInfo"]))[1])
+    updatePickerInput(session=session,"Mut2",
+                      choices = unique(as.character(sampleplanmodel$table[,"SupplementaryInfo"])),
+                      selected = unique(as.character(sampleplanmodel$table[,"SupplementaryInfo"]))[2])
     }
   })
-  
-  observe({
-    if(!is.null(groups$Group2)){
-      updatePickerInput(session = session,
-                        "remove2","remove samples from Group 2",selected = NULL,choices = groups$Group2,
-                        pickerOptions(
-                          actionsBox = TRUE,
-                          title = "Select samples to remove"
-                        ))
-      updatePickerInput(session = session,
-                        "move2","Move samples to Group 1",selected = NULL,choices = groups$Group2)
-      
-    }
-  })
-  
-  output$group1table <- renderText({
-    groups$Group1
-  })
-
-  observe({  
-  output$Group2 <- renderUI({
-    tagList(
-      if(input$var != "Create your own groups"){
-        selectInput(ns("Group2sel"),"Group 2", choices  = na.omit(levels(sampleplan$table[,input$var])),
-                    selected = na.omit(levels(sampleplanmodel$table[,input$var])[2]) )
-      }
-    )
-    
-  })
-})
-
-  observe({
-    if(!is.null(input$var)) {
-      if(input$var != "Create your own groups"){
-        groups$Group2 <- rownames(sampleplanmodel$table[which(sampleplanmodel$table[,input$var] == input$Group2sel),])
-      }
-    }
-  })
-  
-  output$group2table <- renderText({
-    groups$Group2
-  })
-  
-  observeEvent(c(input$Group1sel,input$Group2sel),ignoreInit = TRUE,{
-    if(!is.null(input$Group1sel)){
-      #if(length(input$Group1sel) != 0){
-      if(input$Group1sel != "" & input$Group2sel != ""){
-        if(input$Group1sel == input$Group2sel){
-          showModal(modalDialog(p("You must select two different groups to make a comparison"),
-                                title = "Identical groups",
-                                footer = tagList(
-                                  modalButton("Got it"),
-                                )))
-        }
-      }
-    }
-  })
-  
-  observeEvent({input$var
-    input$covar},{
-      if(input$var %in% input$covar){
-        validationModalModel(
-          msg = "You can not use the same sample Plan column for variable and covariable ",
-        )
-        return(-1)
+  #observeEvent(c(input$TreatlevelInter1,input$TreatlevelInter2,input$Mut1,input$Mut2),{
+    output$Intercompresume1 <- renderText({
+      paste0("You are about to compare these samples : ")
+    })
+    output$Intercompresume2 <- renderText({
+      if(length(unique(sampleplanmodel$table$Treatment)) >= 2 & length(unique(sampleplanmodel$table$SupplementaryInfo)) >= 2){
+      paste0(input$TreatlevelInter1,"_",input$Mut1)
+      } else if (length(unique(sampleplanmodel$table$Treatment)) == 1  & length(unique(sampleplanmodel$table$SupplementaryInfo)) >= 2){
+        paste0(input$Mut1)
+      } else if (length(unique(sampleplanmodel$table$Treatment)) >=2  & length(unique(sampleplanmodel$table$SupplementaryInfo)) == 1){
+        paste0(input$TreatlevelInter1)
       }
     })
-  
-  ## Function def
-  validationModalModel <- function(msg = "", title = "Model Error") {
-    showModal(modalDialog(p(msg),
-                          title = title,
-                          footer = tagList(
-                            modalButton("Dismiss"),
-                          )))
+    output$Intercompresume3 <- renderText({
+      "vs"
+    })
+    output$Intercompresume4 <- renderText({
+      if(length(unique(sampleplanmodel$table$Treatment)) >= 2 & length(unique(sampleplanmodel$table$SupplementaryInfo)) >= 2){
+      paste0(input$TreatlevelInter2,"_",input$Mut2)
+      } else if (length(unique(sampleplanmodel$table$Treatment)) == 1  & length(unique(sampleplanmodel$table$SupplementaryInfo)) >= 2){
+      paste0(input$Mut2)
+      } else if (length(unique(sampleplanmodel$table$Treatment)) >=2  & length(unique(sampleplanmodel$table$SupplementaryInfo)) == 1){
+      paste0(input$TreatlevelInter2)
+      }
+    })
+    output$Intercompresume5 <- renderText({
+      "samples"
+    })
     
-  }
+    output$conditionnalTreatment <- reactive({
+      as.character(length(unique(sampleplanmodel$table$Treatment)))
+    })
+    output$conditionnalMut <- reactive({
+      as.character(length(unique(sampleplanmodel$table$SupplementaryInfo)))
+    })
+    outputOptions(output, "conditionnalTreatment", suspendWhenHidden = FALSE)  
+      
+
+  observeEvent(input$Build,{
+    if(!is.null(sampleplanmodel$table)){
+            if(!is.null(norm_data$data)){
+              req(input$celline)
+                data <- norm_data$data$samples %>%
+                  filter(Cell_line == input$celline)
+                Tnums <- as.numeric(unique(gsub("T","",data$Timepoint)))
+                T0 <- min(Tnums[order(Tnums)])
+                minT <- min(Tnums[order(Tnums)][-1])
+                maxT <- max(Tnums)
+                if(input$comptype == "Intra-Treatment"){
+                  data$Intra <- paste0(data$Treatment,"_",data$Timepoint)
+                  design <- model.matrix(~ 0 + Intra, data = data)
+                  colnames(design) <- make.names(gsub("Intra","",colnames(design)))
+                } else if(input$comptype == "Inter-Treatment"){
+                  data$Inter <- paste0(data$Treatment,"_",data$SupplementaryInfo,"_",data$Timepoint)
+                  design <- model.matrix(~ 0 + Inter, data = data)
+                  colnames(design) <- make.names(gsub("Inter","",colnames(design)))
+                }
+                save(list = c('design'),file = "~/coockiecrisprtestRDA/CRISPR_contrast.rda")
+                if(input$comptype == "Intra-Treatment"){
+                  contrast <- purrr::map(glue::glue("{input$Treatlevel}_T{minT:maxT}-{input$Treatlevel}_T{T0}"),~makeContrasts(contrasts = .x,levels=design))
+                } else if (input$comptype == "Inter-Treatment"){
+                  if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+                    gluelist <- data.frame(gluelistcol = unique(glue::glue("{input$TreatlevelInter1}_{input$Mut1}_{data$Timepoint}-{input$TreatlevelInter2}_{input$Mut2}_{data$Timepoint}")))
+                    missing1 <- unique(glue::glue("{input$TreatlevelInter1}_{input$Mut1}_{data$Timepoint}"))
+                    missing2 <- unique(glue::glue("{input$TreatlevelInter2}_{input$Mut2}_{data$Timepoint}"))
+                    missing2 <- missing2[!(missing2 %in% data$Inter)]
+                    missing1 <- missing1[!(missing1 %in% data$Inter)]
+                    for (missing in missing2){
+                      gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                    }
+                    for (missing in missing1){
+                      gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                    }
+                    gluelist <- as.list(gluelist$gluelistcol)
+                  } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) == 1){
+                  gluelist <- data.frame(gluelistcol = unique(glue::glue("{unique(sampleplanmodel$table$Treatment)}_{input$Mut1}_{data$Timepoint}-{unique(sampleplanmodel$table$Treatment)}_{input$Mut2}_{data$Timepoint}")))
+                  missing1 <- unique(glue::glue("{unique(sampleplanmodel$table$Treatment)}_{input$Mut1}_{data$Timepoint}"))
+                  missing2 <- unique(glue::glue("{unique(sampleplanmodel$table$Treatment)}_{input$Mut2}_{data$Timepoint}"))
+                  missing2 <- missing2[!(missing2 %in% data$Inter)]
+                  missing1 <- missing1[!(missing1 %in% data$Inter)]
+                  for (missing in missing2){
+                    gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                  }
+                  for (missing in missing1){
+                    gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                  } 
+                  gluelist <- as.list(gluelist$gluelistcol)
+
+                  } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) == 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+                  gluelist <- data.frame(gluelistcol = unique(glue::glue("{input$TreatlevelInter1}_{unique(sampleplanmodel$table$SupplementaryInfo)}_{data$Timepoint}-{input$TreatlevelInter2}_{unique(sampleplanmodel$table$SupplementaryInfo)}_{data$Timepoint}")))
+                  missing1 <- unique(glue::glue("{input$TreatlevelInter1}_{unique(sampleplanmodel$table$SupplementaryInfo)}_{data$Timepoint}"))
+                  missing2 <- unique(glue::glue("{input$TreatlevelInter2}_{unique(sampleplanmodel$table$SupplementaryInfo)}_{data$Timepoint}"))
+                  missing2 <- missing2[!(missing2 %in% data$Inter)]
+                  missing1 <- missing1[!(missing1 %in% data$Inter)]
+                  for (missing in missing2){
+                    gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                  }
+                  for (missing in missing1){
+                    gluelist <- gluelist %>% filter(!grepl(missing,gluelistcol))
+                  } 
+                  gluelist <- as.list(gluelist$gluelistcol)
+                  }
+                  if (length(gluelist) != 0){
+                  contrast <- purrr::map(gluelist,~makeContrasts(contrasts = .x,levels=design))
+                  save(list = c('contrast'),file = "~/coockiecrisprtestRDA/CRISPR_contrast.rda")
+                  reactives$contrast <- contrast
+                  reactives$design <- design
+                  } else {
+                    showModal(modalDialog(HTML(
+                      paste0("<b> These samples would be suitable : </b></br>",paste0(c(missing1,missing2),collapse = "</br>"))),
+                      title = "Missing required samples for this comparisons",
+                      footer = tagList(
+                        modalButton("Got it"))
+                    ))
+                  }
+                }
+              }
+    }
+  })
   
-################ Compute Model new block ##########################
-  # observeEvent(c(matrix$table,
-  #                reactives$contrast),priority = 10,{
+  ################ Compute Model new block ##########################
   observeEvent(c(norm_data$data$counts,
                  reactives$contrast),priority = 10,{
-
+                   complist <- lapply(1:length(reactives$contrast), function(x){colnames(reactives$contrast[[x]])}) %>% unlist()
+                   if(!(TRUE %in% c(complist %in% names(concatenated$results))) | is.null(concatenated$results) ){
                    if (!is.null(norm_data$data$counts) && !is.null(reactives$design)){
-
-                     tictoc::tic("Voom transormation and fitting linear model..")
+                     withProgress(message = 'Computing differential analysis', value = 0.5,{
+                     incProgress(0.3,detail = "Filtering low expressed guides")
                      counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
                      kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
                      counts <- counts[kept,]
+                     incProgress(0.3,detail = "voomWithQualityWeights")
                      results$v <- limma::voomWithQualityWeights(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
                      res_fit <- limma::lmFit(results$v, method = "ls")
+                     incProgress(0.3,detail = "fitting model")
                      res_eb <- eBayes(res_fit, robust = FALSE)
-                     
-                     fit <- contrasts.fit(res_fit, contrasts = reactives$contrast)
-                     res_eb <- eBayes(fit, robust = FALSE)
-                     
-                     save(list = c('fit','res_eb'),file = "~/coockiecrisprtestRDA/CRISPR_DEA.RData")
-                     tab <- biobroom::tidy.MArrayLM(res_eb)
-                     ## add unilateral pvalues
-                     tab$p.value_dep <- pt(tab$statistic, df = res_eb$df.total[1], lower.tail = TRUE)
-                     tab$p.value_enrich <- pt(tab$statistic, df = res_eb$df.total[1], lower.tail = FALSE)
-                     ## compute FDR
-                     tab$adj_p.value <- p.adjust(tab$p.value, method = input$AdjMeth)
-                     tab$adj_p.value_dep <- p.adjust(tab$p.value_dep, method = input$AdjMeth)
-                     tab$adj_p.value_enrich <- p.adjust(tab$p.value_enrich, method = input$AdjMeth)
-                     tab <- tab[order(tab$adj_p.value),]
+                     fit <- purrr::map(reactives$contrast, ~contrasts.fit(res_fit, contrasts = .x))
+                     res_eb <- purrr::map(fit, ~eBayes(.x, robust = FALSE))
+                     incProgress(0.3,detail = "Formating results")
+                     tab <- purrr::map(res_eb,~process_res(.x))
+                     names(tab) <- lapply(tab, function(x){print(paste0(input$celline," || ",unique(as.character(x$term))))})
+                     save(list = c('tab'),file = "~/coockiecrisprtestRDA/TAB_DEA.RData")
                      results$res <- tab
-                     save(list = c("tab"), file = "~/coockiecrisprtestRDA/results_res_new.rda")
-                   } # end of if NULL
-                   toc(log = TRUE)
+                     # save(list = c("tab"), file = "~/coockiecrisprtestRDA/results_res_new.rda")
+                     setProgress(1)
+                     })
+                   }
+                   } else { showModal(modalDialog(HTML(
+                     "<b>Your results are available on the other outlets. </b></br>"),
+                     title = "This comparison was already computed !",
+                     footer = tagList(
+                       modalButton("Got it"))
+                   ))
+                    }
                  }) # end of observer
-###########################################################################
+  ###########################################################################
+ 
+  concatenated <- reactiveValues(resultsIntraNames = NULL, resultsInterNames = NULL,results = NULL)
+  observeEvent(results$res,{
+    req(results$res)
+    if(input$comptype == "Intra-Treatment"){
+    concatenated$resultsIntraNames <- c(concatenated$resultsIntraNames,names(results$res))
+    } else if(input$comptype == "Inter-Treatment"){
+    concatenated$resultsInterNames <- c(concatenated$resultsInterNames,names(results$res))
+    }
+    concatenated$results <- c(concatenated$results,results$res)
+  })
   
   createLink <- function(val) {
-    sprintf('<a href="https://www.ensembl.org/Homo_sapiens/Gene/Summary?g=%s" target="_blank" class="btn btn-primary">Info</a>',val)
+    #sprintf('<a href="https://www.ensembl.org/Homo_sapiens/Gene/Summary?g=%s" target="_blank" class="btn btn-primary">Info</a>',val)
+    sprintf('<a href="https://www.ensembl.org/Homo_sapiens/Gene/Summary?g=%s" target="_blank" class="btn btn-primary">Info</a>',gsub("_[0-9]","",gsub("sg","",val)))
+    
   }
   
+  observeEvent(c(concatenated$results),{
+    updatePickerInput(session = session,"ExploreIntra",
+                      selected = c(concatenated$resultsInterNames,concatenated$resultsIntraNames)[1],
+                      choices = list(
+                        Inter_comparisons = concatenated$resultsInterNames,
+                        Intra_comparisons = concatenated$resultsIntraNames
+                      )
+                      )
+    updatePickerInput(session = session,"ExploreIntra2",
+                      selected = c(concatenated$resultsInterNames,concatenated$resultsIntraNames)[1],
+                      choices = list(
+                             Inter_comparisons = concatenated$resultsInterNames,
+                             Intra_comparisons = concatenated$resultsIntraNames
+                             )
+                      )
+  })
   ################ Compute Model old block ##########################
-  observeEvent(c(results$res,
+  observeEvent(c(concatenated$results,
                  input$FCT,
-                 input$PvalsT),ignoreInit = TRUE,{
-                   res <- results$res
+                 input$PvalsT,input$DEGtabs,input$ExploreIntra),ignoreInit = TRUE,{
+                   if(input$DEGtabs == "Explore results"){
+                   if(!is.null(concatenated$results)){
+                   req(input$ExploreIntra)
+                   res <- concatenated$results[[input$ExploreIntra]]
                    nsign <- length(which(res$adj_p.value < input$PvalsT))
                    results$nsignfc <- length(which(res$adj_p.value < input$PvalsT & abs(res$estimate) > input$FCT))
-                   #up <- which(res$adj_p.value_enrich < input$PvalsT & res$estimate > input$FCT)
-                   #down <- which(res$adj_p.value_dep < input$PvalsT & res$estimate < -input$FCT)
                    up <- which(res$adj_p.value_enrich < input$PvalsT)
                    down <- which(res$adj_p.value_dep < input$PvalsT)
-                   res$ENSEMBL <- createLink(rownames(res))
+                   res$ENSEMBL <- createLink(res$gene)
                    print('end of DEG')
                    results$up <- res[up,]
                    results$down <- res[down,]
                    results$restable <- res
-                 }) # end of observer
-
-n_perm <- 20000
-alpha_thr <- 0.3
-observeEvent(c(input$DEGtabs),{
-      if(input$DEGtabs == "RRAscores") {
-        if(!is.null(results$res)){
-        print(results$res)
-        withProgress(message = 'Computing per gene RRA score from DEA results', value = 0.5,{
-        incProgress(0.3)
-          results$scores <- compute_score_RRA(results$res,alpha_thr = alpha_thr)
-          scores <- results$scores
-          save(list = c("scores"), file = "~/coockiecrisprtestRDA/RRA_scores_table.rda")
-        setProgress(1)
-        print(score_RRA)
-       }) # end of progress
-      } else {
-      showModal(modalDialog(HTML(
-        "<b>Please perform differential analysis first : </b></br>
+                   } else {
+                   showModal(modalDialog(HTML(
+                       "<b>Please perform differential analysis first : </b></br>
          To do so select at least two variables for the comparison then click on the build button.
         "),
-      title = "Variables infos",
-      footer = tagList(
-      modalButton("Got it"))
-      ))
-    }
-  } # end of if
-}) # end of observer
-
-output$RRAscores <- DT::renderDataTable({
-  results$scores
-})
+                       title = "Missing previous step !",
+                       footer = tagList(
+                         modalButton("Got it"))
+                     ))
+                   }
+                   }
+                 }) # end of observer
   
+  n_perm <- 20000
+  alpha_thr <- 0.3
+  observeEvent(c(input$DEGtabs),{
+    if(input$DEGtabs == "RRAscores") {
+      if(!is.null(results$res)){
+        if(results$res != results$old_res){
+        results$old_res <- results$res
+        withProgress(message = 'Computing per gene RRA score from DEA results', value = 0.5,{
+          incProgress(0.3)
+          results$scores <- lapply(results$res,function(x){compute_score_RRA(x,alpha_thr = alpha_thr)})
+          setProgress(1)
+        })
+        }# end of progress
+      } else {
+        showModal(modalDialog(HTML(
+          "<b>Please perform differential analysis first : </b></br>
+         To do so select at least two variables for the comparison then click on the build button.
+        "),
+          title = "Missing previous step !",
+          footer = tagList(
+            modalButton("Got it"))
+        ))
+    } # end of if
+    }
+    
+  }) # end of observer
+  
+  output$RRAscores <- DT::renderDataTable({
+    req(input$ExploreIntra2)
+    req(results$scores)
+    datatable(
+      results$scores[[input$ExploreIntra2]],rownames=FALSE,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
+        "function(settings, json) {",
+        "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+        "}")))
+    
+  })
+  output$scoresdl <- downloadHandler(
+    filename = function() {
+      req(results$scores)
+      req(input$ExploreIntra2)
+      paste(input$ExploreIntra2,"_RRAscores", Sys.Date(), ".csv", sep=",")
+    },
+    content = function(file) {
+      write.csv(results$scores[[input$ExploreIntra2]],file)
+    }
+  )
+
   output$Pvals_distrib <- renderGirafe({
-    req(results$res)
-    plot <- ggplot(data = results$res) + aes(x = `adj_p.value`) +
+    req(concatenated$results)
+    req(input$ExploreIntra)
+    res <- concatenated$results[[input$ExploreIntra]]
+    plot <- ggplot(data = res) + aes(x = `adj_p.value`) +
       geom_histogram_interactive(fill = "steelblue",breaks = seq(0, 1, length.out = 30))
     build  <- ggplot_build(plot)
-    plot <- plot +  labs(title = "P values distribution", x = "P values", y = "Occurences")# +
+    plot <- plot +  labs(title = paste0(input$ExploreIntra," : P values distribution"), x = "P values", y = "Occurences")# +
     ggiraph::girafe(code = {print(plot)})
-
   })
-  
+  # 
   observe({
     updatePickerInput("GeneVolcano", session = session, choices = rownames(norm_data$data$counts))
   })
-  
+  # 
   Volcano <- reactiveValues(plot = NULL)
-  observe({
-    req(results$res)
+  observeEvent(concatenated$results,{
+    req(concatenated$results)
+    req(input$ExploreIntra)
+    res <- concatenated$results[[input$ExploreIntra]]
+    
     tic("Ploting Volcano")
-    ggplot <- ggplot(results$res, aes(x = estimate, y = -log10(p.value))) +
+    ggplot <- ggplot(res, aes(x = estimate, y = -log10(p.value))) +
       ggtitle(colnames(reactives$contrast)) +
       scale_fill_gradient(low = "lightgray", high = "navy") +
       scale_color_gradient(low = "lightgray", high = "navy") +
-      expand_limits(y = c(min(-log10(results$res$p.value)), 1)) +
-      geom_point(data = results$res,
+      expand_limits(y = c(min(-log10(res$p.value)), 1)) +
+      geom_point(data = res,
                  color = "grey", alpha = 0.5) +
-      geom_point(data = subset(results$res, estimate > input$FCT),
+      geom_point(data = subset(res, estimate > input$FCT),
                  color = "red", alpha = 0.5) +
-      geom_point(data = subset(results$res, estimate < -input$FCT),
+      geom_point(data = subset(res, estimate < -input$FCT),
                  color = "blue", alpha = 0.5) +
-      geom_point(data = subset(results$res, adj_p.value < input$PvalsT),
+      geom_point(data = subset(res, adj_p.value < input$PvalsT),
                  color = "green", alpha = 0.5) +
-      geom_hline(yintercept = -log10(max(subset(results$res, adj_p.value < input$PvalsT)$p.value)), linetype = "dashed") +
+      geom_hline(yintercept = -log10(max(subset(res, adj_p.value < input$PvalsT)$p.value)), linetype = "dashed") +
       geom_vline(xintercept = c(-input$FCT, input$FCT), linetype = "dashed") +
       theme_linedraw() +
       theme(panel.grid = element_blank()) +
       xlab("Fold change (log2)") +
       ylab("-log10(P-Value)")
-
     Volcano$plot <- ggplot
     toc(log = TRUE)
   })
-  
+  # 
+observeEvent(Volcano$plot,{
   output$Volcano <- renderPlot({
     req(Volcano$plot)
+    req(input$ExploreIntra)
+    req(concatenated$results)
+    res <- concatenated$results[[input$ExploreIntra]]
     tic("Rendering Volcano...")
     ggplot <- Volcano$plot +
-      geom_point(data = subset(results$res,gene %in% input$GeneVolcano),
+      geom_point(data = subset(res,gene %in% input$GeneVolcano),
                  color = "purple", alpha = 0.6) +
       ggrepel::geom_text_repel(
-        data = subset(results$res,gene %in% input$GeneVolcano),
+        data = subset(res,gene %in% input$GeneVolcano),
         aes(label = gene),
         size = 5,
         force = 2,
@@ -713,89 +637,123 @@ output$RRAscores <- DT::renderDataTable({
     return(ggplot)
     toc(log = TRUE)
   })
-  
+})
+  # 
   observeEvent(input$GeneVolcano,{
     if(length(input$GeneVolcano) >1){
       req(norm_data$data)
       req(sampleplanmodel$table)
+      req(input$ExploreIntra)
       withProgress(message = 'Drawing boxplots with selected genes', value = 0.5,{
-      incProgress(0.3)
-      groups_table <- sampleplanmodel$table
-      groups_table$Samples <- rownames(groups_table)
-      if(input$var != "Create your own groups"){
-        groups_table <- groups_table[,c(input$var,"Samples")]
-      } else {
-        groups_table[groups$Group2,"personalisedGroup"] <- "Group2"
-        groups_table[groups$Group1,"personalisedGroup"] <- "Group1"
-        completeVec <- complete.cases(groups_table[,"personalisedGroup"])
-        groups_table <- groups_table[completeVec,]
-        groups_table <- groups_table[,c("personalisedGroup","Samples")]
-      }
-      boxplotdata <- results$v$E[which(rownames(results$v$E) %in% input$GeneVolcano),]
-      boxplotdata <- rbind(boxplotdata,colnames(boxplotdata))
-      rownames(boxplotdata)[nrow(boxplotdata)] <- "Samples"
-      incProgress(0.3)
-      boxplotdata <- as.data.frame(t(boxplotdata)) %>%  gather(key = "GENE",value = "COUNTS", -Samples)
-      boxplotdata$Samples <- as.character(boxplotdata$Samples)
-      boxplotdata <- inner_join(boxplotdata,groups_table, by = "Samples")
-      boxplotdata$COUNTS <- as.numeric(boxplotdata$COUNTS)
-      if(input$var != "Create your own groups"){
-        boxplotdata[,input$var] <- as.character(boxplotdata[,input$var])
-        results$boxplots <- ggplot(boxplotdata, aes(x=GENE, y=COUNTS, fill = GENE)) +
-          geom_boxplot() +
-          geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
-                                                   seed = 1234),
-                     pch=21,
-                     aes_string(fill=input$var), show.legend = T)
-      } else {
-        boxplotdata[,"personalisedGroup"] <- as.character(boxplotdata[,"personalisedGroup"])
-        results$boxplots <- ggplot(boxplotdata, aes(x=GENE, y=COUNTS, fill = GENE)) +
-          geom_boxplot() +
-          geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
-                                                   seed = 1234),
-                     pch=21,
-                     # size = 2,
-                     aes_string(fill="personalisedGroup"), show.legend = T)
-        setProgress(1)
-      }
+        incProgress(0.3)
+        groups_table <- sampleplanmodel$table
+        groups_table$Samples <- rownames(groups_table)
+        if(input$comptype == "Intra-Treatment"){
+          group1 <- stringr::str_split_fixed(gsub(paste0(input$Treatlevel,"_"),"",input$ExploreIntra),"-",n=2)[,1]
+          group2 <- stringr::str_split_fixed(gsub(paste0(input$Treatlevel,"_"),"",input$ExploreIntra),"-",n=2)[,2]
+          groups_table <- groups_table[,c("Treatment","Timepoint","Samples")] %>%
+            filter(Treatment == input$Treatlevel)
+         } else if(input$comptype == "Inter-Treatment"){
+           if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+             group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
+             group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
+             groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
+               filter(Treatment == c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
+               filter(SupplementaryInfo == c(input$Mut1,input$Mut2))  %>%
+               mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
+           } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) == 1){
+             group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
+             group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
+             groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
+               filter(Treatment %in% unique(sampleplanmodel$table$Treatment)) %>%
+               filter(SupplementaryInfo == c(input$Mut1,input$Mut2))  %>%
+               mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
+           } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) == 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+             group1 <- gsub(paste0(unique(sampleplanmodel$table$SupplementaryInfo),"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
+             group2 <- gsub(paste0(unique(sampleplanmodel$table$SupplementaryInfo),"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
+             groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
+               filter(Treatment %in% c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
+               filter(SupplementaryInfo == unique(sampleplanmodel$table$SupplementaryInfo))  %>%
+               mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
+          }
+         }
+
+        boxplotdata <- results$v$E[which(rownames(results$v$E) %in% input$GeneVolcano),]
+        boxplotdata <- rbind(boxplotdata,colnames(boxplotdata))
+        rownames(boxplotdata)[nrow(boxplotdata)] <- "Samples"
+        incProgress(0.3)
+        boxplotdata <- as.data.frame(t(boxplotdata)) %>%  gather(key = "GENE",value = "COUNTS", -Samples)
+        boxplotdata$Samples <- as.character(boxplotdata$Samples)
+        boxplotdata <- inner_join(boxplotdata,groups_table, by = "Samples")
+        boxplotdata$COUNTS <- as.numeric(boxplotdata$COUNTS)
+        if(input$comptype == "Intra-Treatment"){
+            boxplotdata[,c(group1,group2)] <- as.character(boxplotdata[,"Timepoint"])
+            results$boxplots <- ggplot(boxplotdata, aes(x=Timepoint, y=COUNTS,fill = Timepoint)) +
+              geom_boxplot() +
+              facet_grid(. ~ GENE) +
+              geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
+                                                       seed = 1234),
+                         pch=21,
+                         # size = 2,
+                         aes_string(fill="Timepoint"), show.legend = T)
+            setProgress(1)
+        } else if(input$comptype == "Inter-Treatment"){
+          boxplotdata[,c(group1,group2)] <- as.character(boxplotdata[,"Timepoint"])
+          results$boxplots <- ggplot(boxplotdata, aes(x=COMP, y=COUNTS,fill = COMP)) +
+            geom_boxplot() +
+            facet_grid(Timepoint ~ GENE) +
+            geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
+                                                     seed = 1234),
+                       pch=21,
+                       # size = 2,
+                       aes_string(fill="COMP"), show.legend = T)
+          setProgress(1)
+        }
       }) # end of progress
-      }
+    }
   })
-  
+   
   output$boxplots <- renderPlot(results$boxplots)
   output$boxplots_error <- renderText({
     validate(
       need(length(input$GeneVolcano) >= 2, "Select at least two genes to draw boxplots...")
     )
   })
-
+   
   output$results_table <- DT::renderDataTable({
     res <- bind_rows(results$up,results$down) %>%
       column_to_rownames("gene")%>%
-      select(c("estimate","adj_p.value_dep","adj_p.value_enrich")) %>%
+      select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
       mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
-      select(c("estimate","adj_p.value"))
-    colnames(res) <- c("logFC","adj_p.value")
+      select(c("estimate","adj_p.value","ENSEMBL"))
+    colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
     datatable(
-      res,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
-    })
+      res,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
+        "function(settings, json) {",
+        "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+        "}")))
+  })
 
-output$resdl <- downloadHandler(
-  filename = function() {
-    paste("DEA-PDX-Results", Sys.Date(), ".csv", sep=",")
-  },
-  content = function(file) {
-    write.csv(results$res, file)
-  }
-)
+  output$resdl <- downloadHandler(
+    filename = function() {
+      paste("DEA-PDX-Results", Sys.Date(), ".csv", sep=",")
+    },
+    content = function(file) {
+      #write.csv(results$res, file)
+      write.csv(results$res[[input$ExploreIntra]] %>% select(-ENSEMBL),file)
+    }
+  )
 
-output$up_table <- DT::renderDataTable({
-  ups <- results$up %>%
-    column_to_rownames("gene") %>%
-    select(c("estimate","adj_p.value_enrich"))
-  colnames(ups) <- c("logFC","adj_p.value_enrich")
-  datatable(
-    ups,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
+  output$up_table <- DT::renderDataTable({
+    ups <- results$up %>%
+      column_to_rownames("gene") %>%
+      select(c("estimate","adj_p.value_enrich","ENSEMBL"))
+    colnames(ups) <- c("logFC","adj_p.value_enrich","ENSEMBL")
+    datatable(
+      ups,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
+        "function(settings, json) {",
+        "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+        "}")))
   })
 
   output$updl <- downloadHandler(
@@ -807,18 +765,21 @@ output$up_table <- DT::renderDataTable({
         column_to_rownames("gene") %>%
         select(c("estimate","adj_p.value_enrich"))
       colnames(ups) <- c("logFC","adj_p.value_enrich")
-      write.csv(ups, file)
+      write.csv(ups %>% select(-ENSEMBL), file)
     }
   )
 
   output$down_table <- DT::renderDataTable({
     downs <- results$down %>%
       column_to_rownames("gene") %>%
-      select(c("estimate","adj_p.value_dep"))
-    colnames(downs) <- c("logFC","adj_p.value_dep")
+      select(c("estimate","adj_p.value_dep","ENSEMBL"))
+    colnames(downs) <- c("logFC","adj_p.value_dep","ENSEMBL")
     datatable(
-      downs,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
-    })
+      downs,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
+        "function(settings, json) {",
+        "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+        "}")))
+  })
 
   output$downdl <- downloadHandler(
     filename = function() {
@@ -829,10 +790,10 @@ output$up_table <- DT::renderDataTable({
         column_to_rownames("gene")%>%
         select(c("estimate","adj_p.value_dep"))
       colnames(downs) <- c("logFC","adj_p.value_dep")
-      write.csv(downs, file)
+      write.csv(downs %>% select(-ENSEMBL), file)
     }
   )
-
+  # 
   output$featuress <-
     renderInfoBox({
       req(results$nsignfc)
@@ -843,6 +804,17 @@ output$up_table <- DT::renderDataTable({
       )
     })
   
+  output$selected_line <-
+    renderUI({
+      req(input$celline)
+      fluidRow(
+      infoBox(        
+        "Selected Cell line : ",
+        as.character(input$celline),
+        icon = icon("dot-circle"),color = "purple",width = 12
+      ))
+    })
+
   output$upp_numbers <-
     renderValueBox({
       req(results$up)
@@ -852,7 +824,7 @@ output$up_table <- DT::renderDataTable({
         icon = icon("dna"),color = "red"
       )
     })
-  
+
   output$features_value_box <- renderUI({
     fluidRow(
       column(width = 6,
@@ -861,7 +833,7 @@ output$up_table <- DT::renderDataTable({
              valueBoxOutput(ns("upp_numbers"),width =  12)
       ))
   })
-  
+
   output$down_numbers <-
     renderValueBox({
       req(results$down)
@@ -871,7 +843,9 @@ output$up_table <- DT::renderDataTable({
         icon = icon("dna"),color = "blue"
       )
     })
-  
+  # 
+  #return(list(results=results,reactives=reactives))
+  observe({
   return(results)
-
+  })
 }
