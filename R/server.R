@@ -29,8 +29,9 @@ observeEvent(c(input$counts,
                  input$Fsc),{
       print("checking file separator in counts matrix ...")
       req(input$counts)
-      #req(input$Fsc)
       inFile <- input$counts
+      if(grepl(".xls",inFile$name) == FALSE){
+      #req(input$Fsc)
       semicolon <- FALSE
       comma <- FALSE
       tabssplan <- FALSE
@@ -73,26 +74,33 @@ observeEvent(c(input$counts,
       } else {
         precheck$counts <- TRUE
       }
+      }else{precheck$counts <- TRUE}
 })
   
 observeEvent(precheck$counts,{
   req(input$counts)
   inFile <- input$counts
   if(precheck$counts == TRUE){
+    if(grepl(".xls",inFile$name) == FALSE){
         print("reading file...")
         #counts <- read.table(inFile$datapath, sep = input$Fsc, header = TRUE)
         counts <- read.table(inFile$datapath, sep = precheck$Fs, header = TRUE)
         print(counts)
       if (!("X" %in% colnames(counts))){
-      print("missingX")
       counts <- tibble::rownames_to_column(counts,"X")
       } 
-      counts <- dplyr::rename(counts, sgRNA = .data$X)
-      counts <- dplyr::select(counts, -.data$sequence)
-      reactives$guidelist <- as.character(unique(counts$sgRNA))
-      reactives$genelist <- as.character(unique(counts$gene))
-      reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
-      precheck$counts <- FALSE
+    } else {
+      counts <- openxlsx::read.xlsx(inFile$datapath, colNames = TRUE,rowNames = FALSE)
+      if ("X1" %in% colnames(counts)){
+        colnames(counts)[1] <- "X"
+      } else{colnames(counts) <- c("X",colnames(counts)[-length(colnames(counts))])}
+    }
+    counts <- dplyr::rename(counts, sgRNA = .data$X)
+    counts <- dplyr::select(counts, -.data$sequence)
+    reactives$guidelist <- as.character(unique(counts$sgRNA))
+    reactives$genelist <- as.character(unique(counts$gene))
+    reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
+    precheck$counts <- FALSE
   }
 })
 

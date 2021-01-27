@@ -363,6 +363,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
                 save(list = c('design'),file = "~/coockiecrisprtestRDA/CRISPR_contrast.rda")
                 if(input$comptype == "Intra-Treatment"){
                   contrast <- purrr::map(glue::glue("{input$Treatlevel}_T{minT:maxT}-{input$Treatlevel}_T{T0}"),~makeContrasts(contrasts = .x,levels=design))
+                  reactives$contrast <- contrast
+                  reactives$design <- design
                 } else if (input$comptype == "Inter-Treatment"){
                   if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
                     gluelist <- data.frame(gluelistcol = unique(glue::glue("{input$TreatlevelInter1}_{input$Mut1}_{data$Timepoint}-{input$TreatlevelInter2}_{input$Mut2}_{data$Timepoint}")))
@@ -407,7 +409,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
                   }
                   if (length(gluelist) != 0){
                   contrast <- purrr::map(gluelist,~makeContrasts(contrasts = .x,levels=design))
-                  save(list = c('contrast'),file = "~/coockiecrisprtestRDA/CRISPR_contrast.rda")
                   reactives$contrast <- contrast
                   reactives$design <- design
                   } else {
@@ -527,12 +528,18 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
   alpha_thr <- 0.3
   observeEvent(c(input$DEGtabs),{
     if(input$DEGtabs == "RRAscores") {
-      if(!is.null(results$res)){
-        if(results$res != results$old_res){
-        results$old_res <- results$res
-        withProgress(message = 'Computing per gene RRA score from DEA results', value = 0.5,{
-          incProgress(0.3)
-          results$scores <- lapply(results$res,function(x){compute_score_RRA(x,alpha_thr = alpha_thr)})
+      if(!is.null(concatenated$results)){
+        if(length(concatenated$results) != length(results$old_res)){
+        results$old_res <- concatenated$results
+        n <- length(concatenated$results)
+        names <- names(concatenated$results)
+        withProgress(message = 'Computing per gene RRA score from DEA results :', value = 0.5,{
+          results$scores <- NULL
+          results$scores <- lapply(seq_along(concatenated$results),function(x){
+            incProgress(as.numeric(1/n),detail = paste0("processing ",names[x]))
+            compute_score_RRA(concatenated$results[[x]],alpha_thr = alpha_thr)
+          })
+          names(results$scores) <- names
           setProgress(1)
         })
         }# end of progress
