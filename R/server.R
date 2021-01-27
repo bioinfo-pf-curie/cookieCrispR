@@ -884,7 +884,7 @@ output$Datahelptext <- renderUI({HTML(
 <B>Format description :</B>
 <br/>
 <ul>
-<li>A csv file using 'commas'  'semicolons' or 'tabulations' as field separator, each line of the file must respects the following format specifications :<br/>
+<li>An xlsx or a csv file using 'commas'  'semicolons' or 'tabulations' as field separator, each line of the file must respects the following format specifications :<br/>
 Sample_ID;Cell_line;Timepoint;Treatment;Replicate;SupplementaryInfo</li>
 <li>Column names must respect Upper and lower case. </li>
 <li>Values in the table must not contain spaces, use '_' instead. </li>
@@ -902,7 +902,7 @@ D308R1;Ctrl_R1;HEK;T0;Ref_R1;Replica_1
 <B>Format description :</B>
 <br/>
 <ul>
-<li>A csv formated text file using 'commas'  'semicolons' or 'tabulations' as field separator. </li>
+<li>An xlsx or a csv formated text file using 'commas'  'semicolons' or 'tabulations' as field separator. </li>
 <li>The first line of the file is a header, it contains samples Sample_IDs as colnames and two supplementary columns called 'gene
 ' and 'sequence'. </li>
 <li>Guides names' are rownames. </li>
