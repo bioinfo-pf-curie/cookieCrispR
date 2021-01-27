@@ -90,12 +90,6 @@
       "Source": "Bioconductor",
       "Hash": "b69e4e634db423b8e6c58103d579ec95"
     },
-    "BioshinyModules": {
-      "Package": "BioshinyModules",
-      "Version": "0.1.0",
-      "Source": "unknown",
-      "Hash": "555a14d0678992a9b9973d9d48eb4d13"
-    },
     "Biostrings": {
       "Package": "Biostrings",
       "Version": "2.54.0",
