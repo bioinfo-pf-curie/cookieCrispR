@@ -249,7 +249,8 @@ ui_crispr_app <- function(request){
                                                               liveSearch = TRUE,
                                                               liveSearchStyle = "contains",
                                                             )))),# end of fluidRow
-                fluidRow(girafeOutput("positive_boxplots"))
+                br(),
+                fluidRow(column(width =12,girafeOutput("positive_boxplots", width = "90%", height = "90%")))
         ),
         tabItem(tabName = "Statistical_analysis",
                 CRISPRDeaModUI(id = "DEA")),

@@ -703,23 +703,6 @@ observe({
                     choices = as.character(unique(reactives$selectedcountsRaw$sgRNA)))
 })
 ## Boxplots 
-# output$positive_boxplots <- renderPlotly({
-#   req(input$conditionreference1)
-#   if(length(input$conditionreference1) >= 2){
-#     counts <- reactives$joined %>% filter(Treatment %in% input$conditionreference1)
-#     counts$Treatment <- as.character(counts$Treatment)
-#     counts$sgRNA <- as.character(counts$sgRNA)
-#     
-#     interactive_boxplots <- plot_ly(counts, x=~Cell_line, y=~log_cpm, color = ~Treatment, text =~sgRNA,
-#                                     labels = ~sgRNA, type = "box",
-#                                     boxpoints = "outliers",
-#                                     jitter = 0.3,
-#                                     pointpos = -1.8,marker = list(size = 1)) %>% plotly::layout(boxmode = "group")
-#     
-#     interactive_boxplots
-#   }
-# })
-
 
 observeEvent(c(input$splitcelline,input$conditionreference1,reactives$joined,input$selectguidescomp,input$selecttimepointscomp),{
   req(input$conditionreference1)
@@ -736,14 +719,14 @@ observeEvent(c(input$splitcelline,input$conditionreference1,reactives$joined,inp
         ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
         geom_boxplot_interactive(outlier.shape = NA) + 
         geom_point_interactive(data = subset(counts, sgRNA %in% input$selectguidescomp),
-                               aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.2) +
+                               aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.8) +
         facet_grid(.~Cell_line)
     } else {
       interactive_boxplots <- counts %>%
         ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
         geom_boxplot_interactive(outlier.shape = NA) + theme(axis.title.x=element_blank(),axis.text.x=element_blank()) +
         geom_point_interactive(data = subset(counts, sgRNA %in% input$selectguidescomp),
-                   aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.2)
+                   aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.8)
 
     }
     reactives$interactive_boxplots <- girafe(ggobj = interactive_boxplots)
