@@ -360,7 +360,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
                   design <- model.matrix(~ 0 + Inter, data = data)
                   colnames(design) <- make.names(gsub("Inter","",colnames(design)))
                 }
-                save(list = c('design'),file = "~/coockiecrisprtestRDA/CRISPR_contrast.rda")
                 if(input$comptype == "Intra-Treatment"){
                   contrast <- purrr::map(glue::glue("{input$Treatlevel}_T{minT:maxT}-{input$Treatlevel}_T{T0}"),~makeContrasts(contrasts = .x,levels=design))
                   reactives$contrast <- contrast
@@ -445,9 +444,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
                      incProgress(0.3,detail = "Formating results")
                      tab <- purrr::map(res_eb,~process_res(.x))
                      names(tab) <- lapply(tab, function(x){print(paste0(input$celline," || ",unique(as.character(x$term))))})
-                     save(list = c('tab'),file = "~/coockiecrisprtestRDA/TAB_DEA.RData")
                      results$res <- tab
-                     # save(list = c("tab"), file = "~/coockiecrisprtestRDA/results_res_new.rda")
                      setProgress(1)
                      })
                    }
