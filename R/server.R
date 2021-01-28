@@ -1096,6 +1096,7 @@ observe({
 shinyjs::hide(id = "acereport_rmd")
 shinyjs::hide(id= "enableAutocomplete")
 shinyjs::hide(id= "enableLiveCompletion")
+shinyjs::hide("enableRCompletion")
 shinyjs::hide(id= "mode")
 shinyjs::hide(id= "theme")
 #shinyjs::hide(id= "editor_options")
