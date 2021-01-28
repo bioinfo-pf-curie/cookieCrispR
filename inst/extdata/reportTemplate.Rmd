@@ -22,13 +22,16 @@ if("DataOverview" %in% input$include){
     evalGenesList <- TRUE
   }
 }
+evalJoined2 <- FALSE
+evalSampleplan2 <- FALSE
+evalCounts2 <- FALSE
+evalGenesList2 <- FALSE
 if (!is.null(reactives$sampleplan) && !is.null(reactives$countsRaw)){evalJoined2 <- TRUE}
 if (!is.null(reactives$sampleplan)){evalSampleplan2 <- TRUE}
 if (!is.null(reactives$countsRaw)){evalCounts2 <- TRUE}
 if (!is.null(input$essential) && !is.null(input$nonessential)){
   evalGenesList2 <- TRUE
 }
-
 
 evalJoineddistribs <- TRUE
 evaldistribs <- FALSE
@@ -99,12 +102,15 @@ write.table(reactives$sampleplan,file = "/tmp/sampleplan.csv",sep = ",",quote = 
 br()
 xfun::embed_files(path = "/tmp/sampleplan.csv", text = "SamplePlan file")
 ```
-```{r, echo = FALSE, eval = !evalCounts2, warning=FALSE}
-print("Please upload counts matrix first")
+
+```{r, echo = FALSE, eval = !evalCounts2, warning=FALSE,results='asis'}
+print("<h1 style='color:red;'> Please upload counts matrix first </h1>")
 ```
-```{r, echo = FALSE, eval = !evalSampleplan2, warning=FALSE}
-print("Please upload both SamplePlan first")
+
+```{r, echo = FALSE, eval = !evalSampleplan2, warning=FALSE,results='asis'}
+print("<h1 style='color:red;'> Please upload SamplePlan first </h1>")
 ```
+
 
 ```{asis, echo = TRUE, eval = evalFiles, warning=FALSE}
 ## Samples Selected
@@ -122,17 +128,22 @@ kableExtra::column_spec(1:ncol(reactives$sampleplan),width = "80em", bold = FALS
 ```
 </div>
 
-```{r, echo = FALSE, eval = !evalSampleplan2, warning=FALSE}
-print("Please upload SamplePlan file first")
-```
+<!-- ```{r, echo = FALSE, eval = !evalSampleplan2, warning=FALSE} -->
+<!-- print("Please upload SamplePlan file first") -->
+<!-- ``` -->
+
 ```{asis, echo = TRUE, eval = evaldistribs, warning=FALSE}
 ## Distributions
 ```
-```{r, echo = FALSE, eval = TRUE, warning=FALSE}
-if(evalJoineddistribs == TRUE){
-print("Please upload both SamplePlan and counts matrix first")
-}
-```
+
+
+<!-- ```{r, echo = FALSE, eval = TRUE, warning=FALSE} -->
+<!-- if(evalJoineddistribs == TRUE){ -->
+<!-- print("Please upload both SamplePlan and counts matrix first") -->
+<!-- } -->
+<!-- ``` -->
+
+
 ```{asis, echo = TRUE, eval = evalreadnumbers, warning=FALSE,message=FALSE}
 ### Read Numbers
 ```

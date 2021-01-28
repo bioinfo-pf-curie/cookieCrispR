@@ -314,16 +314,17 @@ ui_crispr_app <- function(request){
                                                value="_Initialization of the_ `CRISPRApp` _report generation..._",
                                                placeholder = "You can enter some code and text in R Markdown format",
                                                height="800px"),
-                                     box(
-                                       title = "editor_options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
-                                       column(width = 12,checkboxInput("enableAutocomplete", "Enable AutoComplete", TRUE),
-                                              conditionalPanel(
-                                                "input.enableAutocomplete",
-                                                wellPanel(
+                                     #box(
+                                     #   title = "editor_options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
+                                     #   column(width = 12,
+                                              checkboxInput("enableAutocomplete", "Enable AutoComplete", TRUE),
+                                              #conditionalPanel(
+                                               # "input.enableAutocomplete",
+                                                #wellPanel(
                                                   checkboxInput("enableLiveCompletion", "Live auto completion", TRUE),
-                                                  checkboxInput("enableRCompletion", "R code completion", TRUE)
-                                                )
-                                              ),
+                                                  checkboxInput("enableRCompletion", "R code completion", TRUE),
+                                               # )
+                                    #          ),
                                               pickerInput("mode", "Mode: ", choices=modes, selected="markdown",
                                                           multiple = FALSE,
                                                           choicesOpt = NULL,
@@ -343,7 +344,7 @@ ui_crispr_app <- function(request){
                                                             liveSearchStyle = "contains"
                                                           ))
                                               
-                                       ))
+                                     #  ))
                                      ),
                             tabPanel(
                               "About the app", icon = icon("institution"),

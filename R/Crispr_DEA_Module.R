@@ -475,7 +475,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
     
   }
   
-  observeEvent(c(concatenated$results),{
+  observeEvent(c(concatenated$results),priority = 10,{
     updatePickerInput(session = session,"ExploreIntra",
                       selected = c(concatenated$resultsInterNames,concatenated$resultsIntraNames)[1],
                       choices = list(
@@ -591,11 +591,11 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
   })
   # 
   Volcano <- reactiveValues(plot = NULL)
-  observeEvent(concatenated$results,{
+  #observeEvent(concatenated$results,{
+  observe({
     req(concatenated$results)
     req(input$ExploreIntra)
     res <- concatenated$results[[input$ExploreIntra]]
-    
     tic("Ploting Volcano")
     ggplot <- ggplot(res, aes(x = estimate, y = -log10(p.value))) +
       ggtitle(colnames(reactives$contrast)) +
