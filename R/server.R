@@ -83,15 +83,14 @@ observeEvent(precheck$counts,{
   if(precheck$counts == TRUE){
     if(grepl(".xls",inFile$name) == FALSE){
         print("reading file...")
-        #counts <- read.table(inFile$datapath, sep = input$Fsc, header = TRUE)
         counts <- read.table(inFile$datapath, sep = precheck$Fs, header = TRUE)
         print(counts)
       if (!("X" %in% colnames(counts))){
       counts <- tibble::rownames_to_column(counts,"X")
       } 
     } else {
-      counts <- openxlsx::read.xlsx(inFile$datapath, colNames = TRUE,rowNames = FALSE)
-      if ("X1" %in% colnames(counts)){
+      counts <- readxl::read_excel(inFile$datapath)
+      if ("...1" %in% colnames(counts)){
         colnames(counts)[1] <- "X"
       } else{colnames(counts) <- c("X",colnames(counts)[-length(colnames(counts))])}
     }
@@ -122,12 +121,15 @@ observeEvent(c(input$removeguides,input$removegenes,reactives$countsRaw,input$re
     filter(!(sgRNA %in% input$removeguides)) %>%
     filter(!(gene %in% input$removegenes))
   } else {
+
     selectedcountsRaw  <- reactives$countsRaw
   }
   if(!is.null(input$removesamples)){
+
     selectedcountsRaw <- selectedcountsRaw[,!(colnames(selectedcountsRaw) %in% input$removesamples)]
     reactives$checkcountscols <- TRUE
   }
+
     reactives$selectedcountsRaw <- selectedcountsRaw
 })
 
@@ -136,7 +138,7 @@ observeEvent(c(input$sample_plan),{
                  req(input$sample_plan)
                  inFile <- input$sample_plan
                  if(grepl(".xls",inFile$name) == TRUE){
-                  samples <- openxlsx::read.xlsx(inFile$datapath, colNames = TRUE,rowNames = FALSE)
+                  samples <- readxl::read_excel(inFile$datapath)
                   reactives$sampleplanRaw <- samples
                   reactives$samples <- samples$Sample_ID
                  } else {
@@ -177,20 +179,33 @@ observeEvent(c(input$sample_plan),{
                  }
                  }
       print("end of sampleplan check sep")
+      
 })
 
 observeEvent(c(reactives$sampleplanRaw,input$removesamples),{    
       
       if(reactives$sampleplanGood == TRUE){
+    
       print("Arranging sample plan")
-      samples <- reactives$sampleplanRaw %>%
+      samples <- reactives$sampleplanRaw
+      
+      samples$Sample_ID <- as.character(samples$Sample_ID)
+      samples$Treatment <- as.character(samples$Treatment)
+      samples$Replicate <- as.character(samples$Replicate)
+      samples$SupplementaryInfo <- as.character(samples$SupplementaryInfo)
+      samples <- samples  %>% replace_with_na_all(~.x == "<NA>")
+      
+      samples <- samples %>% filter(!(Sample_ID %in% input$removesamples)) %>% 
+        replace_na(list(Sample_ID = "unknown", Cell_line = "unknown", Timepoint= "unknown", Treatment= "unknown", Replicate= "unknown", SupplementaryInfo = "unknown"))
+      
+      samples <- samples %>% 
           mutate(Timepoint = as.factor(.data$Timepoint)) %>%
           mutate(Treatment = as.factor(.data$Treatment)) %>%
           mutate(Timepoint_num = as.numeric(gsub("[^0-9.-]", "", .data$Timepoint))) %>% 
           mutate(Timepoint = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
       print("DONE")
       
-      reactives$sampleplan <- samples %>% filter(!(Sample_ID %in% input$removesamples))
+      reactives$sampleplan <- samples
       }
     
 }) # end of observer
@@ -205,7 +220,6 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
       if(!is.null(reactives$selectedcountsRaw) & !is.null(reactives$sampleplan)){
         samples <- reactives$sampleplan
         counts <- reactives$selectedcountsRaw
-        #counts  <- reactives$countsRaw
         reactives$annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
         counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
         counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
@@ -282,15 +296,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu),{
           mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint)))
       }
       reactives$joined <- norm_cpm
-      #############################################
-      
-      #######################################################
-      ### Uncommend this block to retrieve old cpm way #####
-      # counts <- full_join(counts, samples) %>%
-      #   mutate(Gene = gene)
-      # reactives$joined <- counts
-      #   
-      ##################################################
       reactives$annot_sgRNA <- annot_sgRNA
       setProgress(1)
       }) # end of progress
@@ -319,7 +324,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu),{
         
       req(input$timepoints_order)
       req(reactives$joined)
-      #if(input$sidebarmenu != "DataInput"){
       withProgress(message = 'Difference to initial timepoint calculation', value = 0.5, {
       counts <- reactives$joined
       firstpoint <- input$timepoints_order[[1]]
@@ -329,13 +333,11 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu),{
         group_by(sgRNA, Cell_line, Replicate) %>%
         arrange(Timepoint) %>%
         mutate(diff = log_cpm - first(log_cpm)) %>% 
-        #mutate(diff10 = log10_cpm - first(log10_cpm)) %>% 
         ungroup()
      
       print("DONE")
       return(fin)
       })
-      #} # end of conditionnal sidebarmenu
     })
 
 ######### Plots and tables outputs ####################################
@@ -515,7 +517,6 @@ observe({
       diff_boxes$diff_box_all <- diff_t0() %>%
         filter(.data$Timepoint != firstpoint) %>%
         ggplot(aes(x = .data$Timepoint, y = .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.data$Treatment ~ .data$Cell_line) +
-        #ggplot(aes(x = .data$Timepoint, y = .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(paste0(".data$",input$FacetChoice,collapse = " ~ ")) +
         ylab(paste0("diff_",firstpoint)) + 
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - all guides"))
       
@@ -531,7 +532,6 @@ observe({
       ess_genes <- ess_genes()
       
       diff_boxes$diff_box_ess <-  diff_t0() %>% 
-        #select(-condition, -log_cpmt0, -diff) %>%
         filter(.data$Timepoint != !!firstpoint) %>%
         filter(.data$Gene %in% ess_genes[,1]) %>%
         ggplot(aes(x = .data$Timepoint, y= .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.~ .data$Cell_line) +
@@ -557,8 +557,8 @@ observe({
     )
 #################### ROC ####################
 ROC <- reactiveValues(plot = NULL,AUC = NULL)
-    
-observe({
+
+observe({    
   if (input$sidebarmenu ==  "Roc"){
     if(is.null(input$essential) | is.null(input$nonessential)){
       showModal(
@@ -569,7 +569,7 @@ observe({
         )
     } else {
     ess_genes <- ess_genes()
-      non_ess_genes <- non_ess_genes()
+    non_ess_genes <- non_ess_genes()
       
       ##################################################
       ### Comment this block to retrieve all cpm way ##########
@@ -602,9 +602,7 @@ observe({
         
         
       withProgress(message = 'Calculating ROC curves', value = 0.5, {
-      #d <- diff_t0() %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$Gene, .data$Treatment, .data$diff) %>%
       d <- fin %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$Gene, .data$Treatment, .data$diff) %>%
-      #### diff _t0 old cpm way #### fin new cpm way
         group_by(.data$Timepoint, .data$Treatment, .data$Cell_line, .data$Replicate) %>%
         arrange(.data$diff) %>% 
         mutate(Gene = as.character(Gene)) %>%
@@ -618,8 +616,11 @@ observe({
       
       print("Calulating AU ROC Curves")
       by_rep <- split(d, f= d$Replicate)
+      print(by_rep)
       by_rep_cl <- unlist(lapply(X = by_rep, FUN = function(x){split(x, f = x$Cell_line)}),recursive = FALSE)
+      print(by_rep_cl)
       by_rep_cl_treat <- unlist(lapply(X = by_rep_cl, FUN = function(x){split(x, f = x$Treatment)}),recursive = FALSE)
+      print(by_rep_cl_treat)
       by_rep_cl_treat_tpt <- unlist(lapply(X = by_rep_cl_treat, FUN = function(x){split(x, f = x$Timepoint)}),recursive = FALSE)
       
       AUC_values <- lapply(X= by_rep_cl_treat_tpt, FUN = function(x){
@@ -628,8 +629,10 @@ observe({
       }
       )
       AUC_table <- data.frame(Replicate = NA, Cell_line = NA, Treatment = NA, Timepoint = NA, AUC = NA)
+      print(head(by_rep_cl_treat_tpt))
       for (tablenum in 1:length(by_rep_cl_treat_tpt)){
         vars <- names(by_rep_cl_treat_tpt)[tablenum]
+        print(vars)
         row <- unlist(strsplit(vars, split =".",fixed = TRUE))
         row <- c(row,as.character(AUC_values[tablenum]))
         AUC_table <- rbind(AUC_table,row)
@@ -733,7 +736,6 @@ observeEvent(c(input$splitcelline,input$conditionreference1,reactives$joined,inp
   }
 })
 
-#output$positive_boxplots <- renderPlot({
 output$positive_boxplots <- renderGirafe({
   reactives$interactive_boxplots
 })

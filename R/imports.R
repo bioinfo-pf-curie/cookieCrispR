@@ -2,9 +2,11 @@
 #' @import shinydashboard
 #' @importFrom grDevices dev.off pdf
 #' @importFrom graphics plot
+#' @importFrom naniar replace_with_na_all
+#' @importFrom readxl read_excel
 #' @importFrom utils read.table write.csv
 #' @importFrom dplyr rename select mutate group_by ungroup full_join filter arrange case_when inner_join summarise first left_join
-#' @importFrom tidyr gather separate spread nest
+#' @importFrom tidyr gather separate spread nest replace_na
 #' @importFrom forcats fct_reorder
 #' @importFrom stringr str_remove str_detect
 #' @importFrom ggplot2 theme position_jitterdodge ggplot position_dodge scale_fill_viridis_c geom_boxplot geom_abline facet_grid facet_wrap geom_col geom_line coord_equal aes labs .data vars ylab xlim
@@ -29,7 +31,6 @@
 #' @importFrom textshape column_to_rownames
 #' @importFrom DESeq2 vst
 #' @import edgeR
-#' @import openxlsx
 #' @importFrom purrr imap_dfr reduce
 #' 
 NULL
