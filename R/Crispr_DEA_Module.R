@@ -353,8 +353,10 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
                 maxT <- max(Tnums)
                 if(input$comptype == "Intra-Treatment"){
                   data$Intra <- paste0(data$Treatment,"_",data$Timepoint)
+                  print(head(data$Intra))
                   design <- model.matrix(~ 0 + Intra, data = data)
                   colnames(design) <- make.names(gsub("Intra","",colnames(design)))
+                  print("e")
                 } else if(input$comptype == "Inter-Treatment"){
                   data$Inter <- paste0(data$Treatment,"_",data$SupplementaryInfo,"_",data$Timepoint)
                   design <- model.matrix(~ 0 + Inter, data = data)

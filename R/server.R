@@ -20,7 +20,7 @@ reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplan
                               joined = NULL,countsRaw = NULL, counts = NULL,
                             annot_sgRNA = NULL, norm_data =  NULL, guidelist = NULL,
                             genelist =  NULL,sample = NULL,checkcoherence = TRUE, normalize = TRUE,
-                            checkcountscols = FALSE,interactive_boxplots = NULL)
+                            checkcountscols = TRUE,interactive_boxplots = NULL)
 
 ##### Upload files and datatable construction ####################
 ## counts table  
@@ -113,27 +113,28 @@ observeEvent(reactives$genelist,{
    updatePickerInput(session, "removegenes",choices = as.character(reactives$genelist))
 })
 
-observeEvent(c(input$removeguides,input$removegenes,reactives$countsRaw,input$removesamples),{
+
+observeEvent(c(input$removeguides,input$removegenes,input$removesamples,reactives$countsRaw),ignoreInit = TRUE,{
   print("data filters observer")
+  if (!is.null(input$removeguides) | !is.null(input$removegenes) | !is.null(input$removesamples)){
   reactives$checkcountscols <- FALSE
   if (!is.null(input$removeguides) | !is.null(input$removegenes)){
   selectedcountsRaw <-   reactives$countsRaw %>%
     filter(!(sgRNA %in% input$removeguides)) %>%
     filter(!(gene %in% input$removegenes))
   } else {
-
     selectedcountsRaw  <- reactives$countsRaw
   }
   if(!is.null(input$removesamples)){
-
     selectedcountsRaw <- selectedcountsRaw[,!(colnames(selectedcountsRaw) %in% input$removesamples)]
-    reactives$checkcountscols <- TRUE
   }
-
+  } else {
+    selectedcountsRaw <- reactives$countsRaw
+  }
     reactives$selectedcountsRaw <- selectedcountsRaw
 })
 
-observeEvent(c(input$sample_plan),{
+observeEvent(c(input$sample_plan),priority = 10,{
                  print("checking file separator in sample plan file ...")
                  req(input$sample_plan)
                  inFile <- input$sample_plan
@@ -182,21 +183,25 @@ observeEvent(c(input$sample_plan),{
       
 })
 
-observeEvent(c(reactives$sampleplanRaw,input$removesamples),{    
-      
+observeEvent(c(reactives$sampleplanRaw,input$removesamples),{   
+  
       if(reactives$sampleplanGood == TRUE){
-    
+
       print("Arranging sample plan")
       samples <- reactives$sampleplanRaw
-      
       samples$Sample_ID <- as.character(samples$Sample_ID)
       samples$Treatment <- as.character(samples$Treatment)
+      samples$Cell_line <- as.character(samples$Cell_line)
       samples$Replicate <- as.character(samples$Replicate)
       samples$SupplementaryInfo <- as.character(samples$SupplementaryInfo)
+      samples$Timepoint <- as.character(samples$Timepoint)
+      
       samples <- samples  %>% replace_with_na_all(~.x == "<NA>")
       
       samples <- samples %>% filter(!(Sample_ID %in% input$removesamples)) %>% 
         replace_na(list(Sample_ID = "unknown", Cell_line = "unknown", Timepoint= "unknown", Treatment= "unknown", Replicate= "unknown", SupplementaryInfo = "unknown"))
+      
+      samples$Timepoint <- as.factor(samples$Timepoint)
       
       samples <- samples %>% 
           mutate(Timepoint = as.factor(.data$Timepoint)) %>%
@@ -210,9 +215,10 @@ observeEvent(c(reactives$sampleplanRaw,input$removesamples),{
     
 }) # end of observer
     
-observeEvent(c(input$removesamples),{
-  reactives$checkcoherence <- FALSE
-})
+# observeEvent(c(input$removesamples),{
+#   reactives$checkcoherence <- FALSE
+# })
+
 
 ## Join counts and annotations
 observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
@@ -220,6 +226,7 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
       if(!is.null(reactives$selectedcountsRaw) & !is.null(reactives$sampleplan)){
         samples <- reactives$sampleplan
         counts <- reactives$selectedcountsRaw
+        
         reactives$annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
         counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
         counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
@@ -227,7 +234,7 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
           dplyr::group_by(.data$Sample_ID) %>%
           dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log2(1 + cpm))  %>%
           dplyr::ungroup()
-        
+      
       if(reactives$checkcoherence ==  TRUE){
       if (TRUE %in% unique(!(unique(counts$Sample_ID) %in% samples$Sample_ID))){
       if(input$sidebarmenu == "DataInput" && reactives$checkcountscols == TRUE){
@@ -283,7 +290,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu),{
 
       norm_cpm <- norm_cpm %>%
           dplyr::group_by(.data$Sample_ID) %>%
-          #dplyr::mutate(log_cpm = log10(1 + .data$cpm)) %>%
           dplyr::mutate(log_cpm = log2(1 + .data$cpm)) %>%
           dplyr::mutate(log10_cpm = log10(1 + .data$cpm)) %>%
           dplyr::ungroup()
@@ -296,7 +302,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu),{
           mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint)))
       }
       reactives$joined <- norm_cpm
-      reactives$annot_sgRNA <- annot_sgRNA
       setProgress(1)
       }) # end of progress
       }# end of if
@@ -381,7 +386,6 @@ observe({
         ggplot(aes(x = .data$Timepoint, y = .data$total)) +
         geom_col(position = position_dodge()) + facet_wrap(vars(.data$Replicate, .data$Cell_line), nrow = 1) +
         labs(title = "Number of reads per sample", xlab ="Timepoint", ylab ="Total counts")
-
       read_number$plot <- counts
     }
   })
@@ -505,6 +509,8 @@ observe({
       timepoints <- levels(reactives$sampleplan$Timepoint)
       print(timepoints)
       orderInput(inputId = 'timepoints', label = 'Re-order your timepoints here :', items = timepoints, as_source = F)
+      #orderInput(inputId = 'timepoints_order', label = 'Re-order your timepoints here :', items = timepoints, as_source = F)
+      
     })
     
     ############## NEGATIV SCREENING ################
@@ -530,7 +536,6 @@ observe({
     observe({
       firstpoint <- input$timepoints_order[[1]]
       ess_genes <- ess_genes()
-      
       diff_boxes$diff_box_ess <-  diff_t0() %>% 
         filter(.data$Timepoint != !!firstpoint) %>%
         filter(.data$Gene %in% ess_genes[,1]) %>%
@@ -616,11 +621,8 @@ observe({
       
       print("Calulating AU ROC Curves")
       by_rep <- split(d, f= d$Replicate)
-      print(by_rep)
       by_rep_cl <- unlist(lapply(X = by_rep, FUN = function(x){split(x, f = x$Cell_line)}),recursive = FALSE)
-      print(by_rep_cl)
       by_rep_cl_treat <- unlist(lapply(X = by_rep_cl, FUN = function(x){split(x, f = x$Treatment)}),recursive = FALSE)
-      print(by_rep_cl_treat)
       by_rep_cl_treat_tpt <- unlist(lapply(X = by_rep_cl_treat, FUN = function(x){split(x, f = x$Timepoint)}),recursive = FALSE)
       
       AUC_values <- lapply(X= by_rep_cl_treat_tpt, FUN = function(x){
@@ -629,10 +631,8 @@ observe({
       }
       )
       AUC_table <- data.frame(Replicate = NA, Cell_line = NA, Treatment = NA, Timepoint = NA, AUC = NA)
-      print(head(by_rep_cl_treat_tpt))
       for (tablenum in 1:length(by_rep_cl_treat_tpt)){
         vars <- names(by_rep_cl_treat_tpt)[tablenum]
-        print(vars)
         row <- unlist(strsplit(vars, split =".",fixed = TRUE))
         row <- c(row,as.character(AUC_values[tablenum]))
         AUC_table <- rbind(AUC_table,row)
@@ -747,9 +747,11 @@ ClustMetadata <- reactiveValues(table = NULL)
 observe({
   if(!is.null(reactives$countsRaw) && !is.null(reactives$sampleplan)){
     ClustMetadata$table <- reactives$sampleplan %>% column_to_rownames("Sample_ID")
-    ClustDatatable <- vst(as.matrix(reactives$countsRaw[,rownames(ClustMetadata$table)]), blind = TRUE)
+    countsRawMatch <- reactives$countsRaw[,colnames(reactives$countsRaw) %in% rownames(ClustMetadata$table)]
+    if(ncol(countsRawMatch) > 0){
+    ClustDatatable <- vst(as.matrix(reactives$countsRaw[,colnames(reactives$countsRaw) %in% rownames(ClustMetadata$table)]), blind = TRUE)
     ClustDatatable <- cbind(ClustDatatable,reactives$countsRaw[,c("sgRNA","gene")])
-    
+
     if(!is.null(ess_genes())){
       ess_genes <- ess_genes()
       ClustDatatable_ess <- ClustDatatable %>%
@@ -766,6 +768,7 @@ observe({
         column_to_rownames("sgRNA")
       ClustData_non_ess$table <- ClustDatatable_non_ess
     }
+    }
   }
 })
 
@@ -778,8 +781,10 @@ observeEvent(c(ClustData_ess$table,ClustMetadata$table),{
 
 observeEvent(c(ClustData_non_ess$table,ClustMetadata$table),{
   if(!is.null(ClustData_non_ess$table)){
+
   heatmap <- callModule(ClusteringServer, id = "heatmapIDnoness", session = session,
                         data = ClustData_non_ess , metadata =  ClustMetadata, printRows = FALSE)
+
   }
 })
 
@@ -806,6 +811,7 @@ observeEvent(reactives$norm_data,{
 observeEvent(c(DEAnormdata$data,DEAMetadata$table,input$sidebarmenu),{
   if(input$sidebarmenu=="Statistical_analysis"){
     if(!is.null(DEAnormdata$data) & !is.null(DEAMetadata$table)){
+      
     DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                       norm_data = DEAnormdata,
                       sampleplan = DEAMetadata,
@@ -949,7 +955,6 @@ output$DlTesGuideList <- downloadHandler(
 })
     
     observeEvent(c(reactives$sampleplanRaw),priority = 10,{
-    
     colnames <- colnames(reactives$sampleplanRaw)
     if( (!"Sample_ID" %in% colnames|
         !"SupplementaryInfo" %in% colnames|
@@ -962,7 +967,7 @@ output$DlTesGuideList <- downloadHandler(
                                     h4("colnames must respect majuscules",style="color:red"),
                                     p(),
                                     h3("Your current file colnames are : ",strong ="bold"),
-                                    h4(paste("| ",paste(colnames,collapse =" | ")," |"))
+                                    h4(paste("| ",paste(colnames,collapse =" | ")))
                                     ),
                             title = "Anormal sample plan columns naming",
                             footer = tagList(
