@@ -259,7 +259,7 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
 
 })
 
-observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu),{
+observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu),priority = 10,{
       samples <- reactives$sampleplan
       if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & input$sidebarmenu != "DataInput" & reactives$normalize == TRUE){
       reactives$normalize <- "DONE"
@@ -371,6 +371,8 @@ observe({
     observeEvent(c(reactives$counts,reactives$sampleplan,reactives$timepoints_order),{
     if(!is.null(reactives$counts) & !is.null(reactives$sampleplan)){
       print("read number observer")
+      withProgress(message = 'updating data', value = 0.5, {
+        incProgress(0.3)
       if(!(is.null(input$timepoints_order))){
         counts <- full_join(reactives$counts, reactives$sampleplan) %>%
           mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order))
@@ -379,6 +381,7 @@ observe({
         counts <- full_join(reactives$counts, reactives$sampleplan) %>%
           mutate(Timepoint = factor(.data$Timepoint, levels = unique(.data$Timepoint)))
       }
+        incProgress(0.3)
       counts <- as.data.frame(counts) %>%
         group_by(.data$Sample_ID, .data$Replicate, .data$Cell_line, .data$Timepoint) %>%
         summarise(total = sum(.data$count)) %>% 
@@ -387,7 +390,10 @@ observe({
         geom_col(position = position_dodge()) + facet_wrap(vars(.data$Replicate, .data$Cell_line), nrow = 1) +
         labs(title = "Number of reads per sample", xlab ="Timepoint", ylab ="Total counts")
       read_number$plot <- counts
-    }
+      setProgress(1)
+      print("end of progress updating data")
+      })
+      }
   })
     
     output$read_number <- renderPlot({
@@ -579,7 +585,8 @@ observe({
       ##################################################
       ### Comment this block to retrieve all cpm way ##########
       samples <- reactives$sampleplan
-      counts  <- reactives$countsRaw
+      #counts  <- reactives$countsRaw
+      counts  <- reactives$selectedcountsRaw
       annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
       counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
       counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
@@ -811,6 +818,9 @@ observeEvent(reactives$norm_data,{
 observeEvent(c(DEAnormdata$data,DEAMetadata$table,input$sidebarmenu),{
   if(input$sidebarmenu=="Statistical_analysis"){
     if(!is.null(DEAnormdata$data) & !is.null(DEAMetadata$table)){
+      
+      # print("DEAdataview")
+      # print(head(DEAnormdata$data))
       
     DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                       norm_data = DEAnormdata,

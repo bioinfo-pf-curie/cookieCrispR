@@ -90,7 +90,7 @@ CRISPRDeaModUI <- function(id)  {
                                                         title = "Select Treatment",
                                                         liveSearch = TRUE,
                                                         liveSearchStyle = "contains"))),
-                                              conditionalPanel(condition = 'output.conditionnalMutTreatment != "1"' ,ns = NS(id),
+                                              conditionalPanel(condition = 'output.conditionnalMut != "1"' ,ns = NS(id),
                                                  pickerInput(ns("Mut1"),
                                                              "Group1 sample mutation type",choices = NULL,
                                                              options = pickerOptions(
@@ -338,8 +338,9 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
     output$conditionnalMut <- reactive({
       as.character(length(unique(sampleplanmodel$table$SupplementaryInfo)))
     })
-    outputOptions(output, "conditionnalTreatment", suspendWhenHidden = FALSE)  
-      
+    outputOptions(output, "conditionnalTreatment", suspendWhenHidden = FALSE) 
+    outputOptions(output, "conditionnalMut", suspendWhenHidden = FALSE)  
+  
 
   observeEvent(input$Build,{
     if(!is.null(sampleplanmodel$table)){
@@ -432,17 +433,27 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
                      withProgress(message = 'Computing differential analysis', value = 0.5,{
                      incProgress(0.3,detail = "Filtering low expressed guides")
                      counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
-                     kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
-                     counts <- counts[kept,]
-                     incProgress(0.3,detail = "voomWithQualityWeights")
-                     results$v <- limma::voomWithQualityWeights(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
+                     
+                     ## Supprime car difficile à calibrer ############
+                     #kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
+                     #counts <- counts[kept,]
+                     
+                     #incProgress(0.3,detail = "voomWithQualityWeights")
+                     #results$v <- limma::voomWithQualityWeights(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
+                     
+                     incProgress(0.3,detail = "voom")
+                     results$v <- limma::voom(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
+                     
+                     #print(head(reactives$design))
+                     #print(head(results$v))
+                     
                      res_fit <- limma::lmFit(results$v, method = "ls")
                      incProgress(0.3,detail = "fitting model")
                      res_eb <- eBayes(res_fit, robust = FALSE)
                      fit <- purrr::map(reactives$contrast, ~contrasts.fit(res_fit, contrasts = .x))
                      res_eb <- purrr::map(fit, ~eBayes(.x, robust = FALSE))
                      incProgress(0.3,detail = "Formating results")
-                     tab <- purrr::map(res_eb,~process_res(.x))
+                     tab <- purrr::map(res_eb,~process_res(.x,sgRNA_annot = norm_data$data$genes))
                      names(tab) <- lapply(tab, function(x){print(paste0(input$celline," || ",unique(as.character(x$term))))})
                      results$res <- tab
                      setProgress(1)
@@ -465,8 +476,10 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
     concatenated$resultsIntraNames <- c(concatenated$resultsIntraNames,names(results$res))
     } else if(input$comptype == "Inter-Treatment"){
     concatenated$resultsInterNames <- c(concatenated$resultsInterNames,names(results$res))
+    print(c(concatenated$resultsInterNames,names(results$res)))
     }
     concatenated$results <- c(concatenated$results,results$res)
+    print("concatenations ended")
   })
   
   createLink <- function(val) {
@@ -476,6 +489,11 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
   }
   
   observeEvent(c(concatenated$results),priority = 10,{
+    print('ExploreIntra')
+    print(c(concatenated$resultsInterNames,concatenated$resultsIntraNames)[1])
+    print(concatenated$resultsInterNames)
+    print(concatenated$resultsIntraNames)
+    if(length(concatenated$results) > 1){
     updatePickerInput(session = session,"ExploreIntra",
                       selected = c(concatenated$resultsInterNames,concatenated$resultsIntraNames)[1],
                       choices = list(
@@ -490,6 +508,16 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
                              Intra_comparisons = concatenated$resultsIntraNames
                              )
                       )
+    } else {
+      updatePickerInput(session = session,"ExploreIntra",
+                        selected = c(concatenated$resultsInterNames,concatenated$resultsIntraNames)[1],
+                        choices = names(concatenated$results)
+      )
+      updatePickerInput(session = session,"ExploreIntra2",
+                        selected = c(concatenated$resultsInterNames,concatenated$resultsIntraNames)[1],
+                        choices = names(concatenated$results)
+      )
+    }
   })
   ################ Compute Model old block ##########################
   observeEvent(c(concatenated$results,
@@ -503,7 +531,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
                    results$nsignfc <- length(which(res$adj_p.value < input$PvalsT & abs(res$estimate) > input$FCT))
                    up <- which(res$adj_p.value_enrich < input$PvalsT)
                    down <- which(res$adj_p.value_dep < input$PvalsT)
-                   res$ENSEMBL <- createLink(res$gene)
+                   #print(head(res$Gene))
+                   res$ENSEMBL <- createLink(res$Gene)
                    print('end of DEG')
                    results$up <- res[up,]
                    results$down <- res[down,]
@@ -525,8 +554,11 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
   alpha_thr <- 0.3
   observeEvent(c(input$DEGtabs),{
     if(input$DEGtabs == "RRAscores") {
+      print("rracheck")
+      
+      print(head(concatenated$results))
       if(!is.null(concatenated$results)){
-        if(length(concatenated$results) != length(results$old_res)){
+        if((length(concatenated$results) != length(results$old_res)) | length(concatenated$results) == 1){
         results$old_res <- concatenated$results
         n <- length(concatenated$results)
         names <- names(concatenated$results)
@@ -628,11 +660,11 @@ observeEvent(Volcano$plot,{
     res <- concatenated$results[[input$ExploreIntra]]
     tic("Rendering Volcano...")
     ggplot <- Volcano$plot +
-      geom_point(data = subset(res,gene %in% input$GeneVolcano),
+      geom_point(data = subset(res,sgRNA %in% input$GeneVolcano),
                  color = "purple", alpha = 0.6) +
       ggrepel::geom_text_repel(
-        data = subset(res,gene %in% input$GeneVolcano),
-        aes(label = gene),
+        data = subset(res,sgRNA %in% input$GeneVolcano),
+        aes(label = sgRNA),
         size = 5,
         force = 2,
         box.padding = unit(0.35, "lines"),
@@ -726,7 +758,7 @@ observeEvent(Volcano$plot,{
    
   output$results_table <- DT::renderDataTable({
     res <- bind_rows(results$up,results$down) %>%
-      column_to_rownames("gene")%>%
+      column_to_rownames("sgRNA")%>%
       select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
       mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
       select(c("estimate","adj_p.value","ENSEMBL"))
@@ -744,13 +776,21 @@ observeEvent(Volcano$plot,{
     },
     content = function(file) {
       #write.csv(results$res, file)
-      write.csv(results$res[[input$ExploreIntra]] %>% select(-ENSEMBL),file)
+      #write.csv(results$res[[input$ExploreIntra]] %>% select(-ENSEMBL),file)
+      res <- bind_rows(results$up,results$down) %>%
+        column_to_rownames("sgRNA")%>%
+        select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
+        mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
+        select(c("estimate","adj_p.value","ENSEMBL"))
+      colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
+      #print(colnames(concatenated$results[[input$ExploreIntra]]))
+      write.csv(res %>% select(-ENSEMBL),file)
     }
   )
 
   output$up_table <- DT::renderDataTable({
     ups <- results$up %>%
-      column_to_rownames("gene") %>%
+      column_to_rownames("sgRNA") %>%
       select(c("estimate","adj_p.value_enrich","ENSEMBL"))
     colnames(ups) <- c("logFC","adj_p.value_enrich","ENSEMBL")
     datatable(
@@ -762,11 +802,11 @@ observeEvent(Volcano$plot,{
 
   output$updl <- downloadHandler(
     filename = function() {
-      paste("DEA-UPPS-PDX-Results", Sys.Date(), ".csv", sep=",")
+      paste("DEA-UPS-PDX-Results", Sys.Date(), ".csv", sep=",")
     },
     content = function(file) {
       ups <- results$up %>%
-        column_to_rownames("gene") %>%
+        column_to_rownames("sgRNA") %>%
         select(c("estimate","adj_p.value_enrich"))
       colnames(ups) <- c("logFC","adj_p.value_enrich")
       write.csv(ups %>% select(-ENSEMBL), file)
@@ -775,7 +815,7 @@ observeEvent(Volcano$plot,{
 
   output$down_table <- DT::renderDataTable({
     downs <- results$down %>%
-      column_to_rownames("gene") %>%
+      column_to_rownames("sgRNA") %>%
       select(c("estimate","adj_p.value_dep","ENSEMBL"))
     colnames(downs) <- c("logFC","adj_p.value_dep","ENSEMBL")
     datatable(
@@ -791,7 +831,7 @@ observeEvent(Volcano$plot,{
     },
     content = function(file) {
       downs <- results$down %>%
-        column_to_rownames("gene")%>%
+        column_to_rownames("sgRNA")%>%
         select(c("estimate","adj_p.value_dep"))
       colnames(downs) <- c("logFC","adj_p.value_dep")
       write.csv(downs %>% select(-ENSEMBL), file)
@@ -824,7 +864,7 @@ observeEvent(Volcano$plot,{
       req(results$up)
       valueBox(
         as.character(nrow(results$up)),
-        "Upp regulated features",
+        "Up-regulated features",
         icon = icon("dna"),color = "red"
       )
     })
@@ -843,7 +883,7 @@ observeEvent(Volcano$plot,{
       req(results$down)
       valueBox(
         as.character(nrow(results$down)),
-        "Down regulated features",
+        "Down-regulated features",
         icon = icon("dna"),color = "blue"
       )
     })
