@@ -78,6 +78,18 @@ if ("temporal_evolution" %in% input$include){
 }
 }
 
+evalstatanal <- FALSE
+evalJoinedtatanal <- FALSE
+## Statistical Analysis
+if (TRUE %in% c(c("Volcano plots") %in% input$include)){
+  evalstatanal <- TRUE
+  if(!is.null(reactives$sampleplan) && !is.null(reactives$countsRaw)){
+   evalJoinedtatanal <- TRUE
+  }
+}
+
+
+
 ## SessionInfo
 evalSessionInfo <- FALSE
 if("SessionInfo" %in% input$include){
@@ -193,10 +205,10 @@ plot(counts)
 #### Essential genes
 ```
 ```{r, echo = FALSE, eval = evaldensity,message=FALSE, warning=FALSE}
-if(evaldensityGenesList == FALSE){
+if(evaldensityGenesList == TRUE){
 counts <- reactives$joined
 ess_genes <- ess_genes()
-counts <- filter(counts, .data$gene %in% ess_genes$V1)
+counts <- filter(counts, .data$Gene %in% ess_genes$X)
 plot1 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) + 
   geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
   facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
@@ -211,8 +223,10 @@ plot1 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
 if(evaldensityGenesList == TRUE){
 counts <- reactives$joined
 ess_genes <- non_ess_genes()
+# print(head(ess_genes))
+# print(head(counts))
 counts <- counts %>%
-  filter(.data$gene %in% ess_genes$V1)
+  filter(.data$Gene %in% ess_genes$X)
 plot2 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
   geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
   facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
@@ -221,11 +235,6 @@ plot2 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
 }
 
 grid.arrange(plot1,plot2,ncol = 2)
-```
-```{r, echo = FALSE, eval = TRUE, warning=FALSE}
-if(evaldensityGenesList == TRUE){
-print("Please provide essential and non essential genes lists first")
-}
 ```
 
 
@@ -261,37 +270,59 @@ plot(diff_boxes$diff_box_ess)
 }
 ```
 
-<!-- ## Statistical data analysis -->
-<!-- ```{r, echo = FALSE, eval = TRUE, warning=FALSE} -->
-<!-- print("aa") -->
-<!-- # req(DEA-input$ExploreIntra) -->
-<!-- # req(DEA-concatenated$results) -->
-<!-- # res <- DEA-concatenated$results[[DEA-input$ExploreIntra]] -->
-<!-- req(DEA$results$res) -->
-<!-- print(DEA$results$res) -->
-<!-- res <- DEA$results$res[["Hbe || No_T5-No_T"]] -->
-<!-- print(res) -->
-<!-- # tic("Ploting Volcano") -->
-<!-- # ggplot <- ggplot(res, aes(x = estimate, y = -log10(p.value))) + -->
-<!-- #           ggtitle(colnames(DEA$reactives$contrast)) + -->
-<!-- #           scale_fill_gradient(low = "lightgray", high = "navy") + -->
-<!-- #           scale_color_gradient(low = "lightgray", high = "navy") + -->
-<!-- #           expand_limits(y = c(min(-log10(res$p.value)), 1)) + -->
-<!-- #           geom_point(data = res, -->
-<!-- #                  color = "grey", alpha = 0.5) + -->
-<!-- #           geom_point(data = subset(res, estimate > input$FCT), -->
-<!-- #                  color = "red", alpha = 0.5) + -->
-<!-- #           geom_point(data = subset(res, estimate < -input$FCT), -->
-<!-- #                  color = "blue", alpha = 0.5) + -->
-<!-- #           geom_point(data = subset(res, adj_p.value < input$PvalsT), -->
-<!-- #                  color = "green", alpha = 0.5) + -->
-<!-- #           geom_hline(yintercept = -log10(max(subset(res, adj_p.value < input$PvalsT)$p.value)), linetype = "dashed") + -->
-<!-- #           geom_vline(xintercept = c(-input$FCT, input$FCT), linetype = "dashed") + -->
-<!-- #           theme_linedraw() + -->
-<!-- #           theme(panel.grid = element_blank()) + -->
-<!-- #           xlab("Fold change (log2)") + -->
-<!-- #           ylab("-log10(P-Value)") -->
-<!-- ``` -->
+```{asis,echo = TRUE,eval = evalstatanal}
+## Statistical data analysis
+```
+
+```{asis, echo = TRUE, eval = evalJoinedtatanal, warning=FALSE,message=FALSE,error=FALSE,results=FALSE}
+# Volcano plot
+```
+
+```{r, echo = FALSE, eval = evalJoinedtatanal, warning=FALSE,message=FALSE,error=FALSE,results=FALSE}
+
+req(DEA$concatenated$results)
+req(DEA$reactives$selectedcomp)
+req(DEA$reactives$selectedFC)
+req(DEA$reactives$selectedPvalT)
+
+volcanolist <- list()
+
+FCT <- as.numeric(DEA$reactives$selectedFC)
+PVT <- as.numeric(DEA$reactives$selectedPvalT)
+res <- as.data.frame(DEA$concatenated$results[[DEA$reactives$selectedcomp]])
+
+ggplot <- ggplot(res, aes(x = estimate, y = -log10(p.value))) + 
+           ggtitle(DEA$reactives$selectedcomp) + 
+           scale_color_gradient(low = "lightgray", high = "navy") + 
+           geom_point(data = res, 
+                  color = "grey", alpha = 0.5) + 
+           geom_point(data = subset(res, estimate > FCT), 
+                  color = "red", alpha = 0.5) + 
+           geom_point(data = subset(res, estimate < -FCT), 
+                  color = "blue", alpha = 0.5) + 
+           geom_point(data = subset(res, adj_p.value < PVT),
+                  color = "green", alpha = 0.5) +
+           geom_hline(yintercept = -log10(max(subset(res, adj_p.value < PVT)$p.value)), linetype = "dashed") +
+          geom_vline(xintercept = c(-FCT,FCT), linetype = "dashed") + 
+           theme_linedraw() + 
+           theme(panel.grid = element_blank()) + 
+           xlab("Fold change (log2)") +
+           ylab("-log10(P-Value)") +
+  geom_point(data = subset(res,sgRNA %in% DEA$reactives$GeneVolcano),
+                 color = "purple", alpha = 0.6) +
+      ggrepel::geom_text_repel(
+        data = subset(res,sgRNA %in% DEA$reactives$GeneVolcano),
+        aes(label = sgRNA),
+        size = 5,
+        force = 2,
+        box.padding = unit(0.35, "lines"),
+        point.padding = unit(0.3, "lines")
+      )
+
+  #volcanolist <- c(ggplot,volcanolist)
+#}
+plot(ggplot)
+```
 
 ```{asis,echo=TRUE,eval = evalSessionInfo}
 # Session Information

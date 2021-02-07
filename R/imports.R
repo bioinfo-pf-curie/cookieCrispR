@@ -14,6 +14,7 @@
 #' @importFrom DT datatable renderDataTable dataTableOutput
 #' @importFrom readr read_delim
 #' @importFrom magrittr %>%
+#' @importFrom data.table fread
 #' @importFrom shinyjqui orderInput
 #' @importFrom shinyjs useShinyjs runjs
 #' @importFrom shinyAce updateAceEditor aceEditor aceAutocomplete

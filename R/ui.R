@@ -115,13 +115,16 @@ ui_crispr_app <- function(request){
                                          liveSearchStyle = "contains"
                                        ))),
                     #div(style = 'overflow-x: scroll', DT::dataTableOutput("counts_table"))
-                    DT::dataTableOutput("counts_table")
+                    tabsetPanel(id="countstabset",
+                      tabPanel("Rawcounts",br(),DT::dataTableOutput("counts_table")),
+                      tabPanel("NormalizedCounts log10(cpm)",br(),DT::dataTableOutput("normalized_counts_table"))
+                    )
                   )),
                 fluidRow(
                   box(
                     width = 12, status = "success", solideHeader = TRUE, collapsed = FALSE,collapsible = TRUE,
                     title = "Sample plan",
-                    pickerInput("removesamples", "Remove samples for further analysis",
+                    column(width = 12,pickerInput("removesamples", "Remove samples for further analysis",
                                 choices = NULL,
                                 selected = NULL,
                                 multiple = TRUE,
@@ -132,8 +135,8 @@ ui_crispr_app <- function(request){
                                   title = "Select samples you want to remove",
                                   liveSearch = TRUE,
                                   liveSearchStyle = "contains"
-                                )),
-                    div(style = 'overflow-x: scroll',DT::dataTableOutput("sample_plan_table")),
+                                ))),
+                    column(width = 12,div(style = 'overflow-x: scroll',DT::dataTableOutput("sample_plan_table"))),
                   ))),
         tabItem(tabName = "Rawdist",
                 fluidRow(
@@ -255,7 +258,6 @@ ui_crispr_app <- function(request){
         tabItem(tabName = "Statistical_analysis",
                 CRISPRDeaModUI(id = "DEA")),
         tabItem(tabName = "Report",
-                        #tabPanel(
                           "Report Editor",
                           h2("About this report"),
                           h4("This content has been loaded from the template report `.Rmd` file. Please edit it at your best convenience!"),
@@ -285,17 +287,34 @@ ui_crispr_app <- function(request){
                                 ))),
                              fluidRow(
                                column(width = 6,
-                                   box(width = '100%',
-                                       title = "Sections options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = FALSE,
+                                   #box(width = '100%',
+                                    #   title = "Sections options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = FALSE,
                                        #fluidRow(
                                          column(width = 12,
                                               #fluidRow(
                                                 checkboxGroupInput("include",label = "Add/remove sections in the report",
-                                                                 choices = c("Data Overview" = "DataOverview","read_numbers","density_ridges","temporal_evolution","SessionInfo")),
+                                                                 choices = c("Data Overview" = "DataOverview","read_numbers",
+                                                                             "density_ridges","temporal_evolution",
+                                                                             "Volcano plots","SessionInfo")),
                                                 br(),
-                                                br()
-                                         #)
-                                      )
+                                                br(),
+                                                br(),
+                                                #conditionalPanel(condition = "input.include.includes('Volcanoplots')",
+                                                #conditionalPanel(condition = 'input.include.indexOf("Volcano plots") > -1',
+                                                                 # pickerInput("volcanoslist",width = '100%',
+                                                                 #             label = "Select comparisons and add volcanos to report",
+                                                                 #             choices = NULL,
+                                                                 #             options = pickerOptions(
+                                                                 #               actionsBox = TRUE,
+                                                                 #               title = "Select comparison",
+                                                                 #               liveSearch = TRUE,
+                                                                 #               liveSearchStyle = "contains",
+                                                                 #             ),
+                                                                 #             selected = NULL,
+                                                                 #             multiple = TRUE,
+                                                                 #             choicesOpt = NULL,
+                                                                 #             inline = FALSE)
+                                      #)
                                   ))
                             )),
                           #),

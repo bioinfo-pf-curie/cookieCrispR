@@ -80,20 +80,20 @@ compute_RRA <- function(x, alpha_thr = 1){
 }
 
 compute_score_RRA <- function(object, alpha_thr = 1){
-  RRA_pvalue <- tapply(object$p.value, object$gene, compute_RRA, alpha_thr = alpha_thr) %>%
+  RRA_pvalue <- tapply(object$p.value, object$Gene, compute_RRA, alpha_thr = alpha_thr) %>%
     # bind_rows(.id = "Gene") %>%
-    imap_dfr(~mutate(.x, gene = .y)) %>%
+    imap_dfr(~mutate(.x, Gene = .y)) %>%
     dplyr::rename(RRA_score = score, RRA_which = which)
-  RRA_pvalue_dep <- tapply(object$p.value_dep, object$gene, compute_RRA, alpha_thr = alpha_thr) %>%
+  RRA_pvalue_dep <- tapply(object$p.value_dep, object$Gene, compute_RRA, alpha_thr = alpha_thr) %>%
     # bind_rows(.id = "Gene") %>%
-    imap_dfr( ~mutate(.x, gene = .y)) %>%
+    imap_dfr( ~mutate(.x, Gene = .y)) %>%
     dplyr::rename(RRA_dep_score = score, RRA_dep_which = which)
-  RRA_pvalue_enrich <- tapply(object$p.value_enrich, object$gene, compute_RRA, alpha_thr = alpha_thr) %>%
+  RRA_pvalue_enrich <- tapply(object$p.value_enrich, object$Gene, compute_RRA, alpha_thr = alpha_thr) %>%
     # bind_rows(.id = "Gene") %>%
-    imap_dfr( ~mutate(.x, gene = .y)) %>%
+    imap_dfr( ~mutate(.x, Gene = .y)) %>%
     dplyr::rename(RRA_enrich_score = score, RRA_enrich_which = which)
-  object <- group_by(object, gene) %>% nest
-  res <- suppressMessages(reduce(list(object, RRA_pvalue, RRA_pvalue_dep, RRA_pvalue_enrich), full_join, by = "gene")) %>%
+  object <- group_by(object, Gene) %>% nest
+  res <- suppressMessages(reduce(list(object, RRA_pvalue, RRA_pvalue_dep, RRA_pvalue_enrich), full_join, by = "Gene")) %>%
     select(c("RRA_score","RRA_dep_score","RRA_enrich_score"))
   return(res)
 }
@@ -113,9 +113,61 @@ process_res <- function(object, sgRNA_annot, fdr_method = "BH"){
   tab$adj_p.value_enrich <- p.adjust(tab$p.value_enrich, method = fdr_method)
   tab <- tab[order(tab$adj_p.value),]
   
-  ## add gene info
-  # tab <- left_join(tab, sgRNA_annot, by = c("gene" = "sgRNA"))
-  # tab <- rename_(tab, sgRNA = "gene")
+  tab <- left_join(tab, sgRNA_annot, by = c("gene" = "sgRNA"))
+  tab <- rename_(tab, sgRNA = "gene")
   
   return(tab)
+}
+
+
+pickerSelectOptions <- function(choices, selected = NULL, choicesOpt = NULL, maxOptGroup = NULL) {
+  print("This is the modified pickerSelectOptions")
+  if (is.null(choicesOpt)) choicesOpt <- list()
+  l <- sapply(choices, length)
+  if (!is.null(maxOptGroup)) maxOptGroup <- rep_len(x = maxOptGroup, length.out = sum(l))
+  cs <- cumsum(l)
+  m <- matrix(data = c(1, cs[-length(l)] + 1, cs), ncol = 2)
+  namechoice <- names(choices)
+  tagList(lapply(1:length(choices), function(i) {
+    label <- namechoice[i]
+    choice <- choices[[i]]
+    if (is.list(choice)) {
+      optionTag <- list(
+        label = htmlEscape(label, TRUE),
+        pickerSelectOptions4(
+          choice, selected,
+          choicesOpt = lapply(
+            X = choicesOpt,
+            FUN = function(j) {
+              j[m[i, 1]:m[i, 2]]
+            }
+          )
+        )
+      )
+      if (!is.null(maxOptGroup))
+        optionTag[["data-max-options"]] <- maxOptGroup[i]
+      optionTag <- dropNulls1(optionTag)
+      do.call(tags$optgroup, optionTag)
+    } else {
+      if (length(choicesOpt) == 0) {
+        optionTag <- list(
+          value = choice, if (is.null(label)) HTML(NULL) else HTML(htmlEscape(label)),
+          selected = if (any(choice == selected)) "selected" else NULL
+        )
+      } else {
+        optionTag <- list(
+          value = choice, if (is.null(label)) HTML(NULL) else HTML(htmlEscape(label)),
+          style = choicesOpt$style[i],
+          `data-icon` = choicesOpt$icon[i],
+          `data-subtext` = choicesOpt$subtext[i],
+          `data-content` = choicesOpt$content[i],
+          disabled = if (!is.null(choicesOpt$disabled[i]) && choicesOpt$disabled[i]) "disabled",
+          selected = if (any(choice == selected)) "selected" else NULL
+        )
+      }
+      # optionTag$attribs <- c(optionTag$attribs, list(if (choice %in% selected) " selected" else ""))
+      optionTag <- dropNulls1(optionTag)
+      do.call(tags$option, optionTag)
+    }
+  }))
 }

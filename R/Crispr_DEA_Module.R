@@ -164,7 +164,7 @@ CRISPRDeaModUI <- function(id)  {
                                    br(),
                                    #fluidRow(
                                      column(width = 12,
-                                                   pickerInput(ns("GeneVolcano"),"Select Genes to annotate on volcano",
+                                                   pickerInput(ns("GeneVolcano"),"Select genes to annotate on volcano",
                                                                selected = NULL,
                                                                multiple = TRUE,
                                                                choicesOpt = NULL,
@@ -199,7 +199,7 @@ CRISPRDeaModUI <- function(id)  {
                                           br(),
                                           h4("Upp regulated genes :"),
                                           DT::dataTableOutput(ns('up_table')),
-                                          downloadButton(ns("uppdl"),"Up-regulated",class = "butt")),
+                                          downloadButton(ns("updl"),"Up-regulated",class = "butt")),
                                    column(width = 12,
                                           br(),
                                           h4("Down regulated genes :"),
@@ -251,19 +251,23 @@ CRISPRDeaModUI <- function(id)  {
 #' @import dplyr
 #' @importFrom tictoc tic toc
 
-CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = NULL,
+#CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = NULL,
+CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                                norm_data = NULL) {
   
   ### Define reactives #############
   req(sampleplan)
+  req(norm_data)
   ns <- session$ns
   
-  reactives <- reactiveValues(design = NULL, formula = NULL, contrast = NULL)
+  reactives <- reactiveValues(design = NULL, formula = NULL, contrast = NULL, selectedcomp = NULL,
+                              selectedFC = NULL,selectedPvalT = NULL,GeneVolcano = NULL)
   sampleplanmodel <- reactiveValues(table = NULL)
   results <- reactiveValues(res = NULL, up = NULL, down = NULL,nsignfc = NULL,v = NULL,boxplots = NULL,
                             scores = NULL,old_res = "NULL")
   
-  observeEvent(c(input$celline,sampleplan$table),{
+  observeEvent(c(input$celline,sampleplan$table),priority = -1,{
+    req(sampleplan$table)
     sampleplanmodel$table <- sampleplan$table %>%
       filter(Cell_line == input$celline)
   })
@@ -440,12 +444,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
                      
                      #incProgress(0.3,detail = "voomWithQualityWeights")
                      #results$v <- limma::voomWithQualityWeights(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
-                     
                      incProgress(0.3,detail = "voom")
                      results$v <- limma::voom(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
-                     
-                     #print(head(reactives$design))
-                     #print(head(results$v))
                      
                      res_fit <- limma::lmFit(results$v, method = "ls")
                      incProgress(0.3,detail = "fitting model")
@@ -476,10 +476,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
     concatenated$resultsIntraNames <- c(concatenated$resultsIntraNames,names(results$res))
     } else if(input$comptype == "Inter-Treatment"){
     concatenated$resultsInterNames <- c(concatenated$resultsInterNames,names(results$res))
-    print(c(concatenated$resultsInterNames,names(results$res)))
     }
     concatenated$results <- c(concatenated$results,results$res)
-    print("concatenations ended")
   })
   
   createLink <- function(val) {
@@ -489,10 +487,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
   }
   
   observeEvent(c(concatenated$results),priority = 10,{
-    print('ExploreIntra')
-    print(c(concatenated$resultsInterNames,concatenated$resultsIntraNames)[1])
-    print(concatenated$resultsInterNames)
-    print(concatenated$resultsIntraNames)
     if(length(concatenated$results) > 1){
     updatePickerInput(session = session,"ExploreIntra",
                       selected = c(concatenated$resultsInterNames,concatenated$resultsIntraNames)[1],
@@ -554,9 +548,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = N
   alpha_thr <- 0.3
   observeEvent(c(input$DEGtabs),{
     if(input$DEGtabs == "RRAscores") {
-      print("rracheck")
-      
-      print(head(concatenated$results))
       if(!is.null(concatenated$results)){
         if((length(concatenated$results) != length(results$old_res)) | length(concatenated$results) == 1){
         results$old_res <- concatenated$results
@@ -809,7 +800,7 @@ observeEvent(Volcano$plot,{
         column_to_rownames("sgRNA") %>%
         select(c("estimate","adj_p.value_enrich"))
       colnames(ups) <- c("logFC","adj_p.value_enrich")
-      write.csv(ups %>% select(-ENSEMBL), file)
+      write.csv(ups, file)
     }
   )
 
@@ -834,7 +825,7 @@ observeEvent(Volcano$plot,{
         column_to_rownames("sgRNA")%>%
         select(c("estimate","adj_p.value_dep"))
       colnames(downs) <- c("logFC","adj_p.value_dep")
-      write.csv(downs %>% select(-ENSEMBL), file)
+      write.csv(downs, file)
     }
   )
   # 
@@ -889,7 +880,16 @@ observeEvent(Volcano$plot,{
     })
   # 
   #return(list(results=results,reactives=reactives))
-  observe({
-  return(results)
+  #observe({
+  #observeEvent(results$res,{
+  observeEvent(c(input$ExploreIntra,input$FCT,input$PvalsT,input$GeneVolcano),{
+    reactives$selectedcomp <- input$ExploreIntra
+    reactives$selectedFC <- as.numeric(input$FCT)
+    reactives$selectedPvalT <- as.numeric(input$PvalsT) 
+    reactives$GeneVolcano <- input$GeneVolcano
   })
+  
+  print("inside module return")
+  return(list(results=results,reactives=reactives,concatenated=concatenated))
+  #})
 }
