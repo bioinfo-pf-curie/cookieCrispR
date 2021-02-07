@@ -89,7 +89,7 @@ observeEvent(precheck$counts,{
         print(precheck$Fs)
       if (!("V1" %in% colnames(counts))){
         if (paste0("V",ncol(counts)) %in% colnames(counts)) {
-          colnames(counts) <- c("X",colnames(counts)[1:(ncol(z)-1)])
+          colnames(counts) <- c("X",colnames(counts)[1:(ncol(counts)-1)])
         } else {
           counts <- tibble::rownames_to_column(counts,"X")
         }
@@ -659,7 +659,6 @@ observeEvent(input$sidebarmenu,{
       annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
       counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
       counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
-      save(counts,file="~/coockiecrisprtestRDA/tocpm.rda")
       counts <- counts %>%
         dplyr::group_by(.data$Sample_ID) %>%
         dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + cpm))  %>%
