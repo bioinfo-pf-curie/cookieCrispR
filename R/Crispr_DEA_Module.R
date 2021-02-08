@@ -139,19 +139,13 @@ CRISPRDeaModUI <- function(id)  {
                                fluidRow(box(title = span(icon("cogs"), "Parameters"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                    status = "success",width= 12,
                                    #fluidRow(
-                                     column(width = 6,pickerInput(ns("ExploreIntra"),label= "Select a comparison to explore", selected = NULL,
+                                     column(width = 12,pickerInput(ns("ExploreIntra"),label= "Select a comparison to explore", selected = NULL,
                                                                   multiple = FALSE,choicesOpt = NULL,inline = FALSE,choices = NULL,
                                                                   options = pickerOptions(
                                                                     title = "Select comparison",
                                                                     liveSearch = TRUE,
                                                                     liveSearchStyle = "contains"))),
                                      column(width = 6,numericInput(ns("FCT"),"LogFC threshold", min = 0, max = 10 , value = 1, step = 0.05)),
-                                     column(width = 6,pickerInput(ns("AdjMeth"),"Select an adjustment method", choices = c("BH","BY","holm","none"),
-                                                                  multiple = FALSE,choicesOpt = NULL,inline = FALSE,selected = "BH",
-                                                                  options = pickerOptions(
-                                                                    title = "Select genes to annotate",
-                                                                    liveSearch = TRUE,
-                                                                    liveSearchStyle = "contains"))),
                                      column(width = 6,numericInput(ns("PvalsT"),"adjusted P values threshold", min = 0, max = 1 , value = 0.05, step = 0.01)))
                                ),
                                fluidRow(uiOutput(ns('features_value_box'))),
@@ -602,7 +596,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     req(concatenated$results)
     req(input$ExploreIntra)
     res <- concatenated$results[[input$ExploreIntra]]
-    plot <- ggplot(data = res) + aes(x = `adj_p.value`) +
+    #plot <- ggplot(data = res) + aes(x = `adj_p.value`) +
+    plot <- ggplot(data = res) + aes(x = `p.value`) +
       geom_histogram_interactive(fill = "steelblue",breaks = seq(0, 1, length.out = 30))
     build  <- ggplot_build(plot)
     plot <- plot +  labs(title = paste0(input$ExploreIntra," : P values distribution"), x = "P values", y = "Occurences")# +
@@ -772,8 +767,8 @@ observeEvent(Volcano$plot,{
         column_to_rownames("sgRNA")%>%
         select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
         mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
-        select(c("estimate","adj_p.value","ENSEMBL"))
-      colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
+        select(c("estimate","p.value","adj_p.value","ENSEMBL"))
+      colnames(res) <- c("logFC","p.value","adj_p.value","ENSEMBL")
       #print(colnames(concatenated$results[[input$ExploreIntra]]))
       write.csv(res %>% select(-ENSEMBL),file)
     }
@@ -782,8 +777,8 @@ observeEvent(Volcano$plot,{
   output$up_table <- DT::renderDataTable({
     ups <- results$up %>%
       column_to_rownames("sgRNA") %>%
-      select(c("estimate","adj_p.value_enrich","ENSEMBL"))
-    colnames(ups) <- c("logFC","adj_p.value_enrich","ENSEMBL")
+      select(c("estimate","p.value","adj_p.value_enrich","ENSEMBL"))
+    colnames(ups) <- c("logFC","p.value","adj_p.value_enrich","ENSEMBL")
     datatable(
       ups,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -798,8 +793,8 @@ observeEvent(Volcano$plot,{
     content = function(file) {
       ups <- results$up %>%
         column_to_rownames("sgRNA") %>%
-        select(c("estimate","adj_p.value_enrich"))
-      colnames(ups) <- c("logFC","adj_p.value_enrich")
+        select(c("estimate","p.value","adj_p.value_enrich"))
+      colnames(ups) <- c("logFC","p.value","adj_p.value_enrich")
       write.csv(ups, file)
     }
   )
@@ -807,8 +802,8 @@ observeEvent(Volcano$plot,{
   output$down_table <- DT::renderDataTable({
     downs <- results$down %>%
       column_to_rownames("sgRNA") %>%
-      select(c("estimate","adj_p.value_dep","ENSEMBL"))
-    colnames(downs) <- c("logFC","adj_p.value_dep","ENSEMBL")
+      select(c("estimate","p.value","adj_p.value_dep","ENSEMBL"))
+    colnames(downs) <- c("logFC","p.value","adj_p.value_dep","ENSEMBL")
     datatable(
       downs,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -823,8 +818,8 @@ observeEvent(Volcano$plot,{
     content = function(file) {
       downs <- results$down %>%
         column_to_rownames("sgRNA")%>%
-        select(c("estimate","adj_p.value_dep"))
-      colnames(downs) <- c("logFC","adj_p.value_dep")
+        select(c("estimate","p.value","adj_p.value_dep"))
+      colnames(downs) <- c("logFC","p.value","adj_p.value_dep")
       write.csv(downs, file)
     }
   )
