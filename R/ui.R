@@ -48,6 +48,7 @@ ui_crispr_app <- function(request){
       tabItems(
         tabItem(tabName = "DataInput",
                 useShinyjs(),
+                #useShinyalert(),
                 infoBoxOutput("Totguidenumber",width = 6),
                 valueBoxOutput("Depth",width = 6),
                 fluidRow(
@@ -61,8 +62,16 @@ ui_crispr_app <- function(request){
                                            column(width=6,
                                                   uiOutput("orderUI")),
                                          fluidRow(),
-                                           column(width=6,fileInput("essential","Essential genes")),
-                                           column(width=6,fileInput("nonessential","Non Essential genes")),#),
+                                           column(width=6,
+                                                  uiOutput("list1input"),
+                                                  #uiOutput("list2input")
+                                                  # conditionalPanel("input.screentype == 'Positive",
+                                                  #                  fileInput("essential","Sensitivity genes")),
+                                                  # conditionalPanel("input.screentype == 'Negative",
+                                                  #                  fileInput("essential","Resistant genes"))
+                                                  #fileInput("essential","Essential genes")
+                                                  ),
+                                           column(width=6,fileInput("nonessential","Other genes")),#),
                                            #fluidRow(
                                           column(width = 6,
                                                  fileInput("counts","Global counts")),
@@ -202,13 +211,13 @@ ui_crispr_app <- function(request){
                   box(collapsible = TRUE, collapsed = FALSE,
                       width = 12, status = "success", solidHeader = TRUE,
                       title = "Clustering on Essential genes",
-                      column(width = 12,ClusteringUI(id = "heatmapIDess"))
-                      ),
-                  box(collapsible = TRUE, collapsed = TRUE,
-                      width = 12, status = "success", solidHeader = TRUE,
-                      title = "Clustering on Non Essential genes",
-                      column(width = 12,ClusteringUI(id = "heatmapIDnoness"))
-                     )
+                      column(width = 12,ClusteringUIMod(id = "heatmapID"))
+                      )#,
+                  # box(collapsible = TRUE, collapsed = TRUE,
+                  #     width = 12, status = "success", solidHeader = TRUE,
+                  #     title = "Clustering on Non Essential genes",
+                  #     column(width = 12,ClusteringUIMod(id = "heatmapIDnoness"))
+                  #    )
                   )
         ),
         tabItem("CompCond",

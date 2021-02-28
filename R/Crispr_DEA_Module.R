@@ -432,9 +432,15 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                      incProgress(0.3,detail = "Filtering low expressed guides")
                      counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
                      
-                     ## Supprime car difficile à calibrer ############
-                     #kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
-                     #counts <- counts[kept,]
+                     # Remove control guides RNA for differential analysis
+                     print("yo2")
+                     print(class(counts))
+                     #counts <- filter(as.data.frame(counts), str_detect(Gene,"Non-Targeting"))
+                     
+                     ## Supprime car difficile à calibrer ############ 
+                    ### Filtre sur nombre minimal de counts
+                     kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
+                     counts <- counts[kept,]
                      
                      #incProgress(0.3,detail = "voomWithQualityWeights")
                      #results$v <- limma::voomWithQualityWeights(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
@@ -538,22 +544,42 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                    }
                  }) # end of observer
   
-  n_perm <- 20000
+  n_perm <- 2000
   alpha_thr <- 0.3
-  observeEvent(c(input$DEGtabs),{
+  observeEvent(c(input$DEGtabs,norm_data$data$genes),{
+    req(norm_data$data$genes)
     if(input$DEGtabs == "RRAscores") {
       if(!is.null(concatenated$results)){
         if((length(concatenated$results) != length(results$old_res)) | length(concatenated$results) == 1){
         results$old_res <- concatenated$results
         n <- length(concatenated$results)
         names <- names(concatenated$results)
+        sgRNAannot <- norm_data$data$genes
+        print(head(sgRNAannot))
+        
+        sgRNAannot <- filter(sgRNAannot, str_detect(Gene,"Non-Targeting"))
+        print(head(sgRNAannot))
+        
         withProgress(message = 'Computing per gene RRA score from DEA results :', value = 0.5,{
           results$scores <- NULL
           results$scores <- lapply(seq_along(concatenated$results),function(x){
             incProgress(as.numeric(1/n),detail = paste0("processing ",names[x]))
-            compute_score_RRA(concatenated$results[[x]],alpha_thr = alpha_thr)
+            computed_scores <- compute_score_RRA(concatenated$results[[x]],alpha_thr = alpha_thr)
+            print(head(computed_scores))
+            print("yo")
+            print(paste0("Launching RRA adj pval with ",n_perm," permutations..."))
+            compute_RRA_pval(guide_res = concatenated$results[[x]],
+                             gene_res = computed_scores,
+                             n_guides = 6,
+                             non_target =  sgRNAannot, 
+                             alpha_thr = alpha_thr,
+                             n_perm = n_perm)
           })
+          print('head resylts scores')
+          print(head(results$scores))
           names(results$scores) <- names
+          scores <- results$scores
+          save(scores, file = "~/scores.rda")
           setProgress(1)
         })
         }# end of progress
@@ -767,8 +793,8 @@ observeEvent(Volcano$plot,{
         column_to_rownames("sgRNA")%>%
         select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
         mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
-        select(c("estimate","p.value","adj_p.value","ENSEMBL"))
-      colnames(res) <- c("logFC","p.value","adj_p.value","ENSEMBL")
+        select(c("estimate","adj_p.value","ENSEMBL"))
+      colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
       #print(colnames(concatenated$results[[input$ExploreIntra]]))
       write.csv(res %>% select(-ENSEMBL),file)
     }
@@ -885,6 +911,10 @@ observeEvent(Volcano$plot,{
   })
   
   print("inside module return")
-  return(list(results=results,reactives=reactives,concatenated=concatenated))
+  selected_comp_rra <- reactiveValues(list = NULL)
+  observe({
+    selected_comp_rra$list <- as.character(input$ExploreIntra2)
+  })
+  return(list(results=results,reactives=reactives,concatenated=concatenated,selected_comp_rra = selected_comp_rra ))
   #})
 }

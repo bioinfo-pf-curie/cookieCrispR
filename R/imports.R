@@ -14,6 +14,7 @@
 #' @importFrom DT datatable renderDataTable dataTableOutput
 #' @importFrom readr read_delim
 #' @importFrom magrittr %>%
+#' @import shinyalert
 #' @importFrom data.table fread
 #' @importFrom shinyjqui orderInput
 #' @importFrom shinyjs useShinyjs runjs
@@ -32,6 +33,6 @@
 #' @importFrom textshape column_to_rownames
 #' @importFrom DESeq2 vst
 #' @import edgeR
-#' @importFrom purrr imap_dfr reduce
+#' @importFrom purrr imap_dfr reduce map_dbl
 #' 
 NULL

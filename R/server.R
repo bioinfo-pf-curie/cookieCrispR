@@ -15,6 +15,23 @@ session$onSessionEnded(stopApp)
 options(shiny.sanitize.errors = TRUE,shiny.maxRequestSize = 3000*1024^2)
 session$allowReconnect(TRUE)
 
+output$list1input <- renderUI({  
+  if(input$screentype == "Positive"){
+    fileInput("essential","Sensitivity genes")
+  } else {fileInput("essential","Resistance genes")}
+})
+
+query_modal <- modalDialog(
+  title = "What is your screening type ?",
+  radioButtons("screentype", label = "What is your screening type ?", choices = c("Positive","Negative"), inline = TRUE),
+  easyClose = F,
+  footer = tagList(
+    modalButton("Ok")
+  )
+)
+# Show the model on start up ...
+showModal(fluidRow(query_modal))
+
 ##### Usefull variables #############
 reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
                               joined = NULL,countsRaw = NULL, counts = NULL,
@@ -282,7 +299,7 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
                             p(),
                             h6("Please check that Samples IDs are correctly matching between ssplan and count matrix files, unless they will be removed for the following analysis")),
                     footer = tagList(
-                      modalButton("Got it"),
+                      modalButton("Got it")
                     ))
        )
       }
@@ -311,10 +328,15 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       counts <- counts %>%
            column_to_rownames("sgRNA")
       
+      save(annot_sgRNA,file ="~/annot.rda")
+      
       control_sgRNA <- filter(annot_sgRNA, str_detect(Gene,"Non-Targeting"))
       if(nrow(control_sgRNA) == 0){
         control_sgRNA <- NULL
       }
+      
+      print("controlsgRNA")
+      print(head(control_sgRNA))
 
       norm_data <- sg_norm(counts,
                              sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
@@ -527,16 +549,19 @@ observe({
       withProgress(message = 'Calculating density ridges', value = 0.5, {
         incProgress(0.3)
         
-        print("faceting")
-        print(head(ess_genes))
-        print(head(counts))
-        
       counts <- filter(counts, .data$Gene %in% ess_genes$X)
+      
+      if(input$screentype == "Positive"){
+        subtitle <- "Sensible genes :"
+      } else {
+        subtitle <- 'Resistant genes :'
+      }
+      
       counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) + 
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
         facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
         scale_fill_viridis_c() +
-        labs(title = "Distribution of normalised log-cpms", subtitle = "Essential genes")
+        labs(title = "Distribution of normalised log-cpms", subtitle = subtitle)
       return(plot(counts_plot))
       })
     })
@@ -552,11 +577,17 @@ observe({
       counts <- counts %>%
         filter(.data$Gene %in% ess_genes$X)
       
+      if(input$screentype == "Positive"){
+        subtitle <- "Not sensible genes :"
+      } else {
+        subtitle <- 'Not resistant genes :'
+      }
+      
       counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
         facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
         scale_fill_viridis_c() +
-        labs(title = "Distribution of normalised log-cpms", subtitle = "Non Essential genes")
+        labs(title = "Distribution of normalised log-cpms", subtitle = subtitle)
       
       return(plot(counts_plot))
     })
@@ -606,6 +637,12 @@ observe({
     })
     
     observe({
+      req(input$screentype)
+      if(input$screentype == "Positive"){
+        subtitle <- " - Sensible genes "
+      } else {
+        subtitle <- ' - Resistant genes'
+      }
       req(reactives$diff_t0)
       firstpoint <- input$timepoints_order[[1]]
       ess_genes <- ess_genes()
@@ -615,7 +652,7 @@ observe({
         filter(.data$Gene %in% ess_genes[,1]) %>%
         ggplot(aes(x = .data$Timepoint, y= .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.~ .data$Cell_line) +
         ylab(paste0("diff_",firstpoint)) + 
-        labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - essential genes's guides"))
+        labs(title = paste0("Boxplots of log fold change from ", firstpoint ,paste0(subtitle,"'s guides")))
       
     })
     
@@ -774,21 +811,17 @@ output$dlauc <- downloadHandler(
 #observe({
   observeEvent(input$sidebarmenu,{
   if(input$sidebarmenu == "CompCond"){
-  tic("sbeeeeeeelx")
   updatePickerInput(session,"conditionreference1",
                     choices = as.character(unique(reactives$sampleplan$Treatment)))
   updatePickerInput(session = session,'selecttimepointscomp',
                     choices = as.character(unique(reactives$sampleplan$Timepoint)))
-  toc(log=TRUE)
   }
 })
 observeEvent(input$sidebarmenu,{
   if(input$sidebarmenu == "CompCond"){
   withProgress(message = 'retrieving selected guides', value = 0.5, {
-  tic("sbeeeeeeelx222")
   updatePickerInput(session = session,"selectguidescomp",
                     choices = as.character(unique(reactives$selectedcountsRaw$sgRNA)))
-  toc(log = TRUE)
   })
   }
 })
@@ -827,65 +860,132 @@ output$positive_boxplots <- renderGirafe({
   reactives$interactive_boxplots
 })
 
-
+DeaToClustGenes <- reactiveValues(list = NULL)
+observeEvent(c(DEA$results$scores,DEA$selected_comp$list),ignoreInit = TRUE,{
+  print("quering rra score genes list")
+  req(DEA$results$scores)
+  req(DEA$selected_comp$list)
+  print(DEA$selected_comp$list)
+  save_results <- DEA$results$scores
+  save(save_results, file = "~/testsveresultscoock.rda")
+   names <- DEA$results$scores[[as.character(DEA$selected_comp$list)]] %>%
+        #filter(RRA_dep_score < 10^-17 | RRA_enrich_score < 10^-17)
+        filter(RRA_dep_adjp < 0.0002 | RRA_enrich_adjp < 0.0002)
+   #remove control guides
+   names <- filter(names, !(str_detect(Gene,"Non-Targeting")))
+   names <- names$Gene
+   DeaToClustGenes$list <- names
+})
+# 
 ClustData_ess <- reactiveValues(table = NULL)
 ClustData_non_ess <- reactiveValues(table = NULL)
+ClustData <- reactiveValues(table = NULL)
 ClustMetadata <- reactiveValues(table = NULL)
-observeEvent(input$sidebarmenu,{
+observeEvent(c(input$sidebarmenu,DeaToClustGenes$list,reactives$sampleplan),{
   if (input$sidebarmenu == "Clustering"){
-    req(reactives$countsRaw)
+    print("runing clustering module")
+    #req(reactives$countsRaw)
     req(reactives$sampleplan)
-#observe({
-  # if(!is.null(reactives$countsRaw) && !is.null(reactives$sampleplan)){
-    ClustMetadata$table <- reactives$sampleplan %>% column_to_rownames("Sample_ID")
-    countsRawMatch <- reactives$countsRaw[,colnames(reactives$countsRaw) %in% rownames(ClustMetadata$table)]
-    if(ncol(countsRawMatch) > 0){
-    ClustDatatable <- vst(as.matrix(reactives$countsRaw[,colnames(reactives$countsRaw) %in% rownames(ClustMetadata$table)]), blind = TRUE)
-    ClustDatatable <- cbind(ClustDatatable,reactives$countsRaw[,c("sgRNA","gene")])
-
-    if(!is.null(ess_genes())){
-      ess_genes <- ess_genes()
-      ClustDatatable_ess <- ClustDatatable %>%
-        filter(gene %in% ess_genes$X) %>%
-        select(-gene) %>%
-        column_to_rownames("sgRNA")
-      ClustData_ess$table <- ClustDatatable_ess
+    req(DeaToClustGenes$list)
+    req(reactives$norm_data$genes)
+    withProgress(message = 'Filtering data for clustering', value = 0.5, {
+      
+    ClustMetadataa <-  column_to_rownames(reactives$sampleplan,"Sample_ID")
+    sgRNAannot <- reactives$norm_data$genes
+    ################# NORM PIERRE ######
+    #ClustData <- reactives$norm_data$counts
+    
+    #### VST ON INTERESTED GENES ONLY ###########
+    ClustDataa <- reactives$countsRaw
+    ClustDataa <- ClustDataa %>% filter(gene %in% as.character(DeaToClustGenes$list))
+    ClustDataa <- column_to_rownames(ClustDataa,"sgRNA")
+    ClustDataa <-  vst(as.matrix(ClustDataa %>% select(-c(gene))), blind = TRUE)
+    
+    ######### VST ############# NORMALISATION
+    # ClustData <- reactives$countsRaw
+    # ClustData <- column_to_rownames(ClustData,"sgRNA")
+    # ClustData <-  vst(as.matrix(ClustData %>% select(-c(gene))), blind = TRUE)
+    
+    ClustDataa <- tibble::rownames_to_column(as.data.frame(ClustDataa),"sgRNA")
+    ClustDataa <- ClustDataa %>%
+      left_join(sgRNAannot, by = "sgRNA")
+    
+    # In vst before filter version :: 
+    # ClustData <- ClustData %>% filter(Gene %in% as.character(DeaToClustGenes$list))
+    
+    ClustDataa <- as.data.frame(ClustDataa)
+    print(ncol(ClustDataa))
+    if(ncol(ClustDataa) > 0){
+      if(!is.null(ess_genes())){
+        ess_genes <- ess_genes()
+        ClustDatatable_ess <- ClustDataa %>%
+          filter(Gene %in% ess_genes$X) %>%
+          select(-Gene) %>%
+          column_to_rownames("sgRNA")
+        ClustData_ess$table <- ClustDatatable_ess
+      }
+      if(!is.null(non_ess_genes())){
+        
+        non_ess_genes <- non_ess_genes()
+        ClustDatatable_non_ess <- ClustDataa %>%
+          filter(Gene %in% non_ess_genes$X) %>%
+          select(-Gene) %>%
+          column_to_rownames("sgRNA")
+        
+      }
+      ClustDataa <- column_to_rownames(ClustDataa,"sgRNA") %>% select(-c(Gene))
+      ClustMetadataa <- ClustMetadataa[rownames(ClustMetadataa) %in% colnames(ClustDataa),]
+      ClustDataa <- ClustDataa[,colnames(ClustDataa) %in% rownames(ClustMetadataa)]
+      ClustMetadataa <- ClustMetadataa[rownames(ClustMetadataa) %in% colnames(ClustDataa),]
+      ClustDataa <- ClustDataa[,colnames(ClustDataa) %in% rownames(ClustMetadataa)]
+      print(ncol(ClustDataa))
+      print(nrow(ClustMetadataa))
+      ClustMetadata$table <- ClustMetadataa
+      ClustData$table <- ClustDataa
     }
-    if(!is.null(non_ess_genes())){
-      non_ess_genes <- non_ess_genes()
-      ClustDatatable_non_ess <- ClustDatatable %>%
-        filter(gene %in% non_ess_genes$X) %>%
-        select(-gene) %>%
-        column_to_rownames("sgRNA")
-      ClustData_non_ess$table <- ClustDatatable_non_ess
-    }
-    }
+    })
   }
 })
+
+observeEvent(ClustData$table,ignoreInit = TRUE,{
+    if(nrow(ClustData$table) > 3){
+      print('launching heatmap')
+      heatmap <- callModule(ClusteringServerMod, id = "heatmapID", session = session,
+                            data = ClustData , metadata =  ClustMetadata, printRows = FALSE)
+    } else {
+      showModal(modalDialog(
+        title = "There is not enough sgRNA passing filters to perform heatmap",
+        "Please select  a comparison on the rra scores tab",
+        footer = tagList(
+          modalButton("Got it")
+        )))
+    }
+})
+
 
 #observeEvent(c(ClustData_ess$table,ClustMetadata$table),{
-observeEvent(input$sidebarmenu,{
-   if (input$sidebarmenu == "Clustering"){
-    if(!is.null(ClustData_ess$table)){
-    withProgress(message = 'Computing heatmap', value = 0.5, {
-    heatmap <- callModule(ClusteringServer, id = "heatmapIDess", session = session,
-                           data = ClustData_ess , metadata =  ClustMetadata, printRows = FALSE)
-    })
-    }
-   }
-})
-
-#observeEvent(c(ClustData_non_ess$table,ClustMetadata$table),{
-observeEvent(input$sidebarmenu,{
-  if (input$sidebarmenu == "Clustering"){
-  if(!is.null(ClustData_non_ess$table)){
-  withProgress(message = 'Computing essential genes heatmap', value = 0.5, {
-  heatmap <- callModule(ClusteringServer, id = "heatmapIDnoness", session = session,
-                        data = ClustData_non_ess , metadata =  ClustMetadata, printRows = FALSE)
-  })
-  }
-  }
-})
+# observeEvent(c(input$sidebarmenu,ClustData_ess$table),{
+#    if (input$sidebarmenu == "Clustering"){
+#     if(!is.null(ClustData_ess$table)){
+#     withProgress(message = 'Computing heatmap', value = 0.5, {
+#     heatmap <- callModule(ClusteringServer, id = "heatmapIDess", session = session,
+#                            data = ClustData_ess , metadata =  ClustMetadata, printRows = FALSE)
+#     })
+#     }
+#    }
+# })
+# 
+# #observeEvent(c(ClustData_non_ess$table,ClustMetadata$table),{
+# observeEvent(input$sidebarmenu,{
+#   if (input$sidebarmenu == "Clustering"){
+#   if(!is.null(ClustData_non_ess$table)){
+#   withProgress(message = 'Computing essential genes heatmap', value = 0.5, {
+#   heatmap <- callModule(ClusteringServer, id = "heatmapIDnoness", session = session,
+#                         data = ClustData_non_ess , metadata =  ClustMetadata, printRows = FALSE)
+#   })
+#   }
+#   }
+# })
 
 ######################################################################################################
 ######################################## DEA #########################################################
@@ -917,7 +1017,7 @@ observeEvent(input$sidebarmenu,{
       showModal(modalDialog(
         title = "Please upload both count matrix and sampleplan first",
         footer = tagList(
-          modalButton("Got it"),
+          modalButton("Got it")
         )))
   }}
 })
@@ -931,13 +1031,15 @@ req(DEA$concatenated$results)
 updatePickerInput(session = session, 'volcanoslist',choices = as.character(names(DEA$concatenated$results)))
 })
 
+
+
 observeEvent(input$sidebarmenu,priority = -1,{
   if(input$sidebarmenu=="Statistical_analysis"){
     if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
   showModal(modalDialog(
     title = "Please upload both count matrix and sampleplan first",
     footer = tagList(
-      modalButton("Got it"),
+      modalButton("Got it")
     )))
     }}
 })
