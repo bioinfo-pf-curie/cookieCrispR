@@ -99,17 +99,38 @@ compute_score_RRA <- function(object, alpha_thr = 1){
 }
 
 
-compute_RRA_pval <- function(guide_res, gene_res, non_target, n_perm = 10000, n_guides = 6, alpha_thr = 1){
+compute_RRA_pval <- function(guide_res, gene_res, non_target, n_perm = NULL, n_guides = 6, alpha_thr = 1){
   ## create random table
+  
+  print("nperm in function")
+  print(class(n_perm))
+  print(n_perm)
+  print(as.integer(n_guides * n_perm))
+  save.image(file = "~/rra_scores.RData")
+  ng_x_np <- as.integer(n_guides * n_perm)
+  print(head(guide_res))
+  print(head(non_target))
   object_non_target <- filter_(guide_res, ~sgRNA %in% non_target$sgRNA)
   #object_non_target <- filter_(guide_res, ~Gene %in% non_target$Gene)
-  random_tab <- data.frame(sgRNA = sample(non_target$sgRNA, n_guides * n_perm, replace = TRUE),
-                           Gene = rep(paste0("random_non_target_", seq_len(n_perm)), each = n_guides),
-                           p.value = sample(object_non_target$p.value, size = n_guides * n_perm, replace = TRUE),
-                           p.value_dep = sample(object_non_target$p.value_dep, size = n_guides * n_perm, replace = TRUE),
-                           p.value_enrich = sample(object_non_target$p.value_enrich, size = n_guides * n_perm, replace = TRUE)
+  # random_tab <- data.frame(sgRNA = sample(non_target$sgRNA, n_guides * n_perm, replace = TRUE),
+  #                          Gene = rep(paste0("random_non_target_", seq_len(n_perm)), each = n_guides),
+  #                          p.value = sample(object_non_target$p.value, size = n_guides * n_perm, replace = TRUE),
+  #                          p.value_dep = sample(object_non_target$p.value_dep, size = n_guides * n_perm, replace = TRUE),
+  #                          p.value_enrich = sample(object_non_target$p.value_enrich, size = n_guides * n_perm, replace = TRUE)
+                           
+  print(object_non_target)
+  print(head(object_non_target$p.value))
+  print(head(object_non_target$p.value_dep))
+  print(head(object_non_target$p.value_enrich))
+  
+    random_tab <- data.frame(sgRNA = sample(non_target$sgRNA, ng_x_np, replace = TRUE),
+                              Gene = rep(paste0("random_non_target_", seq_len(n_perm)), each = n_guides),
+                              p.value = sample(object_non_target$p.value, size = ng_x_np, replace = TRUE),
+                              p.value_dep = sample(object_non_target$p.value_dep, size = ng_x_np, replace = TRUE),
+                              p.value_enrich = sample(object_non_target$p.value_enrich, size = ng_x_np, replace = TRUE)                           
   )
   res_random <- compute_score_RRA(random_tab, alpha_thr = alpha_thr)
+  print(n_perm)
   gene_res <- mutate_(gene_res,
                       RRA_pvalue = ~map_dbl(RRA_score, ~((1 + sum(. >= res_random$RRA_score)) / (1 + n_perm))),
                       RRA_dep_pvalue = ~map_dbl(RRA_dep_score, ~((1 +sum(. >= res_random$RRA_dep_score)) / (1 + n_perm))),

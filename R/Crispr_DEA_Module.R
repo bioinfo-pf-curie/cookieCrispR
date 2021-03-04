@@ -168,6 +168,7 @@ CRISPRDeaModUI <- function(id)  {
                                                                  title = "Select genes to annotate",
                                                                  liveSearch = TRUE,
                                                                  liveSearchStyle = "contains",
+                                                                 actionsBox = TRUE
                                                                ))
                                    ),#),
                                    #fluidRow(
@@ -185,21 +186,21 @@ CRISPRDeaModUI <- function(id)  {
                                    status = "success",width= 12,
                                    #fluidRow(
                                    tags$head(tags$style(".butt{background-color:#2E8B57;}")),
-                                   column(width =12,
-                                          h4("All genes :"),
-                                          DT::dataTableOutput(ns('results_table')),
-                                          downloadButton(ns("resdl"),"All genes",class = "butt")),
-                                   column(width = 12,
+                                   # column(width =12,
+                                   #        h4("All genes :"),
+                                   #        DT::dataTableOutput(ns('results_table')),
+                                   #        downloadButton(ns("resdl"),"All genes",class = "butt")),
+                                   column(width = 6,
                                           br(),
                                           h4("Upp regulated genes :"),
                                           DT::dataTableOutput(ns('up_table')),
-                                          downloadButton(ns("updl"),"Up-regulated",class = "butt")),
-                                   column(width = 12,
+                                          downloadButton(ns("updl"),"Up-regulated")),
+                                   column(width = 6,
                                           br(),
                                           h4("Down regulated genes :"),
                                           #br(),
                                           DT::dataTableOutput(ns('down_table')),
-                                          downloadButton(ns("downdl"),"Down-regulated",class = "butt"))
+                                          downloadButton(ns("downdl"),"Down-regulated"))
                                )#,
                              ) # end of box
                              ) # end of Taglist
@@ -212,6 +213,7 @@ CRISPRDeaModUI <- function(id)  {
                                            title = "Select genes to annotate",
                                            liveSearch = TRUE,
                                            liveSearchStyle = "contains")))),
+                             #numericInput("n_perm","Select a number of permutation"),
                              fluidRow(DT::dataTableOutput(ns("RRAscores"))),
                              fluidRow(downloadButton(ns("scoresdl"),"Download RRA scores"))
                     ) # end of 3 tab
@@ -433,8 +435,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                      counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
                      
                      # Remove control guides RNA for differential analysis
-                     print("yo2")
-                     print(class(counts))
                      #counts <- filter(as.data.frame(counts), str_detect(Gene,"Non-Targeting"))
                      
                      ## Supprime car difficile à calibrer ############ 
@@ -544,64 +544,73 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                    }
                  }) # end of observer
   
-  n_perm <- 2000
+  #n_perm <- 2000
   alpha_thr <- 0.3
   observeEvent(c(input$DEGtabs,norm_data$data$genes),{
     req(norm_data$data$genes)
     if(input$DEGtabs == "RRAscores") {
       if(!is.null(concatenated$results)){
         if((length(concatenated$results) != length(results$old_res)) | length(concatenated$results) == 1){
+          showModal(modalDialog(
+            title = "Please select a number of permutations for rra scores computing",
+            numericInput(ns("n_perm"),"Select a number of permutation",value = 200, min = 100, max = 4000),
+            br(),
+            "Increasing this value will also increase both results precision and computing time",
+            footer = tagList(
+              actionButton(ns("gotit"),"Launch permutations")
+            )))
+        observeEvent(input$gotit,{
+        req(input$n_perm)
+        removeModal()
         results$old_res <- concatenated$results
         n <- length(concatenated$results)
         names <- names(concatenated$results)
         sgRNAannot <- norm_data$data$genes
-        print(head(sgRNAannot))
+        print(sgRNAannot$Gene)
+
+        sgRNAannot <- filter(sgRNAannot, str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|")))
         
-        sgRNAannot <- filter(sgRNAannot, str_detect(Gene,"Non-Targeting"))
-        print(head(sgRNAannot))
+        print(sgRNAannot$Gene)
         
-        withProgress(message = 'Computing per gene RRA score from DEA results :', value = 0.5,{
+
+        withProgress(message = paste0('Computing per gene RRA score from DEA results (nperms = ',input$n_perm,')'), value = 0.5,{
           results$scores <- NULL
           results$scores <- lapply(seq_along(concatenated$results),function(x){
             incProgress(as.numeric(1/n),detail = paste0("processing ",names[x]))
             computed_scores <- compute_score_RRA(concatenated$results[[x]],alpha_thr = alpha_thr)
-            print(head(computed_scores))
-            print("yo")
-            print(paste0("Launching RRA adj pval with ",n_perm," permutations..."))
+            print(paste0("Launching RRA adj pval with ",input$n_perm," permutations..."))
             compute_RRA_pval(guide_res = concatenated$results[[x]],
                              gene_res = computed_scores,
                              n_guides = 6,
                              non_target =  sgRNAannot, 
                              alpha_thr = alpha_thr,
-                             n_perm = n_perm)
+                             n_perm = as.integer(input$n_perm))
           })
-          print('head resylts scores')
-          print(head(results$scores))
           names(results$scores) <- names
           scores <- results$scores
-          save(scores, file = "~/scores.rda")
           setProgress(1)
         })
-        }# end of progress
+        })# end of progress
       } else {
         showModal(modalDialog(HTML(
-          "<b>Please perform differential analysis first : </b></br>
+         "<b> Please perform differential analysis first or rerun with </b></br>
          To do so select at least two variables for the comparison then click on the build button.
         "),
           title = "Missing previous step !",
           footer = tagList(
             modalButton("Got it"))
         ))
-    } # end of if
+      #})
+        } # end of if
+      }
     }
-    
   }) # end of observer
   
   output$RRAscores <- DT::renderDataTable({
     req(input$ExploreIntra2)
     req(results$scores)
     datatable(
-      results$scores[[input$ExploreIntra2]],rownames=FALSE,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
+      results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp")),rownames=FALSE,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
         "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
         "}")))
@@ -787,8 +796,6 @@ observeEvent(Volcano$plot,{
       paste("DEA-PDX-Results", Sys.Date(), ".csv", sep=",")
     },
     content = function(file) {
-      #write.csv(results$res, file)
-      #write.csv(results$res[[input$ExploreIntra]] %>% select(-ENSEMBL),file)
       res <- bind_rows(results$up,results$down) %>%
         column_to_rownames("sgRNA")%>%
         select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
@@ -803,8 +810,10 @@ observeEvent(Volcano$plot,{
   output$up_table <- DT::renderDataTable({
     ups <- results$up %>%
       column_to_rownames("sgRNA") %>%
-      select(c("estimate","p.value","adj_p.value_enrich","ENSEMBL"))
-    colnames(ups) <- c("logFC","p.value","adj_p.value_enrich","ENSEMBL")
+    #   select(c("estimate","p.value","adj_p.value_enrich","ENSEMBL"))
+    # colnames(ups) <- c("logFC","p.value","adj_p.value_enrich","ENSEMBL")
+    select(c("estimate","adj_p.value_enrich","ENSEMBL"))
+    colnames(ups) <- c("logFC","adj_p.value_enrich","ENSEMBL")
     datatable(
       ups,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -819,8 +828,10 @@ observeEvent(Volcano$plot,{
     content = function(file) {
       ups <- results$up %>%
         column_to_rownames("sgRNA") %>%
-        select(c("estimate","p.value","adj_p.value_enrich"))
-      colnames(ups) <- c("logFC","p.value","adj_p.value_enrich")
+      #   select(c("estimate","p.value","adj_p.value_enrich"))
+      # colnames(ups) <- c("logFC","p.value","adj_p.value_enrich")
+      select(c("estimate","adj_p.value_enrich"))
+      colnames(ups) <- c("logFC","adj_p.value_enrich")
       write.csv(ups, file)
     }
   )
@@ -899,10 +910,7 @@ observeEvent(Volcano$plot,{
         icon = icon("dna"),color = "blue"
       )
     })
-  # 
-  #return(list(results=results,reactives=reactives))
-  #observe({
-  #observeEvent(results$res,{
+   
   observeEvent(c(input$ExploreIntra,input$FCT,input$PvalsT,input$GeneVolcano),{
     reactives$selectedcomp <- input$ExploreIntra
     reactives$selectedFC <- as.numeric(input$FCT)
@@ -910,11 +918,16 @@ observeEvent(Volcano$plot,{
     reactives$GeneVolcano <- input$GeneVolcano
   })
   
-  print("inside module return")
   selected_comp_rra <- reactiveValues(list = NULL)
   observe({
     selected_comp_rra$list <- as.character(input$ExploreIntra2)
   })
+  
+  #observeEvent(c(selected_comp_rra$list,results$res, concatenated$results), ignoreInit = TRUE,{
+  #observe({
+  #print("selected comp rra")
+  #print(selected_comp_rra)
   return(list(results=results,reactives=reactives,concatenated=concatenated,selected_comp_rra = selected_comp_rra ))
   #})
+  
 }

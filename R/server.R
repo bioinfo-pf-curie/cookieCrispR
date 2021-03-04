@@ -278,15 +278,19 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
         counts <- reactives$selectedcountsRaw
         
         tic("tic calculating cpm")
+        withProgress(message = 'Calculating cpm', value = 0.5,{
+          incProgress(0.3,detail = "Formating data...")
         reactives$annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
         counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
         counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
         sumcols <- sum(.data$count)
+        incProgress(0.3,detail = "Computing cpm...")
         counts <- counts %>%
           dplyr::group_by(.data$Sample_ID) %>%
           dplyr::mutate(cpm = 1e6 * .data$count / as.numeric(sumcols), log_cpm = log2(1 + cpm))  %>%
           dplyr::ungroup()
-        toc(log=TRUE)
+        #toc(log=TRUE)
+        })
       
       if(reactives$checkcoherence ==  TRUE){
       if (TRUE %in% unique(!(unique(counts$Sample_ID) %in% samples$Sample_ID))){
@@ -861,16 +865,14 @@ output$positive_boxplots <- renderGirafe({
 })
 
 DeaToClustGenes <- reactiveValues(list = NULL)
-observeEvent(c(DEA$results$scores,DEA$selected_comp$list),ignoreInit = TRUE,{
+#observeEvent(c(DEA$results$scores,DEA$selected_comp$list),priority = 1,{
+observe({
   print("quering rra score genes list")
   req(DEA$results$scores)
   req(DEA$selected_comp$list)
-  print(DEA$selected_comp$list)
-  save_results <- DEA$results$scores
-  save(save_results, file = "~/testsveresultscoock.rda")
    names <- DEA$results$scores[[as.character(DEA$selected_comp$list)]] %>%
         #filter(RRA_dep_score < 10^-17 | RRA_enrich_score < 10^-17)
-        filter(RRA_dep_adjp < 0.0002 | RRA_enrich_adjp < 0.0002)
+        filter(RRA_dep_adjp < 0.002 | RRA_enrich_adjp < 0.002)
    #remove control guides
    names <- filter(names, !(str_detect(Gene,"Non-Targeting")))
    names <- names$Gene
@@ -885,6 +887,9 @@ observeEvent(c(input$sidebarmenu,DeaToClustGenes$list,reactives$sampleplan),{
   if (input$sidebarmenu == "Clustering"){
     print("runing clustering module")
     #req(reactives$countsRaw)
+    print(head(reactives$sampleplan))
+    print(head(DeaToClustGenes$list))
+    print(head(reactives$norm_data$genes))
     req(reactives$sampleplan)
     req(DeaToClustGenes$list)
     req(reactives$norm_data$genes)
@@ -947,45 +952,21 @@ observeEvent(c(input$sidebarmenu,DeaToClustGenes$list,reactives$sampleplan),{
   }
 })
 
+
+
+heatmap <- callModule(ClusteringServerMod, id = "heatmapID", session = session,
+                      data = ClustData , metadata =  ClustMetadata, printRows = FALSE)
 observeEvent(ClustData$table,ignoreInit = TRUE,{
-    if(nrow(ClustData$table) > 3){
-      print('launching heatmap')
-      heatmap <- callModule(ClusteringServerMod, id = "heatmapID", session = session,
-                            data = ClustData , metadata =  ClustMetadata, printRows = FALSE)
-    } else {
-      showModal(modalDialog(
+  if(nrow(ClustData$table) <= 3){
+            showModal(modalDialog(
         title = "There is not enough sgRNA passing filters to perform heatmap",
         "Please select  a comparison on the rra scores tab",
         footer = tagList(
           modalButton("Got it")
         )))
-    }
+  }
 })
 
-
-#observeEvent(c(ClustData_ess$table,ClustMetadata$table),{
-# observeEvent(c(input$sidebarmenu,ClustData_ess$table),{
-#    if (input$sidebarmenu == "Clustering"){
-#     if(!is.null(ClustData_ess$table)){
-#     withProgress(message = 'Computing heatmap', value = 0.5, {
-#     heatmap <- callModule(ClusteringServer, id = "heatmapIDess", session = session,
-#                            data = ClustData_ess , metadata =  ClustMetadata, printRows = FALSE)
-#     })
-#     }
-#    }
-# })
-# 
-# #observeEvent(c(ClustData_non_ess$table,ClustMetadata$table),{
-# observeEvent(input$sidebarmenu,{
-#   if (input$sidebarmenu == "Clustering"){
-#   if(!is.null(ClustData_non_ess$table)){
-#   withProgress(message = 'Computing essential genes heatmap', value = 0.5, {
-#   heatmap <- callModule(ClusteringServer, id = "heatmapIDnoness", session = session,
-#                         data = ClustData_non_ess , metadata =  ClustMetadata, printRows = FALSE)
-#   })
-#   }
-#   }
-# })
 
 ######################################################################################################
 ######################################## DEA #########################################################
@@ -1026,12 +1007,10 @@ DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                   norm_data = DEAnormdata,
                   sampleplan = DEAMetadata)
 
-observe({
+observeEvent(DEA$concatenated$results,ignoreInit = TRUE,{
 req(DEA$concatenated$results)
 updatePickerInput(session = session, 'volcanoslist',choices = as.character(names(DEA$concatenated$results)))
 })
-
-
 
 observeEvent(input$sidebarmenu,priority = -1,{
   if(input$sidebarmenu=="Statistical_analysis"){

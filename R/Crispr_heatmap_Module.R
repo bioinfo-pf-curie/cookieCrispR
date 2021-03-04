@@ -175,19 +175,22 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
   
   ns <- session$ns
   
-  req(data$table)
-  req(metadata$table)
+  #req(data$table)
+  #req(metadata$table)
   reactives <- reactiveValues(metadata = NULL)
   #,variableFeatures = genefilter::rowVars(vst$vars))
   reactives2 <- reactiveValues(selData = NULL)
   
-  observe({
+  observeEvent(data$table,{
   reactives2$selData <- data$table
   })
   
-  observe({
+  observeEvent(metadata$table,{
     print('metadata observer')
     reactives$metadata <-  metadata$table
+    print(class(metadata$table))
+    print(head(metadata$table))
+    updatePickerInput(session = session, "annovar", choices = colnames(metadata$table))
   })
   
   
@@ -205,18 +208,25 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
   #                        liveSearch = TRUE,
   #                        liveSearchStyle = "contains",
   #                      ))
-  # observeEvent(metadata$table,{
+  
+  
+  #observeEvent(metadata$table,{
   observeEvent(reactives$metadata,{
+  #observe({
+    print("updated annovar")
+    print(colnames(reactives$metadata))
+    print(colnames(metadata$table))
     # updatePickerInput(session = session, "annovar", choices = colnames(metadata$table))
-     updatePickerInput(session = session, "annovar", choices = colnames(reactives$metadata))
+     #updatePickerInput(session = session, "annovar", choices = colnames(reactives$metadata))
    })
   
-  if (!is.null(data$table)){
-    print("reactives2selData")
+  #if (!is.null(reactives2$selData)){
+  #  print("reactives2selData")
     #print(head(reactives2$selData))
     #print(head(reactives$metadata))
     
-    # observeEvent(reactives2$selData,{
+    observeEvent(reactives2$selData,{
+      req(reactives2$selData)
     # output$annoVars<-renderUI({
     #  
     #   column(width=12,
@@ -238,6 +248,7 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
                               #cols = names(data$table)
                               cols = colnames(reactives2$selData)
     )
+    })
     
 
     output$colUI<-renderUI({
@@ -302,8 +313,6 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
     observeEvent(c(input$annoVar,reactives$metadata,reactives2$selData),priority = -1,{
        
       withProgress(message = 'Runing heatmap', value = 0.5, {
-        
-      print("a")
       req(reactives$metadata)
       req(reactives2$selData)
       data.in <- reactives2$selData
@@ -375,8 +384,6 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
         
       } else {
         
-        print("hoho")
-        
         p <- heatmaply::heatmaply(data.in,
                                   main = input$main,xlab = input$xlab,ylab = input$ylab,
                                   row_text_angle = input$row_text_angle,
@@ -434,6 +441,7 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
         #return(p)
         interactiveHeatmap$plot <- p
       }
+    })
     })
     
     observeEvent(interactiveHeatmap$plot,{
@@ -505,7 +513,9 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
       print("end ov obssrver")
     })
     
-  }) # end of if !is.null(data)
+  #}) # end of if !is.null(data)
+  observeEvent(interactiveHeatmap$plot,ignoreInit = TRUE,{
     return(interactiveHeatmap$plot)
-  }
+  })
+  #} # end of if is nul seldata
 }
