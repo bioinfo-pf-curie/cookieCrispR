@@ -131,15 +131,15 @@ observeEvent(precheck$counts,{
   }
 })
 
-observeEvent(reactives$guidelist,{
-  req(reactives$guidelist)
-  withProgress(message = 'Updating guides filter...', value = 0.5, {
-  tic("Updating guides filter...")
-  updatePickerInput(session, "removeguides",choices = reactives$guidelist)
-  toc(log = TRUE)
-  setProgress(1)
-  })
-})
+# observeEvent(reactives$guidelist,{
+#   req(reactives$guidelist)
+#   withProgress(message = 'Updating guides filter...', value = 0.5, {
+#   tic("Updating guides filter...")
+#   updatePickerInput(session, "removeguides",choices = reactives$guidelist)
+#   toc(log = TRUE)
+#   setProgress(1)
+#   })
+# })
 
 observeEvent(reactives$genelist,priority = -1,{
    req(reactives$genelist)
@@ -159,7 +159,7 @@ observeEvent(c(input$removeguides,input$removegenes,input$removesamples,reactive
   if (!is.null(input$removeguides) | !is.null(input$removegenes)){
   incProgress(0.3)
   selectedcountsRaw <-   reactives$countsRaw %>%
-    filter(!(sgRNA %in% input$removeguides)) %>%
+    #filter(!(sgRNA %in% input$removeguides)) %>%
     filter(!(gene %in% input$removegenes))
   } else {
     selectedcountsRaw  <- reactives$countsRaw
@@ -321,7 +321,7 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & input$sidebarmenu != "DataInput" & reactives$normalize == TRUE | input$countstabset=="NormalizedCounts log10(cpm)"  & reactives$normalize == TRUE){
       #if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & reactives$normalize == TRUE){
       reactives$normalize <- "DONE"
-      withProgress(message = 'Data normalization', value = 0.5, {
+      withProgress(message = 'Data normalization edgeR', value = 0.5, {
       annot_sgRNA <- reactives$annot_sgRNA
       
       counts <- reactives$counts %>% 
@@ -339,8 +339,8 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
         control_sgRNA <- NULL
       }
       
-      print("controlsgRNA")
-      print(head(control_sgRNA))
+      # print("controlsgRNA")
+      # print(head(control_sgRNA))
 
       norm_data <- sg_norm(counts,
                              sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
@@ -869,98 +869,144 @@ DeaToClustGenes <- reactiveValues(list = NULL)
 observe({
   print("quering rra score genes list")
   req(DEA$results$scores)
+  #req(input$ScoreThres)
   req(DEA$selected_comp$list)
-   names <- DEA$results$scores[[as.character(DEA$selected_comp$list)]] %>%
+   names <- DEA$results$scores[[as.character(DEA$selected_comp$list)]]# %>%
         #filter(RRA_dep_score < 10^-17 | RRA_enrich_score < 10^-17)
-        filter(RRA_dep_adjp < 0.002 | RRA_enrich_adjp < 0.002)
+        #filter(RRA_dep_adjp < 0.002 | RRA_enrich_adjp < 0.002)
+        #filter(RRA_adjp < input$ScoreThres)
+   
    #remove control guides
-   names <- filter(names, !(str_detect(Gene,"Non-Targeting")))
-   names <- names$Gene
-   DeaToClustGenes$list <- names
+   names <- filter(names, !(str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|"))))
+   if(nrow(names) > 100){
+     names <- names[1:100,]
+     print('filterednames')
+     print(head(names))
+     names <- names$Gene
+     #names <- names[,c('Gene','sgRNA')]
+     DeaToClustGenes$list <- names
+   } else {
+     print("notenougthgenes for heatmap")
+   }
 })
 # 
 ClustData_ess <- reactiveValues(table = NULL)
 ClustData_non_ess <- reactiveValues(table = NULL)
 ClustData <- reactiveValues(table = NULL)
 ClustMetadata <- reactiveValues(table = NULL)
-observeEvent(c(input$sidebarmenu,DeaToClustGenes$list,reactives$sampleplan),{
+observeEvent(c(input$sidebarmenu,
+               DeaToClustGenes$list,
+               reactives$sampleplan,
+               reactives$norm_data$counts),{
   if (input$sidebarmenu == "Clustering"){
     print("runing clustering module")
     #req(reactives$countsRaw)
-    print(head(reactives$sampleplan))
-    print(head(DeaToClustGenes$list))
-    print(head(reactives$norm_data$genes))
-    req(reactives$sampleplan)
-    req(DeaToClustGenes$list)
+    #print(head(reactives$sampleplan))
     req(reactives$norm_data$genes)
+    req(reactives$sampleplan)
+    #req(DeaToClustGenes$list)
+    req(reactives$norm_data$counts)
+    if(!is.null(DeaToClustGenes$list)){
     withProgress(message = 'Filtering data for clustering', value = 0.5, {
       
     ClustMetadataa <-  column_to_rownames(reactives$sampleplan,"Sample_ID")
     sgRNAannot <- reactives$norm_data$genes
+    
+    print("normalisation for clustering....")
+    
     ################# NORM PIERRE ######
-    #ClustData <- reactives$norm_data$counts
+    print(head(DeaToClustGenes$list))
+    ClustDataa <- reactives$norm_data$counts
+    #print(head(ClustDataa))
+    ClustDataa <- tibble::rownames_to_column(as.data.frame(ClustDataa),"sgRNA")
+    ClustDataa <- ClustDataa %>%
+      left_join(sgRNAannot, by = "sgRNA")
+    print("da")
+    #print(head(ClustDataa))
+    ClustDataa <- ClustDataa %>% filter(Gene %in% as.character(DeaToClustGenes$list))
+    
+    print(nrow(ClustDataa))
+    print(unique(ClustDataa$Gene))
+    
     
     #### VST ON INTERESTED GENES ONLY ###########
-    ClustDataa <- reactives$countsRaw
-    ClustDataa <- ClustDataa %>% filter(gene %in% as.character(DeaToClustGenes$list))
-    ClustDataa <- column_to_rownames(ClustDataa,"sgRNA")
-    ClustDataa <-  vst(as.matrix(ClustDataa %>% select(-c(gene))), blind = TRUE)
+    # ClustDataa <- reactives$countsRaw
+    # ClustDataa <- ClustDataa %>% filter(gene %in% as.character(DeaToClustGenes$list))
+    # ClustDataa <- column_to_rownames(ClustDataa,"sgRNA")
+    # ClustDataa <-  vst(as.matrix(ClustDataa %>% select(-c(gene))), blind = TRUE)
     
     ######### VST ############# NORMALISATION
     # ClustData <- reactives$countsRaw
     # ClustData <- column_to_rownames(ClustData,"sgRNA")
     # ClustData <-  vst(as.matrix(ClustData %>% select(-c(gene))), blind = TRUE)
     
-    ClustDataa <- tibble::rownames_to_column(as.data.frame(ClustDataa),"sgRNA")
-    ClustDataa <- ClustDataa %>%
-      left_join(sgRNAannot, by = "sgRNA")
+    # print("done")
+    # print(head(ClustDataa))
+    
+    ### COmment if PierreNorm data ###
+    # ClustDataa <- tibble::rownames_to_column(as.data.frame(ClustDataa),"sgRNA")
+    # ClustDataa <- ClustDataa %>%
+    #   left_join(sgRNAannot, by = "sgRNA")
     
     # In vst before filter version :: 
     # ClustData <- ClustData %>% filter(Gene %in% as.character(DeaToClustGenes$list))
     
     ClustDataa <- as.data.frame(ClustDataa)
     print(ncol(ClustDataa))
-    if(ncol(ClustDataa) > 0){
-      if(!is.null(ess_genes())){
-        ess_genes <- ess_genes()
-        ClustDatatable_ess <- ClustDataa %>%
-          filter(Gene %in% ess_genes$X) %>%
-          select(-Gene) %>%
-          column_to_rownames("sgRNA")
-        ClustData_ess$table <- ClustDatatable_ess
-      }
-      if(!is.null(non_ess_genes())){
-        
-        non_ess_genes <- non_ess_genes()
-        ClustDatatable_non_ess <- ClustDataa %>%
-          filter(Gene %in% non_ess_genes$X) %>%
-          select(-Gene) %>%
-          column_to_rownames("sgRNA")
-        
-      }
+    #print(head(ClustDataa))
+    print(nrow(ClustDataa))
+    if(ncol(ClustDataa) > 0 && nrow(ClustDataa) > 0){
+      # if(!is.null(ess_genes())){
+      #   ess_genes <- ess_genes()
+      #   ClustDatatable_ess <- ClustDataa %>%
+      #     filter(Gene %in% ess_genes$X) %>%
+      #     select(-Gene) %>%
+      #     column_to_rownames("sgRNA")
+      #   ClustData_ess$table <- ClustDatatable_ess
+      # }
+      # if(!is.null(non_ess_genes())){
+      #   
+      #   non_ess_genes <- non_ess_genes()
+      #   ClustDatatable_non_ess <- ClustDataa %>%
+      #     filter(Gene %in% non_ess_genes$X) %>%
+      #     select(-Gene) %>%
+      #     column_to_rownames("sgRNA")
+      #   
+      # }
       ClustDataa <- column_to_rownames(ClustDataa,"sgRNA") %>% select(-c(Gene))
       ClustMetadataa <- ClustMetadataa[rownames(ClustMetadataa) %in% colnames(ClustDataa),]
-      ClustDataa <- ClustDataa[,colnames(ClustDataa) %in% rownames(ClustMetadataa)]
+      #ClustDataa <- ClustDataa[,colnames(ClustDataa) %in% rownames(ClustMetadataa)]
       ClustMetadataa <- ClustMetadataa[rownames(ClustMetadataa) %in% colnames(ClustDataa),]
       ClustDataa <- ClustDataa[,colnames(ClustDataa) %in% rownames(ClustMetadataa)]
-      print(ncol(ClustDataa))
+      #print(ncol(ClustDataa))
       print(nrow(ClustMetadataa))
+      print(head(ClustMetadataa))
       ClustMetadata$table <- ClustMetadataa
       ClustData$table <- ClustDataa
     }
     })
+    } else {
+    # 
+    showModal(modalDialog(HTML(
+        "To do so go through all the Statistical analysis steps"),
+        br(),
+        title = "Please compute RRA scores first ",
+        footer = tagList(
+        modalButton("Got it"))
+    ))
+    }
   }
 })
 
-
-
 heatmap <- callModule(ClusteringServerMod, id = "heatmapID", session = session,
                       data = ClustData , metadata =  ClustMetadata, printRows = FALSE)
+
 observeEvent(ClustData$table,ignoreInit = TRUE,{
   if(nrow(ClustData$table) <= 3){
-            showModal(modalDialog(
+        showModal(modalDialog(HTML(
+        "Please select  a comparison on the rra scores tab"),
+        br(),
         title = "There is not enough sgRNA passing filters to perform heatmap",
-        "Please select  a comparison on the rra scores tab",
         footer = tagList(
           modalButton("Got it")
         )))

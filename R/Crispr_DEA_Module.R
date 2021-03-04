@@ -459,12 +459,12 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                      setProgress(1)
                      })
                    }
-                   } else { showModal(modalDialog(HTML(
+                   } else { 
+                     showModal(modalDialog(HTML(
                      "<b>Your results are available on the other outlets. </b></br>"),
                      title = "This comparison was already computed !",
                      footer = tagList(
-                       modalButton("Got it"))
-                   ))
+                       modalButton("Got it"))))
                     }
                  }) # end of observer
   ###########################################################################
@@ -570,12 +570,11 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
 
         sgRNAannot <- filter(sgRNAannot, str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|")))
         
-        print(sgRNAannot$Gene)
-        
+        #print(sgRNAannot$Gene)
 
         withProgress(message = paste0('Computing per gene RRA score from DEA results (nperms = ',input$n_perm,')'), value = 0.5,{
           results$scores <- NULL
-          results$scores <- lapply(seq_along(concatenated$results),function(x){
+          scores <- lapply(seq_along(concatenated$results),function(x){
             incProgress(as.numeric(1/n),detail = paste0("processing ",names[x]))
             computed_scores <- compute_score_RRA(concatenated$results[[x]],alpha_thr = alpha_thr)
             print(paste0("Launching RRA adj pval with ",input$n_perm," permutations..."))
@@ -586,8 +585,10 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                              alpha_thr = alpha_thr,
                              n_perm = as.integer(input$n_perm))
           })
-          names(results$scores) <- names
-          scores <- results$scores
+          names(scores) <- names
+          print("resutsscores")
+          results$scores <- scores
+          print(head(results$scores))
           setProgress(1)
         })
         })# end of progress
@@ -609,8 +610,9 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   output$RRAscores <- DT::renderDataTable({
     req(input$ExploreIntra2)
     req(results$scores)
-    datatable(
-      results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp")),rownames=FALSE,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
+    scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp"))
+    
+    datatable(scores,rownames=FALSE,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
         "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
         "}")))
@@ -623,7 +625,9 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
       paste(input$ExploreIntra2,"_RRAscores", Sys.Date(), ".csv", sep=",")
     },
     content = function(file) {
-      write.csv(results$scores[[input$ExploreIntra2]],file)
+      scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp"))
+      #scores <- scores[order(scores$RRA_adjp),]
+      write.csv(scores,file)
     }
   )
 
@@ -802,6 +806,7 @@ observeEvent(Volcano$plot,{
         mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
         select(c("estimate","adj_p.value","ENSEMBL"))
       colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
+      res <- res[order(res$adj_p.value),]
       #print(colnames(concatenated$results[[input$ExploreIntra]]))
       write.csv(res %>% select(-ENSEMBL),file)
     }
@@ -814,6 +819,7 @@ observeEvent(Volcano$plot,{
     # colnames(ups) <- c("logFC","p.value","adj_p.value_enrich","ENSEMBL")
     select(c("estimate","adj_p.value_enrich","ENSEMBL"))
     colnames(ups) <- c("logFC","adj_p.value_enrich","ENSEMBL")
+    ups <- ups[order(ups$adj_p.value_enrich),]
     datatable(
       ups,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -832,6 +838,7 @@ observeEvent(Volcano$plot,{
       # colnames(ups) <- c("logFC","p.value","adj_p.value_enrich")
       select(c("estimate","adj_p.value_enrich"))
       colnames(ups) <- c("logFC","adj_p.value_enrich")
+      ups <- ups[order(ups$adj_p.value_enrich),]
       write.csv(ups, file)
     }
   )
@@ -841,6 +848,7 @@ observeEvent(Volcano$plot,{
       column_to_rownames("sgRNA") %>%
       select(c("estimate","p.value","adj_p.value_dep","ENSEMBL"))
     colnames(downs) <- c("logFC","p.value","adj_p.value_dep","ENSEMBL")
+    down <- down[order(down$adj_p.value_dep),]
     datatable(
       downs,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -857,6 +865,7 @@ observeEvent(Volcano$plot,{
         column_to_rownames("sgRNA")%>%
         select(c("estimate","p.value","adj_p.value_dep"))
       colnames(downs) <- c("logFC","p.value","adj_p.value_dep")
+      down <- down[order(down$adj_p.value_dep),]
       write.csv(downs, file)
     }
   )

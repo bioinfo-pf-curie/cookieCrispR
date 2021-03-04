@@ -37,10 +37,11 @@ ui_crispr_app <- function(request){
                  menuSubItem("Raw distributions","Rawdist"),
                  menuSubItem("Temporal evolution","Tev"),
                  menuSubItem("ROC Curves","Roc"),
-                 menuSubItem("Clustering","Clustering"),
+                 #menuSubItem("Clustering","Clustering"),
                  menuSubItem('Compare conditions','CompCond')
                  ),
         menuItem("Statistical analysis",tabName = "Statistical_analysis"),
+        menuItem("Clustering", tabName = "Clustering"),
         menuItem("Report", tabName = "Report")
       )
     ),
@@ -97,20 +98,20 @@ ui_crispr_app <- function(request){
                   box(
                     width = 12, status = "success", solidHeader = TRUE, collapsible = TRUE,collapsed = FALSE,
                     title = "Counts table",
-                    column(width = 6,
-                    pickerInput("removeguides", "Remove guides for further analysis",
-                                choices = NULL,
-                                selected = NULL,
-                                multiple = TRUE,
-                                choicesOpt = NULL,
-                                inline = FALSE,
-                                options = pickerOptions(
-                                  actionsBox = TRUE,
-                                  title = "Select guides you want to remove",
-                                  liveSearch = TRUE,
-                                  liveSearchStyle = "contains"
-                                ))),
-                    column(width = 6,
+                    # column(width = 6,
+                    # pickerInput("removeguides", "Remove guides for further analysis",
+                    #             choices = NULL,
+                    #             selected = NULL,
+                    #             multiple = TRUE,
+                    #             choicesOpt = NULL,
+                    #             inline = FALSE,
+                    #             options = pickerOptions(
+                    #               actionsBox = TRUE,
+                    #               title = "Select guides you want to remove",
+                    #               liveSearch = TRUE,
+                    #               liveSearchStyle = "contains"
+                    #             ))),
+                    column(width = 12,
                            pickerInput("removegenes", "Remove genes for further analysis",
                                        choices = NULL,
                                        selected = NULL,
@@ -208,11 +209,13 @@ ui_crispr_app <- function(request){
             ),
             tabItem("Clustering",
                   fluidRow(
-                  box(collapsible = TRUE, collapsed = FALSE,
-                      width = 12, status = "success", solidHeader = TRUE,
-                      title = "Clustering on Essential genes",
+                    #numericInput("ScoreThres","Threshold on RRA scores to subset genes for heatmap",value = 0.9, min = 0.001, max = 0.2),
+                    br(),
+                  # box(collapsible = TRUE, collapsed = FALSE,
+                  #     width = 12, status = "success", solidHeader = TRUE,
+                  #     title = "Clustering on Essential genes",
                       column(width = 12,ClusteringUIMod(id = "heatmapID"))
-                      )#,
+                   #   )#,
                   # box(collapsible = TRUE, collapsed = TRUE,
                   #     width = 12, status = "success", solidHeader = TRUE,
                   #     title = "Clustering on Non Essential genes",

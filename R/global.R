@@ -118,17 +118,20 @@ compute_RRA_pval <- function(guide_res, gene_res, non_target, n_perm = NULL, n_g
   #                          p.value_dep = sample(object_non_target$p.value_dep, size = n_guides * n_perm, replace = TRUE),
   #                          p.value_enrich = sample(object_non_target$p.value_enrich, size = n_guides * n_perm, replace = TRUE)
                            
-  print(object_non_target)
-  print(head(object_non_target$p.value))
-  print(head(object_non_target$p.value_dep))
-  print(head(object_non_target$p.value_enrich))
+  # print(object_non_target)
+  # print(head(object_non_target$p.value))
+  # print(head(object_non_target$p.value_dep))
+  # print(head(object_non_target$p.value_enrich))
   
+  print("randomtab")
     random_tab <- data.frame(sgRNA = sample(non_target$sgRNA, ng_x_np, replace = TRUE),
                               Gene = rep(paste0("random_non_target_", seq_len(n_perm)), each = n_guides),
                               p.value = sample(object_non_target$p.value, size = ng_x_np, replace = TRUE),
                               p.value_dep = sample(object_non_target$p.value_dep, size = ng_x_np, replace = TRUE),
                               p.value_enrich = sample(object_non_target$p.value_enrich, size = ng_x_np, replace = TRUE)                           
+  
   )
+  print("compute_score_RRA")
   res_random <- compute_score_RRA(random_tab, alpha_thr = alpha_thr)
   print(n_perm)
   gene_res <- mutate_(gene_res,
@@ -136,9 +139,17 @@ compute_RRA_pval <- function(guide_res, gene_res, non_target, n_perm = NULL, n_g
                       RRA_dep_pvalue = ~map_dbl(RRA_dep_score, ~((1 +sum(. >= res_random$RRA_dep_score)) / (1 + n_perm))),
                       RRA_enrich_pvalue = ~map_dbl(RRA_enrich_score, ~((1 +sum(. >= res_random$RRA_enrich_score)) / (1 + n_perm)))
   )
+  print('adjustRRAscore')
   gene_res$RRA_adjp <- p.adjust(gene_res$RRA_pvalue, method = "BH")
+  print('adjustRRAscore dep ')
   gene_res$RRA_dep_adjp <- p.adjust(gene_res$RRA_dep_pvalue, method = "BH")
+  
+  print('adjustRRAscore enrich')
+  
   gene_res$RRA_enrich_adjp <- p.adjust(gene_res$RRA_enrich_pvalue, method = "BH")
+  print("ordering scores table")
+  gene_res <- gene_res[order(gene_res$RRA_adjp),]
+  
   return(gene_res)
 }
 

@@ -185,30 +185,19 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
   reactives2$selData <- data$table
   })
   
-  observeEvent(metadata$table,{
+  #observeEvent(metadata$table,{
+  observe({
+    req(metadata$table)
     print('metadata observer')
     reactives$metadata <-  metadata$table
     print(class(metadata$table))
     print(head(metadata$table))
-    updatePickerInput(session = session, "annovar", choices = colnames(metadata$table))
+    print(colnames(metadata$table))
+    print(class(colnames(metadata$table)))
+    updatePickerInput(session = session, "annoVar", choices = colnames(metadata$table))
   })
   
-  
   print("entering heatmap module...")
-  
-  
-  #   column(width=12,
-  #          pickerInput(ns('annoVar'),'Annotation',
-  #                      choices = colnames(reactives$metadata),
-  #                      selected=NULL,
-  #                      multiple=TRUE,
-  #                      options = pickerOptions(
-  #                        actionsBox = TRUE,
-  #                        title = "Select variables for annotation",
-  #                        liveSearch = TRUE,
-  #                        liveSearchStyle = "contains",
-  #                      ))
-  
   
   #observeEvent(metadata$table,{
   observeEvent(reactives$metadata,{
@@ -220,29 +209,9 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
      #updatePickerInput(session = session, "annovar", choices = colnames(reactives$metadata))
    })
   
-  #if (!is.null(reactives2$selData)){
-  #  print("reactives2selData")
-    #print(head(reactives2$selData))
-    #print(head(reactives$metadata))
-    
+   
     observeEvent(reactives2$selData,{
       req(reactives2$selData)
-    # output$annoVars<-renderUI({
-    #  
-    #   column(width=12,
-    #          pickerInput(ns('annoVar'),'Annotation',
-    #                      choices = colnames(reactives$metadata),
-    #                      selected=NULL,
-    #                      multiple=TRUE,
-    #                      options = pickerOptions(
-    #                        actionsBox = TRUE,
-    #                        title = "Select variables for annotation",
-    #                        liveSearch = TRUE,
-    #                        liveSearchStyle = "contains",
-    #                      ))
-    #   )
-    # })
-    
   
     subdata <- reactiveValues(rows = nrow(reactives2$selData),
                               #cols = names(data$table)
@@ -301,12 +270,6 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
       })
     })
     
-    observeEvent(input$annoVar,{
-      print("input annova")
-      print(input$annoVar)
-    })
-
-    
     
     #interactiveHeatmap<- reactive({
     interactiveHeatmap <- reactiveValues(plot = NULL)
@@ -344,10 +307,12 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
         }
       }
 
-      hclustfun_row = function(x) stats::hclust(x, method = input$hclustFun_row)
+      print("hclust on row and col")
+      #hclustfun_row = function(x) stats::hclust(x, method = input$hclustFun_row)
       hclustfun_col = function(x) stats::hclust(x, method = input$hclustFun_col)
+      print("done")
       
-      if(length(input$annoVar)>2){
+      if(length(input$annoVar)>=1){
         
         samplesAnnot <- reactives$metadata[,input$annoVar, drop = F]
         data.in <- data.in[,colnames(data.in) %in% rownames(samplesAnnot)]
@@ -367,7 +332,7 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
                                   seriate = input$seriation,
                                   colors=eval(parse(text=paste0(input$pal,'(',input$ncol,')'))),
                                   distfun_row =  distfun_row,
-                                  hclustfun_row = hclustfun_row,
+                                  #hclustfun_row = hclustfun_row,
                                   distfun_col = distfun_col,
                                   hclustfun_col = hclustfun_col,
                                   k_col = input$c,
@@ -384,6 +349,11 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
         
       } else {
         
+        print("datain2")
+        print(head(data.in))
+        print(ncol(data.in))
+        print(nrow(data.in))
+        
         p <- heatmaply::heatmaply(data.in,
                                   main = input$main,xlab = input$xlab,ylab = input$ylab,
                                   row_text_angle = input$row_text_angle,
@@ -393,7 +363,7 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
                                   seriate = input$seriation,
                                   colors=eval(parse(text=paste0(input$pal,'(',input$ncol,')'))),
                                   distfun_row =  distfun_row,
-                                  hclustfun_row = hclustfun_row,
+                                  #hclustfun_row = hclustfun_row,
                                   distfun_col = distfun_col,
                                   hclustfun_col = hclustfun_col,
                                   k_col = input$c,
@@ -404,36 +374,39 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
         
       }  
         
+      print("hclust on row ")
+      
         if (length(input$distFun_row) != 0){
           print("zded")
           if(input$distFun_row != "pearson"){
-            p$dendRow <- cutree(
-              hclust(dist(data.in,method = input$distFun_row),method = input$hclustFun_row),
-              k = input$r)
+            # p$dendRow <- cutree(
+            #   hclust(dist(data.in,method = input$distFun_row),method = input$hclustFun_row),
+            #   k = input$r)
           } else {
             print("zeded")
             
-            p$dendRow <- cutree(
-              hclust(1- factoextra::get_dist(data.in, method = "pearson", stand = FALSE),
-                     method = input$hclustFun_row),
-              k = input$r)
+            # p$dendRow <- cutree(
+            #   hclust(1- factoextra::get_dist(data.in, method = "pearson", stand = FALSE),
+            #          method = input$hclustFun_row),
+            #   k = input$r)
           }
         }
+      print("done")
         
         if (length(input$distFun_col) != 0){
           print("zdedd")
           
           if(input$distFun_col != "pearson"){
-            p$dendCol <- cutree(
-              hclust(dist(t(data.in),method = input$distFun_col),method = input$hclustFun_col),
-              k = input$c)
+            # p$dendCol <- cutree(
+            #   hclust(dist(t(data.in),method = input$distFun_col),method = input$hclustFun_col),
+            #   k = input$c)
           } else {
             print("zddedd")
             
-            p$dendCol <- cutree(
-              hclust(1- factoextra::get_dist(t(data.in), method = "pearson", stand = FALSE),
-                     method = input$hclustFun_col),
-              k = input$c)
+            # p$dendCol <- cutree(
+            #   hclust(1- factoextra::get_dist(t(data.in), method = "pearson", stand = FALSE),
+            #          method = input$hclustFun_col),
+            #   k = input$c)
           }
 
         p$elementId <- NULL
