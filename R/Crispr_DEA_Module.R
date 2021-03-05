@@ -206,16 +206,29 @@ CRISPRDeaModUI <- function(id)  {
                              ) # end of Taglist
                     ), # end of second tab
                     tabPanel("RRAscores",
-                             fluidRow(column(width =12,
-                             pickerInput(ns("ExploreIntra2"),label= "Select a comparison to explore", selected = NULL,
+                             fluidRow(
+                             column(width = 6,
+                             br(),
+                             pickerInput(ns("ExploreIntra2"),label= "Select a comparison to compute", selected = NULL,
                                          multiple = FALSE,choicesOpt = NULL,inline = FALSE,choices = NULL,
                                          options = pickerOptions(
-                                           title = "Select genes to annotate",
+                                           title = "Select comparison",
                                            liveSearch = TRUE,
-                                           liveSearchStyle = "contains")))),
+                                           liveSearchStyle = "contains"),width = '100%')),
+                             column(width = 6,
+                                    numericInput(ns("n_perm"),"Please select a number of permutations for rra scores computing",value = 200, min = 100, max = 4000),
+                                    "Increasing this value will also increase both ",
+                                    "results precision and computing time",
+                                    br()
+                             )),
+                             br(),
+                             fluidRow(column(width = 12,
+                                    actionButton(ns("computeRRA"),"Launch permutations",width = '100%'))),
+                             br(),
                              #numericInput("n_perm","Select a number of permutation"),
-                             fluidRow(DT::dataTableOutput(ns("RRAscores"))),
-                             fluidRow(downloadButton(ns("scoresdl"),"Download RRA scores"))
+                             fluidRow(column(width = 12,DT::dataTableOutput(ns("RRAscores")))),
+                             br(),
+                             fluidRow(column(width = 12,downloadButton(ns("scoresdl"),"Download RRA scores")))
                     ) # end of 3 tab
         )
         #) # end of div
@@ -532,10 +545,11 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                    results$down <- res[down,]
                    results$restable <- res
                    } else {
-                   showModal(modalDialog(HTML(
-                       "<b>Please perform differential analysis first : </b></br>
-         To do so select at least two variables for the comparison then click on the build button.
-        "),
+                   showModal(modalDialog(
+                       HTML(
+                         "<b> Please perform differential analysis first</b></br>
+         Select variables in the RUN DEA menu then click on the build button.
+                       "),
                        title = "Missing previous step !",
                        footer = tagList(
                          modalButton("Got it"))
@@ -545,71 +559,141 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                  }) # end of observer
   
   #n_perm <- 2000
+  # alpha_thr <- 0.3
+  # observeEvent(c(input$DEGtabs,norm_data$data$genes),{
+  #   req(norm_data$data$genes)
+  #   if(input$DEGtabs == "RRAscores") {
+  #     if(!is.null(concatenated$results)){
+  #       if((length(concatenated$results) != length(results$old_res)) | length(concatenated$results) == 1){
+  #         showModal(modalDialog(
+  #           title = "Please select a number of permutations for rra scores computing",
+  #           numericInput(ns("n_perm"),"Select a number of permutation",value = 200, min = 100, max = 4000),
+  #           br(),
+  #           "Increasing this value will also increase both results precision and computing time",
+  #           footer = tagList(
+  #             actionButton(ns("gotit"),"Launch permutations")
+  #           )))
+  #       observeEvent(input$gotit,{
+  #       req(input$n_perm)
+  #       removeModal()
+  #       results$old_res <- concatenated$results
+  #       n <- length(concatenated$results)
+  #       names <- names(concatenated$results)
+  #       sgRNAannot <- norm_data$data$genes
+  #       print(sgRNAannot$Gene)
+  # 
+  #       sgRNAannot <- filter(sgRNAannot, str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|")))
+  #       
+  #       withProgress(message = paste0('Computing per gene RRA score from DEA results (nperms = ',input$n_perm,')'), value = 0.5,{
+  #         results$scores <- NULL
+  #         
+  #         #### Compute en simultane toutes les comps
+  #         scores <- lapply(seq_along(concatenated$results),function(x){
+  #           incProgress(as.numeric(1/n),detail = paste0("processing ",names[x]))
+  #           computed_scores <- compute_score_RRA(concatenated$results[[x]],alpha_thr = alpha_thr)
+  #           print(paste0("Launching RRA adj pval with ",input$n_perm," permutations..."))
+  #           compute_RRA_pval(guide_res = concatenated$results[[x]],
+  #                            gene_res = computed_scores,
+  #                            n_guides = 6,
+  #                            non_target =  sgRNAannot,
+  #                            alpha_thr = alpha_thr,
+  #                            n_perm = as.integer(input$n_perm))
+  #         })
+  # 
+  #         ### Compute seulement la comp active
+  #         names(scores) <- names
+  #         print("resutsscores")
+  #         results$scores <- scores
+  #         print(head(results$scores))
+  #         setProgress(1)
+  #       })
+  #       })# end of progress
+  #     } else {
+  #       showModal(modalDialog(HTML(
+  #        "<b> Please perform differential analysis first or rerun with </b></br>
+  #        To do so select at least two variables for the comparison then click on the build button.
+  #       "),
+  #         title = "Missing previous step !",
+  #         footer = tagList(
+  #           modalButton("Got it"))
+  #       ))
+  #     #})
+  #       } # end of if
+  #     }
+  #   }
+  # }) # end of observer
+  
+  #n_perm <- 2000
   alpha_thr <- 0.3
-  observeEvent(c(input$DEGtabs,norm_data$data$genes),{
+  #observeEvent(c(input$DEGtabs,norm_data$data$genes),{
+  observeEvent(c(input$computeRRA),{
+    req(input$computeRRA)
     req(norm_data$data$genes)
-    if(input$DEGtabs == "RRAscores") {
-      if(!is.null(concatenated$results)){
-        if((length(concatenated$results) != length(results$old_res)) | length(concatenated$results) == 1){
-          showModal(modalDialog(
-            title = "Please select a number of permutations for rra scores computing",
-            numericInput(ns("n_perm"),"Select a number of permutation",value = 200, min = 100, max = 4000),
-            br(),
-            "Increasing this value will also increase both results precision and computing time",
-            footer = tagList(
-              actionButton(ns("gotit"),"Launch permutations")
-            )))
-        observeEvent(input$gotit,{
-        req(input$n_perm)
-        removeModal()
-        results$old_res <- concatenated$results
-        n <- length(concatenated$results)
-        names <- names(concatenated$results)
-        sgRNAannot <- norm_data$data$genes
-        print(sgRNAannot$Gene)
+    #req(input$ExploreIntra2)
+    req(input$n_perm)
+    if(!is.null(concatenated$results)){
+    if(!(input$ExploreIntra2 %in% names(results$scores))){
+            results$old_res <- concatenated$results
+            n <- length(concatenated$results)
+            names <- names(concatenated$results)
+            sgRNAannot <- norm_data$data$genes
 
-        sgRNAannot <- filter(sgRNAannot, str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|")))
-        
-        #print(sgRNAannot$Gene)
+            sgRNAannot <- filter(sgRNAannot, str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|")))
 
-        withProgress(message = paste0('Computing per gene RRA score from DEA results (nperms = ',input$n_perm,')'), value = 0.5,{
-          results$scores <- NULL
-          scores <- lapply(seq_along(concatenated$results),function(x){
-            incProgress(as.numeric(1/n),detail = paste0("processing ",names[x]))
-            computed_scores <- compute_score_RRA(concatenated$results[[x]],alpha_thr = alpha_thr)
-            print(paste0("Launching RRA adj pval with ",input$n_perm," permutations..."))
-            compute_RRA_pval(guide_res = concatenated$results[[x]],
-                             gene_res = computed_scores,
-                             n_guides = 6,
-                             non_target =  sgRNAannot, 
-                             alpha_thr = alpha_thr,
-                             n_perm = as.integer(input$n_perm))
-          })
-          names(scores) <- names
-          print("resutsscores")
-          results$scores <- scores
-          print(head(results$scores))
-          setProgress(1)
-        })
-        })# end of progress
-      } else {
-        showModal(modalDialog(HTML(
-         "<b> Please perform differential analysis first or rerun with </b></br>
-         To do so select at least two variables for the comparison then click on the build button.
-        "),
-          title = "Missing previous step !",
-          footer = tagList(
-            modalButton("Got it"))
-        ))
-      #})
-        } # end of if
+            withProgress(message = paste0('Computing per gene RRA score from DEA results (nperms = ',input$n_perm,')'), value = 0.5,{
+              results$scores <- NULL
+              incProgress(as.numeric(1/n),detail = paste0("processing ",input$ExploreIntra2))
+              computed_scores <- compute_score_RRA(concatenated$results[[input$ExploreIntra2]],alpha_thr = alpha_thr)
+              print(paste0("Launching RRA adj pval with ",input$n_perm," permutations..."))
+              scores <- compute_RRA_pval(guide_res = concatenated$results[[input$ExploreIntra2]],
+                                         gene_res = computed_scores,
+                                         n_guides = 6,
+                                         non_target =  sgRNAannot, 
+                                         alpha_thr = alpha_thr,
+                                         n_perm = as.integer(input$n_perm))
+
+              results$scores[[input$ExploreIntra2]] <- scores
+              print(head(results$scores))
+              setProgress(1)
+          })# end of progress
+    } else {
+      showModal(modalDialog(
+        "Do you want to remove the previous computation ?",
+        "",
+        "You'll have to re-click on the Launch Permutations button with your desired number of perm",
+        title = "This scores were already computed",
+        footer = tagList(
+          actionButton(ns("Yes"),label = "Yes"),
+          actionButton(ns('No'),label = "No"))
+      ))
+      #removeModal()
       }
-    }
+      } else {
+          showModal(modalDialog(HTML(
+            "<b> Please perform differential analysis first</b></br>
+         Select variables in the RUN DEA menu then click on the build button.
+        "),
+            title = "Missing previous step !",
+            footer = tagList(
+              modalButton("Got it"))
+          ))
+        } # end of if
   }) # end of observer
   
+  observeEvent(input$Yes,{
+    req(input$Yes)
+    results$scores[[input$ExploreIntra2]] <- NULL
+    removeModal()
+  })
+  observeEvent(input$No,{
+    req(input$No)
+    removeModal()
+  })
+  
   output$RRAscores <- DT::renderDataTable({
-    req(input$ExploreIntra2)
-    req(results$scores)
+    #req(input$ExploreIntra2)
+    #req(results$scores)
+    req(results$scores[[input$ExploreIntra2]])
     scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp"))
     
     datatable(scores,rownames=FALSE,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
@@ -781,36 +865,36 @@ observeEvent(Volcano$plot,{
     )
   })
    
-  output$results_table <- DT::renderDataTable({
-    res <- bind_rows(results$up,results$down) %>%
-      column_to_rownames("sgRNA")%>%
-      select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
-      mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
-      select(c("estimate","adj_p.value","ENSEMBL"))
-    colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
-    datatable(
-      res,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
-        "function(settings, json) {",
-        "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
-        "}")))
-  })
+  # output$results_table <- DT::renderDataTable({
+  #   res <- bind_rows(results$up,results$down) %>%
+  #     column_to_rownames("sgRNA")%>%
+  #     select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
+  #     mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
+  #     select(c("estimate","adj_p.value","ENSEMBL"))
+  #   colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
+  #   datatable(
+  #     res,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
+  #       "function(settings, json) {",
+  #       "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+  #       "}")))
+  # })
 
-  output$resdl <- downloadHandler(
-    filename = function() {
-      paste("DEA-PDX-Results", Sys.Date(), ".csv", sep=",")
-    },
-    content = function(file) {
-      res <- bind_rows(results$up,results$down) %>%
-        column_to_rownames("sgRNA")%>%
-        select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
-        mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
-        select(c("estimate","adj_p.value","ENSEMBL"))
-      colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
-      res <- res[order(res$adj_p.value),]
-      #print(colnames(concatenated$results[[input$ExploreIntra]]))
-      write.csv(res %>% select(-ENSEMBL),file)
-    }
-  )
+  # output$resdl <- downloadHandler(
+  #   filename = function() {
+  #     paste("DEA-PDX-Results", Sys.Date(), ".csv", sep=",")
+  #   },
+  #   content = function(file) {
+  #     res <- bind_rows(results$up,results$down) %>%
+  #       column_to_rownames("sgRNA")%>%
+  #       select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
+  #       mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
+  #       select(c("estimate","adj_p.value","ENSEMBL"))
+  #     colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
+  #     res <- res[order(res$adj_p.value),]
+  #     #print(colnames(concatenated$results[[input$ExploreIntra]]))
+  #     write.csv(res %>% select(-ENSEMBL),file)
+  #   }
+  # )
 
   output$up_table <- DT::renderDataTable({
     ups <- results$up %>%
@@ -844,13 +928,13 @@ observeEvent(Volcano$plot,{
   )
 
   output$down_table <- DT::renderDataTable({
-    downs <- results$down %>%
+    down <- results$down %>%
       column_to_rownames("sgRNA") %>%
       select(c("estimate","p.value","adj_p.value_dep","ENSEMBL"))
-    colnames(downs) <- c("logFC","p.value","adj_p.value_dep","ENSEMBL")
+    colnames(down) <- c("logFC","p.value","adj_p.value_dep","ENSEMBL")
     down <- down[order(down$adj_p.value_dep),]
     datatable(
-      downs,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
+      down,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
         "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
         "}")))

@@ -158,22 +158,22 @@ ui_crispr_app <- function(request){
                              plotOutput("read_number"),
                              downloadButton("dlreadnumber","Download read numbers plot")
                       ))),
+                # fluidRow(
+                #   box(collapsible = TRUE, collapsed = TRUE,
+                #       width = 12, status = "success", solidHeader = TRUE,
+                #       title = "Normalized log_cpm distributions",
+                #       plotOutput("boxplot_all", width = "100%", height = 600),
+                #       downloadButton("dlbox_all","Download Boxplots")
+                #   )),
+                # fluidRow(
+                #   box(collapsible = TRUE, collapsed = TRUE,
+                #       width = 12,status = "success",solidHeader = TRUE,
+                #       title="Density ridges",
+                #       plotOutput("density_ridge", width = "100%", height = 600),
+                #       downloadButton("dldensity_ridge","Download Densitity ridges plots")
+                #   )),
                 fluidRow(
-                  box(collapsible = TRUE, collapsed = TRUE,
-                      width = 12, status = "success", solidHeader = TRUE,
-                      title = "Normalized log_cpm distributions",
-                      plotOutput("boxplot_all", width = "100%", height = 600),
-                      downloadButton("dlbox_all","Download Boxplots")
-                  )),
-                fluidRow(
-                  box(collapsible = TRUE, collapsed = TRUE,
-                      width = 12,status = "success",solidHeader = TRUE,
-                      title="Density ridges",
-                      plotOutput("density_ridge", width = "100%", height = 600),
-                      downloadButton("dldensity_ridge","Download Densitity ridges plots")
-                  )),
-                fluidRow(
-                  box(collapsible = TRUE, collapsed = TRUE,
+                  box(collapsible = TRUE, collapsed = FALSE,
                       width = 12, status = "success", solidHeader = TRUE,
                       title = "Counts distributions for essential and non essential gene",
                       column(width=6,plotOutput("essential_distribs", width = "100%", height = 600)),
@@ -209,18 +209,10 @@ ui_crispr_app <- function(request){
             ),
             tabItem("Clustering",
                   fluidRow(
+                    column(width = 12,infoBoxOutput("InfoCompHeatmap", width = 12)),
                     #numericInput("ScoreThres","Threshold on RRA scores to subset genes for heatmap",value = 0.9, min = 0.001, max = 0.2),
                     br(),
-                  # box(collapsible = TRUE, collapsed = FALSE,
-                  #     width = 12, status = "success", solidHeader = TRUE,
-                  #     title = "Clustering on Essential genes",
                       column(width = 12,ClusteringUIMod(id = "heatmapID"))
-                   #   )#,
-                  # box(collapsible = TRUE, collapsed = TRUE,
-                  #     width = 12, status = "success", solidHeader = TRUE,
-                  #     title = "Clustering on Non Essential genes",
-                  #     column(width = 12,ClusteringUIMod(id = "heatmapIDnoness"))
-                  #    )
                   )
         ),
         tabItem("CompCond",

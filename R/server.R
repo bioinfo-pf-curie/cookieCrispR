@@ -35,9 +35,10 @@ showModal(fluidRow(query_modal))
 ##### Usefull variables #############
 reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
                               joined = NULL,countsRaw = NULL, counts = NULL,
-                            annot_sgRNA = NULL, norm_data =  NULL, guidelist = NULL,
+                            annot_sgRNA = NULL, norm_data =  NULL,norm_cpm =  NULL, guidelist = NULL,
                             genelist =  NULL,sample = NULL,checkcoherence = TRUE, normalize = TRUE,
-                            checkcountscols = TRUE,interactive_boxplots = NULL,diff_t0 = NULL)
+                            checkcountscols = TRUE,interactive_boxplots = NULL,diff_t0 = NULL
+                            )
 
 ##### Upload files and datatable construction ####################
 ## counts table  
@@ -71,21 +72,21 @@ observeEvent(c(input$counts,
     if(semicolon ==  TRUE & comma == TRUE){
         showModal(modalDialog(p(""),
                               title = h4(HTML("<b>Both semicolon and comma</b> detected in your counts matrix file"),style="color:red"),
-                              h6('Please use a unique field separator'),
+                              h6('Use a unique field separator'),
                               footer = tagList(
                                 modalButton("Got it"))
         ))
       } else if(semicolon ==  TRUE & tabssplan == TRUE){
         showModal(modalDialog(p(""),
                               title = h4(HTML("<b>Both semicolon and tabulation</b> detected in your counts matrix file"),style="color:red"),
-                              h6('Please use a unique field separator'),
+                              h6('Use a unique field separator'),
                               footer = tagList(
                                 modalButton("Got it"))
         ))
       } else if(comma ==  TRUE & tabssplan == TRUE){
           showModal(modalDialog(p(""),
                                 title = h4(HTML("<b>Both comma and tabulation</b> detected in your counts matrix file"),style="color:red"),
-                                h6('Please use a unique field separator'),
+                                h6('Use a unique field separator'),
                                 footer = tagList(
                                   modalButton("Got it"))
           ))
@@ -130,16 +131,6 @@ observeEvent(precheck$counts,{
     precheck$counts <- FALSE
   }
 })
-
-# observeEvent(reactives$guidelist,{
-#   req(reactives$guidelist)
-#   withProgress(message = 'Updating guides filter...', value = 0.5, {
-#   tic("Updating guides filter...")
-#   updatePickerInput(session, "removeguides",choices = reactives$guidelist)
-#   toc(log = TRUE)
-#   setProgress(1)
-#   })
-# })
 
 observeEvent(reactives$genelist,priority = -1,{
    req(reactives$genelist)
@@ -223,7 +214,7 @@ observeEvent(c(input$sample_plan),priority = 10,{
                  }  else if(semicolonssplan ==  TRUE && commassplan == TRUE){
                      showModal(modalDialog(p(""),
                                            title = h4(HTML("Both <b>Comma</b>  ans <b>semicolon </b> detected in your sample plan file"),style="color:red"),
-                                           h6("Please check for file separators homogeneity"),
+                                           h6("Check for file separators homogeneity"),
                                            footer = tagList(
                                              modalButton("Got it"))
                      ))
@@ -301,7 +292,7 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
                             h6(paste0(unique(counts[!(counts$Sample_ID %in% samples$Sample_ID),]$Sample_ID),collapse = " | "),style="color:red"),
                             h6("are missing in the sampleplan."),
                             p(),
-                            h6("Please check that Samples IDs are correctly matching between ssplan and count matrix files, unless they will be removed for the following analysis")),
+                            h6("Check that Samples IDs are correctly matching between ssplan and count matrix files, unless they will be removed for the following analysis")),
                     footer = tagList(
                       modalButton("Got it")
                     ))
@@ -350,26 +341,73 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       incProgress(0.3)
 
       norm_cpm <- cpm(norm_data$counts, log = FALSE)
-      norm_cpm <- cbind(norm_cpm,norm_data$genes)
-
-      norm_cpm <- gather(norm_cpm, value = "cpm", key = "Sample_ID",-.data$sgRNA, -.data$Gene)
-
-      norm_cpm <- norm_cpm %>%
-          dplyr::group_by(.data$Sample_ID) %>%
-          dplyr::mutate(log_cpm = log2(1 + .data$cpm)) %>%
-          dplyr::mutate(log10_cpm = log10(1 + .data$cpm)) %>%
-          dplyr::ungroup()
-     
-      if(!(is.null(input$timepoints_order))){
-      norm_cpm <- full_join(norm_cpm, samples) %>%
-        mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order))
-      } else {
-      norm_cpm <- full_join(norm_cpm, samples) %>%
-          mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint)))
-      }
-      reactives$joined <- norm_cpm
+      reactives$norm_cpm <- norm_cpm
       setProgress(1)
-      }) # end of progress
+      })
+      
+    withProgress(message = 'Data transformation for distributions', value = 0.5, {
+     print("a")
+        req(reactives$sampleplan)
+        req(reactives$selectedcountsRaw)
+        samples <- reactives$sampleplan
+        #counts  <- reactives$countsRaw
+        counts  <- reactives$selectedcountsRaw
+        annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
+        counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
+        counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
+        counts <- counts %>%
+          dplyr::group_by(.data$Sample_ID) %>%
+          dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + cpm))  %>%
+          dplyr::ungroup()
+        
+        counts <- counts  %>%
+          filter(Sample_ID %in% samples$Sample_ID)
+        
+        
+        if(!(is.null(input$timepoints_order))){
+        counts <- full_join(counts, samples) %>%
+          mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order)) %>%  mutate(Gene = gene)
+        } else {
+        counts <- full_join(counts, samples) %>%
+            mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint))) %>%  mutate(Gene = gene)
+        }
+        
+        # counts <- full_join(counts, samples) %>%
+        #   mutate(Gene = gene)
+        print("space")
+        print(head(counts))
+        
+        reactives$joined <- counts %>%  mutate(Gene = gene)
+
+      
+        
+      ##### old reactive joine ####
+      #norm_cpm <- cbind(norm_cpm,norm_data$genes)
+      # norm_cpm <- gather(norm_cpm, value = "cpm", key = "Sample_ID",-.data$sgRNA, -.data$Gene)
+      # 
+      # norm_cpm <- norm_cpm %>%
+      #     dplyr::group_by(.data$Sample_ID) %>%
+      #     #dplyr::mutate(log_cpm = 1 + .data$cpm) %>%
+      #     #dplyr::mutate(log10_cpm = 1 + .data$cpm) %>%
+      #     dplyr::mutate(log_cpm = log2(1 + .data$cpm)) %>%
+      #     dplyr::mutate(log10_cpm = log10(1 + .data$cpm)) %>%
+      #     dplyr::ungroup()
+      # 
+      # print("jooining norm cpm")
+      # if(!(is.null(input$timepoints_order))){
+      # norm_cpm <- full_join(norm_cpm, samples) %>%
+      #   mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order))
+      # } else {
+      # norm_cpm <- full_join(norm_cpm, samples) %>%
+      #     mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint)))
+      # }
+      #reactives$joined <- norm_cpm
+        
+      print("joining done")
+    setProgress(1)
+    })
+      #setProgress(1)
+      #}) # end of progress
       }# end of if
 }) # End of observer    
 
@@ -389,6 +427,7 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       non_ess <- read.table(inFile$datapath, header = FALSE)
       if ("V1" %in% colnames(non_ess)){
         non_ess <- non_ess %>% rename(X = V1)
+        #non_ess$V1 <- c(non_ess$V1,"Non-Targeting","negative_control")
       }
       return(non_ess)
     })
@@ -424,11 +463,15 @@ observeEvent(input$sidebarmenu,{
       DT::datatable(reactives$selectedcountsRaw, rownames = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
     })
     
+    #observeEvent(input$countstabset,{
+    #req(reactives$joined)
+    #if(input$countstabset=="NormalizedCounts log10(cpm)"){
     output$normalized_counts_table <- DT::renderDataTable({
-      req(reactives$joined)
-      DT::datatable(reactives$joined %>% select(sgRNA,Gene,Sample_ID,log10_cpm) %>% tidyr::spread(key=Sample_ID,value=log10_cpm),
+      DT::datatable(reactives$joined %>% select(sgRNA,Gene,Sample_ID,log_cpm) %>% tidyr::spread(key=Sample_ID,value=log10_cpm),
                     rownames = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
-    })
+    }) # end of datatable
+    #} # end of if
+    #}) # end of observer
 
 observeEvent(reactives$samples,{
 req(reactives$samples)
@@ -495,56 +538,87 @@ observe({
       }
     )
     
-    boxplot_all <- reactive({
-      counts <- reactives$joined
-      counts %>% 
-        ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) + 
-        labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
-    })
+    #boxplot_all <- reactive({
+    dists <- reactiveValues(boxall = NULL,density = NULL)
+    # observeEvent(c(input$sidebarmenu,reactives$joined),{   
+    #   req(reactives$joined)
+    #   if (input$sidebarmenu ==  "Rawdist"){
+    #   print("boxplots all")
+    #   withProgress(message = 'Rendering boxplots all', value = 0.5,{
+    #   
+    #   counts <- reactives$joined 
+    #   counts <- counts %>% filter(!(str_detect(gene,paste(c("Non-Targeting","negative_control"),collapse = "|"))))
+    #   print(unique(counts$gene))
+    #   
+    #   if(length(unique(counts$Cell_line)) >= 2){
+    #   plot <- counts %>% 
+    #     ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) + 
+    #     labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
+    #   } else{
+    #   plot <- counts %>% 
+    #       ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
+    #       labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
+    #   }
+    #   dists$boxall <- plot
+    #   print("done")
+    #   setProgress(1)
+    #   })
+    #   }
+    # })
     
-    output$boxplot_all <- renderPlot({
-      plot(boxplot_all())
-    })
+    # output$boxplot_all <- renderPlot({
+    #   plot(dists$boxall)
+    # })
     
-    output$dlbox_all <- downloadHandler(
-      filename = function(){
-        paste("Boxplots_all_samples",Sys.Date(),".pdf",sep="")
-      },
-      content = function(file){
-        pdf(file = file)
-        plot(boxplot_all())
-        dev.off()
-      }
-    )
+    # output$dlbox_all <- downloadHandler(
+    #   filename = function(){
+    #     paste("Boxplots_all_samples",Sys.Date(),".pdf",sep="")
+    #   },
+    #   content = function(file){
+    #     pdf(file = file)
+    #     plot(dists$boxall)
+    #     dev.off()
+    #   }
+    # )
     
-    density_ridge <- reactive({
-      counts <- reactives$joined
-      withProgress(message = 'Calculating density ridges', value = 0.5, {
-      incProgress(0.3)
-      counts <-  counts %>%
-        #ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
-        ggplot(aes(x = .data$log10_cpm, y = .data$Timepoint)) +
-        geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
-        facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
-        labs(title = "Distribution of normalzed log-cpm by sample", subtitle = "All guides")
-      return(plot(counts))
-      }) # end of progress
-    })
+    #density_ridge <- reactive({
+    #observeEvent(input$sidebarmenu,{
+    # observeEvent(c(input$sidebarmenu),{   
+    #   print("density ridge obszerver")
+    #   req(reactives$joined)
+    #   print(head(reactives$joined))
+    #   if (input$sidebarmenu ==  "Rawdist"){
+    #   counts <- reactives$joined
+    #   counts <- counts %>% filter(!(str_detect(gene,paste(c("Non-Targeting","negative_control"),collapse = "|"))))
+    #   withProgress(message = 'Calculating density ridges', value = 0.5, {
+    #   incProgress(0.3)
+    #   counts <-  counts %>%
+    #     #ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
+    #     ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
+    #     geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
+    #     facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
+    #     labs(title = "Distribution of normalzed log-cpm by sample", subtitle = "All guides")
+    #   #return(plot(counts))
+    #   dists$density <- counts
+    #   }) # end of progress
+    #   }
+    # })
+    # 
+    # output$density_ridge <- renderPlot({
+    #   #plot(density_ridge())
+    #   plot(dists$density)
+    # })
     
-    output$density_ridge <- renderPlot({
-      plot(density_ridge())
-    })
-    
-    output$dldensity_ridge <- downloadHandler(
-      filename = function(){
-        paste("Density_ridges_",Sys.Date(),".pdf",sep="")
-      },
-      content = function(file){
-        pdf(file = file)
-        plot(density_ridge())
-        dev.off()
-      }
-    )
+    # output$dldensity_ridge <- downloadHandler(
+    #   filename = function(){
+    #     paste("Density_ridges_",Sys.Date(),".pdf",sep="")
+    #   },
+    #   content = function(file){
+    #     pdf(file = file)
+    #     plot(dists$density)
+    #     dev.off()
+    #   }
+    # )
     
     essential_distribs <- reactive({
       req(reactives$joined)
@@ -553,7 +627,7 @@ observe({
       withProgress(message = 'Calculating density ridges', value = 0.5, {
         incProgress(0.3)
         
-      counts <- filter(counts, .data$Gene %in% ess_genes$X)
+      counts <- filter(counts, .data$gene %in% ess_genes$X)
       
       if(input$screentype == "Positive"){
         subtitle <- "Sensible genes :"
@@ -575,23 +649,41 @@ observe({
     })
     
     nonessential_distribs <- reactive({
+
       req(reactives$joined)
       counts <- reactives$joined
-      ess_genes <- non_ess_genes()
+      non_ess_genes <- non_ess_genes()
+      print(head(non_ess_genes()))
+      
+      print("non ess and control selection")
+      
+      print(head(unique(counts$gene)))
+      
       counts <- counts %>%
-        filter(.data$Gene %in% ess_genes$X)
+        #filter(.data$Gene %in% non_ess_genes$X)
+        filter(.data$gene %in% c(as.character(non_ess_genes$X),"Non-Targeting","negative_control"))
+      
+      print(unique(counts$gene))
       
       if(input$screentype == "Positive"){
-        subtitle <- "Not sensible genes :"
+        subtitle <- "Not sensible and control genes"
       } else {
-        subtitle <- 'Not resistant genes :'
+        subtitle <- 'Not resistant genes and control genes'
       }
       
+      if(length(counts$Cell_line) > 1 && length(counts$Replicate) > 1){
       counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
         facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
         scale_fill_viridis_c() +
-        labs(title = "Distribution of normalised log-cpms", subtitle = subtitle)
+        labs(title = "Distribution of log-cpms", subtitle = subtitle)
+      } else {
+        counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
+          geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
+          facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
+          scale_fill_viridis_c() +
+          labs(title = "Distribution of log-cpms", subtitle = subtitle)
+      }
       
       return(plot(counts_plot))
     })
@@ -624,14 +716,31 @@ observe({
     diff_boxes <- reactiveValues(diff_box_ess = NULL,diff_box_all = NULL)
 
     observeEvent(reactives$diff_t0,{
+    req(input$timepoints_order[[1]])
+    req(reactives$diff_t0)
+    req(non_ess_genes())
     firstpoint <- input$timepoints_order[[1]]
+    non_ess_genes <- non_ess_genes()
       
       print("diff box all")
-      diff_boxes$diff_box_all <- reactives$diff_t0 %>%
+      diff_t0 <- reactives$diff_t0 %>%
+        filter(.data$Timepoint != firstpoint)
+      
+      print(unique(diff_t0$gene))
+      
+      diff_t0 <- diff_t0 %>%
+        filter(.data$gene %in% c(as.character(non_ess_genes$X),"Non-Targeting","negative_control"))
+      print(unique(reactives$diff_t0$gene))
+      
+      print(unique(diff_t0$gene))
+      
+      #print(head())
+      diff_boxes$diff_box_all <- diff_t0 %>%
         filter(.data$Timepoint != firstpoint) %>%
+        filter(.data$gene %in% c(as.character(non_ess_genes$X),"Non-Targeting","negative_control")) %>%
         ggplot(aes(x = .data$Timepoint, y = .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.data$Treatment ~ .data$Cell_line) +
         ylab(paste0("diff_",firstpoint)) + 
-        labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - all guides"))
+        labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - Non essential and control genes"))
       
       print('DONE')
     })
@@ -679,8 +788,10 @@ observe({
 ROC <- reactiveValues(plot = NULL,AUC = NULL)
 
 #observe({
-observeEvent(input$sidebarmenu,{
+observeEvent(c(input$sidebarmenu,reactives$joined),{
   if (input$sidebarmenu ==  "Roc"){
+    req(reactives$joined)
+    print(head(reactives$joined))
     if(is.null(input$essential) | is.null(input$nonessential)){
       showModal(
         modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
@@ -691,27 +802,28 @@ observeEvent(input$sidebarmenu,{
     } else {
     ess_genes <- ess_genes()
     non_ess_genes <- non_ess_genes()
-      
       ##################################################
       ### Comment this block to retrieve all cpm way ##########
-      samples <- reactives$sampleplan
-      #counts  <- reactives$countsRaw
-      counts  <- reactives$selectedcountsRaw
-      annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
-      counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
-      counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
-      counts <- counts %>%
-        dplyr::group_by(.data$Sample_ID) %>%
-        dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + cpm))  %>%
-        dplyr::ungroup()
-      
-      counts <- counts  %>%
-        filter(Sample_ID %in% samples$Sample_ID)
-      
-      counts <- full_join(counts, samples) %>%
-        mutate(Gene = gene)
+      # samples <- reactives$sampleplan
+      # #counts  <- reactives$countsRaw
+      # counts  <- reactives$selectedcountsRaw
+      # annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
+      # counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
+      # counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
+      # counts <- counts %>%
+      #   dplyr::group_by(.data$Sample_ID) %>%
+      #   dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + cpm))  %>%
+      #   dplyr::ungroup()
+      # 
+      # counts <- counts  %>%
+      #   filter(Sample_ID %in% samples$Sample_ID)
+      # 
+      # counts <- full_join(counts, samples) %>%
+      #   mutate(Gene = gene)
+    req(input$timepoints_order)
+    
+    counts <- reactives$joined %>% filter(!(str_detect(gene,paste(c("Non-Targeting","negative_control"),collapse = "|"))))
       #   
-      req(input$timepoints_order)
         firstpoint <- input$timepoints_order[[1]]
         counts$Timepoint <- relevel(as.factor(counts$Timepoint), ref = firstpoint)
 
@@ -790,6 +902,7 @@ output$dlROC <- downloadHandler(
 
 output$auc <- DT::renderDataTable({
    DT::datatable(ROC$AUC, filter = "top",
+   rownames = FALSE,
    options = list(
     paging =TRUE,
     pageLength =  5 ,
@@ -806,10 +919,6 @@ output$dlauc <- downloadHandler(
     write.table(x = ROC$AUC[input[["auc_rows_all"]], ],file = file,sep = ",", quote = FALSE, row.names = FALSE)
   }
 )
-
-#####################################################################################################
-######################################## Positive screening #########################################
-#####################################################################################################
 
 ########################## Observers ############################
 #observe({
@@ -843,17 +952,21 @@ observeEvent(c(input$splitcelline,input$conditionreference1,reactives$joined,inp
 
     if(input$splitcelline == TRUE){
       interactive_boxplots <- counts %>%
-        ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
+        #ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
+        ggplot(aes(x = .data$Treatment, y = .data$log10_cpm, fill = .data$Treatment)) +
         geom_boxplot_interactive(outlier.shape = NA) + 
         geom_point_interactive(data = subset(counts, sgRNA %in% input$selectguidescomp),
-                               aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.8) +
+                               #aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.8) +
+                               aes(x = .data$Treatment, y = .data$log10_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.8) +
         facet_grid(.~Cell_line)
     } else {
       interactive_boxplots <- counts %>%
-        ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
+        #ggplot(aes(x = .data$Treatment, y = .data$log_cpm, fill = .data$Treatment)) +
+        ggplot(aes(x = .data$Treatment, y = .data$log10_cpm, fill = .data$Treatment)) +
         geom_boxplot_interactive(outlier.shape = NA) + theme(axis.title.x=element_blank(),axis.text.x=element_blank()) +
         geom_point_interactive(data = subset(counts, sgRNA %in% input$selectguidescomp),
-                   aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.8)
+                   aes(x = .data$Treatment, y = .data$log10_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.8)
+                   #aes(x = .data$Treatment, y = .data$log_cpm, color = .data$Timepoint,tooltip = .data$sgRNA),alpha =0.8)
 
     }
     reactives$interactive_boxplots <- girafe(ggobj = interactive_boxplots)
@@ -864,11 +977,30 @@ output$positive_boxplots <- renderGirafe({
   reactives$interactive_boxplots
 })
 
+
+
+################################################################################
+################################# HEATMAP ######################################"
+################################################################################
+
+
+observeEvent(DEA$selected_comp$list,{
+  req(DEA$selected_comp$list)
+})
+
+output$InfoCompHeatmap <- renderInfoBox({
+  infoBox(title = "Selected comparison from RRA scores outlet",
+          value = as.character(DEA$selected_comp$list))
+
+})
+
 DeaToClustGenes <- reactiveValues(list = NULL)
 #observeEvent(c(DEA$results$scores,DEA$selected_comp$list),priority = 1,{
-observe({
+#observe({
+observeEvent(DEA$results$scores[[as.character(DEA$selected_comp$list)]],{
   print("quering rra score genes list")
-  req(DEA$results$scores)
+  #req(DEA$results$scores)
+  req(DEA$results$scores[[as.character(DEA$selected_comp$list)]])
   #req(input$ScoreThres)
   req(DEA$selected_comp$list)
    names <- DEA$results$scores[[as.character(DEA$selected_comp$list)]]# %>%
@@ -880,10 +1012,7 @@ observe({
    names <- filter(names, !(str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|"))))
    if(nrow(names) > 100){
      names <- names[1:100,]
-     print('filterednames')
-     print(head(names))
      names <- names$Gene
-     #names <- names[,c('Gene','sgRNA')]
      DeaToClustGenes$list <- names
    } else {
      print("notenougthgenes for heatmap")
@@ -897,90 +1026,41 @@ ClustMetadata <- reactiveValues(table = NULL)
 observeEvent(c(input$sidebarmenu,
                DeaToClustGenes$list,
                reactives$sampleplan,
-               reactives$norm_data$counts),{
+               #reactives$norm_data$counts,
+               reactives$norm_cpm,
+               DEA$selected_comp$list),{
   if (input$sidebarmenu == "Clustering"){
     print("runing clustering module")
-    #req(reactives$countsRaw)
-    #print(head(reactives$sampleplan))
     req(reactives$norm_data$genes)
     req(reactives$sampleplan)
-    #req(DeaToClustGenes$list)
-    req(reactives$norm_data$counts)
-    if(!is.null(DeaToClustGenes$list)){
+    #req(reactives$norm_data$counts)
+    req(reactives$norm_cpm)
+    #if(!is.null(DeaToClustGenes$list)){
+    if(!is.null(DEA$results$scores[[DEA$selected_comp$list]])){
     withProgress(message = 'Filtering data for clustering', value = 0.5, {
       
     ClustMetadataa <-  column_to_rownames(reactives$sampleplan,"Sample_ID")
     sgRNAannot <- reactives$norm_data$genes
     
-    print("normalisation for clustering....")
-    
     ################# NORM PIERRE ######
     print(head(DeaToClustGenes$list))
-    ClustDataa <- reactives$norm_data$counts
-    #print(head(ClustDataa))
+    ClustDataa <- reactives$norm_cpm
+    #ClustDataa <- reactives$norm_data$counts
+    print(head(ClustDataa))
     ClustDataa <- tibble::rownames_to_column(as.data.frame(ClustDataa),"sgRNA")
     ClustDataa <- ClustDataa %>%
       left_join(sgRNAannot, by = "sgRNA")
-    print("da")
-    #print(head(ClustDataa))
     ClustDataa <- ClustDataa %>% filter(Gene %in% as.character(DeaToClustGenes$list))
-    
-    print(nrow(ClustDataa))
-    print(unique(ClustDataa$Gene))
-    
-    
-    #### VST ON INTERESTED GENES ONLY ###########
-    # ClustDataa <- reactives$countsRaw
-    # ClustDataa <- ClustDataa %>% filter(gene %in% as.character(DeaToClustGenes$list))
-    # ClustDataa <- column_to_rownames(ClustDataa,"sgRNA")
-    # ClustDataa <-  vst(as.matrix(ClustDataa %>% select(-c(gene))), blind = TRUE)
-    
-    ######### VST ############# NORMALISATION
-    # ClustData <- reactives$countsRaw
-    # ClustData <- column_to_rownames(ClustData,"sgRNA")
-    # ClustData <-  vst(as.matrix(ClustData %>% select(-c(gene))), blind = TRUE)
-    
-    # print("done")
-    # print(head(ClustDataa))
-    
-    ### COmment if PierreNorm data ###
-    # ClustDataa <- tibble::rownames_to_column(as.data.frame(ClustDataa),"sgRNA")
-    # ClustDataa <- ClustDataa %>%
-    #   left_join(sgRNAannot, by = "sgRNA")
-    
-    # In vst before filter version :: 
-    # ClustData <- ClustData %>% filter(Gene %in% as.character(DeaToClustGenes$list))
     
     ClustDataa <- as.data.frame(ClustDataa)
     print(ncol(ClustDataa))
-    #print(head(ClustDataa))
     print(nrow(ClustDataa))
     if(ncol(ClustDataa) > 0 && nrow(ClustDataa) > 0){
-      # if(!is.null(ess_genes())){
-      #   ess_genes <- ess_genes()
-      #   ClustDatatable_ess <- ClustDataa %>%
-      #     filter(Gene %in% ess_genes$X) %>%
-      #     select(-Gene) %>%
-      #     column_to_rownames("sgRNA")
-      #   ClustData_ess$table <- ClustDatatable_ess
-      # }
-      # if(!is.null(non_ess_genes())){
-      #   
-      #   non_ess_genes <- non_ess_genes()
-      #   ClustDatatable_non_ess <- ClustDataa %>%
-      #     filter(Gene %in% non_ess_genes$X) %>%
-      #     select(-Gene) %>%
-      #     column_to_rownames("sgRNA")
-      #   
-      # }
+ 
       ClustDataa <- column_to_rownames(ClustDataa,"sgRNA") %>% select(-c(Gene))
       ClustMetadataa <- ClustMetadataa[rownames(ClustMetadataa) %in% colnames(ClustDataa),]
-      #ClustDataa <- ClustDataa[,colnames(ClustDataa) %in% rownames(ClustMetadataa)]
       ClustMetadataa <- ClustMetadataa[rownames(ClustMetadataa) %in% colnames(ClustDataa),]
       ClustDataa <- ClustDataa[,colnames(ClustDataa) %in% rownames(ClustMetadataa)]
-      #print(ncol(ClustDataa))
-      print(nrow(ClustMetadataa))
-      print(head(ClustMetadataa))
       ClustMetadata$table <- ClustMetadataa
       ClustData$table <- ClustDataa
     }
@@ -990,7 +1070,7 @@ observeEvent(c(input$sidebarmenu,
     showModal(modalDialog(HTML(
         "To do so go through all the Statistical analysis steps"),
         br(),
-        title = "Please compute RRA scores first ",
+        title = "Compute RRA scores first ",
         footer = tagList(
         modalButton("Got it"))
     ))
@@ -1004,7 +1084,7 @@ heatmap <- callModule(ClusteringServerMod, id = "heatmapID", session = session,
 observeEvent(ClustData$table,ignoreInit = TRUE,{
   if(nrow(ClustData$table) <= 3){
         showModal(modalDialog(HTML(
-        "Please select  a comparison on the rra scores tab"),
+        "Rerun a comparison on the rra scores tab"),
         br(),
         title = "There is not enough sgRNA passing filters to perform heatmap",
         footer = tagList(
@@ -1042,7 +1122,7 @@ observeEvent(input$sidebarmenu,{
   if(input$sidebarmenu=="Rawdist" | input$sidebarmenu=="Tev" | input$sidebarmenu=="Roc" | input$sidebarmenu == "Clustering" | input$sidebarmenu == "CompCond"){
     if(is.null(input$counts) | is.null(input$sample_plan)){
       showModal(modalDialog(
-        title = "Please upload both count matrix and sampleplan first",
+        title = "Upload both count matrix and sampleplan first",
         footer = tagList(
           modalButton("Got it")
         )))
@@ -1062,7 +1142,7 @@ observeEvent(input$sidebarmenu,priority = -1,{
   if(input$sidebarmenu=="Statistical_analysis"){
     if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
   showModal(modalDialog(
-    title = "Please upload both count matrix and sampleplan first",
+    title = "Upload both count matrix and sampleplan first",
     footer = tagList(
       modalButton("Got it")
     )))

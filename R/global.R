@@ -25,7 +25,6 @@ sg_norm <- function(counts, control_sgRNA = NULL, sample_annot = NULL, sgRNA_ann
   dge_all <- DGEList(counts = counts, samples = sample_annot, genes = sgRNA_annot)
   save(list = c("dge_all"), file = "~/DGE_list.rda")
   
-  
   # compute normFactors on control if present
   if (!is.null(control_sgRNA)) {
     print("control guides found")

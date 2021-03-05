@@ -273,10 +273,12 @@ ClusteringServerMod <- function(input, output, session, data = NULL, metadata = 
     
     #interactiveHeatmap<- reactive({
     interactiveHeatmap <- reactiveValues(plot = NULL)
-    observeEvent(c(input$annoVar,reactives$metadata,reactives2$selData),priority = -1,{
-       
+    #observeEvent(c(input$annoVar,reactives$metadata,reactives2$selData),priority = -1,{
+    observe({
+
       withProgress(message = 'Runing heatmap', value = 0.5, {
       req(reactives$metadata)
+      #req(input$annoVar)
       req(reactives2$selData)
       data.in <- reactives2$selData
  
