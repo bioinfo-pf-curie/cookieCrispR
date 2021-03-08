@@ -63,16 +63,8 @@ ui_crispr_app <- function(request){
                                            column(width=6,
                                                   uiOutput("orderUI")),
                                          fluidRow(),
-                                           column(width=6,
-                                                  uiOutput("list1input"),
-                                                  #uiOutput("list2input")
-                                                  # conditionalPanel("input.screentype == 'Positive",
-                                                  #                  fileInput("essential","Sensitivity genes")),
-                                                  # conditionalPanel("input.screentype == 'Negative",
-                                                  #                  fileInput("essential","Resistant genes"))
-                                                  #fileInput("essential","Essential genes")
-                                                  ),
-                                           column(width=6,fileInput("nonessential","Other genes")),#),
+                                           column(width=6,fileInput("essential","Essential genes")),
+                                           column(width=6,fileInput("nonessential","Other genes")),
                                            #fluidRow(
                                           column(width = 6,
                                                  fileInput("counts","Global counts")),

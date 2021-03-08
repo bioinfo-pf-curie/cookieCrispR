@@ -15,23 +15,6 @@ session$onSessionEnded(stopApp)
 options(shiny.sanitize.errors = TRUE,shiny.maxRequestSize = 3000*1024^2)
 session$allowReconnect(TRUE)
 
-output$list1input <- renderUI({  
-  if(input$screentype == "Positive"){
-    fileInput("essential","Sensitivity genes")
-  } else {fileInput("essential","Resistance genes")}
-})
-
-query_modal <- modalDialog(
-  title = "What is your screening type ?",
-  radioButtons("screentype", label = "What is your screening type ?", choices = c("Positive","Negative"), inline = TRUE),
-  easyClose = F,
-  footer = tagList(
-    modalButton("Ok")
-  )
-)
-# Show the model on start up ...
-showModal(fluidRow(query_modal))
-
 ##### Usefull variables #############
 reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplanRaw = NULL,
                               joined = NULL,countsRaw = NULL, counts = NULL,
@@ -629,11 +612,7 @@ observe({
         
       counts <- filter(counts, .data$gene %in% ess_genes$X)
       
-      if(input$screentype == "Positive"){
-        subtitle <- "Sensible genes :"
-      } else {
-        subtitle <- 'Resistant genes :'
-      }
+      subtitle <- "Essential genes"
       
       counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) + 
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
@@ -665,11 +644,7 @@ observe({
       
       print(unique(counts$gene))
       
-      if(input$screentype == "Positive"){
-        subtitle <- "Not sensible and control genes"
-      } else {
-        subtitle <- 'Not resistant genes and control genes'
-      }
+      subtitle <- 'Not enssential and control genes'
       
       if(length(counts$Cell_line) > 1 && length(counts$Replicate) > 1){
       counts_plot <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
@@ -750,12 +725,7 @@ observe({
     })
     
     observe({
-      req(input$screentype)
-      if(input$screentype == "Positive"){
-        subtitle <- " - Sensible genes "
-      } else {
-        subtitle <- ' - Resistant genes'
-      }
+      subtitle <- ' - Essential genes'
       req(reactives$diff_t0)
       firstpoint <- input$timepoints_order[[1]]
       ess_genes <- ess_genes()
