@@ -49,10 +49,14 @@ if ("read_numbers" %in% input$include){
 
 evaldensity <- FALSE
 evaldensityGenesList <- FALSE
+evaldensityGenesList2 <- FALSE
 if ("density_ridges" %in% input$include){
       evaldensity <- TRUE
       if (!is.null(reactives$sampleplan) && !is.null(reactives$countsRaw)){
       evaldensityGenesList <- TRUE
+      if (!is.null(input$essential) && !is.null(input$nonessential)){
+        evaldensityGenesList2 <- TRUE
+      }
 }
 }
 
@@ -88,8 +92,6 @@ if (TRUE %in% c(c("Volcano plots") %in% input$include)){
   }
 }
 
-
-
 ## SessionInfo
 evalSessionInfo <- FALSE
 if("SessionInfo" %in% input$include){
@@ -98,7 +100,7 @@ if("SessionInfo" %in% input$include){
 
 options(kableExtra.auto_format = F)
 ```
-```{asis, echo = TRUE, eval = evalFiles, warning=FALSE}
+```{asis, echo = evalFiles, warning=FALSE}
 # Data overview
 ## Files
 ```
@@ -124,7 +126,7 @@ print("<h1 style='color:red;'> Please upload SamplePlan first </h1>")
 ```
 
 
-```{asis, echo = TRUE, eval = evalFiles, warning=FALSE}
+```{asis, echo = evalFiles, warning=FALSE}
 ## Samples Selected
 The following samples were selected in this analysis :
 
@@ -144,7 +146,7 @@ kableExtra::column_spec(1:ncol(reactives$sampleplan),width = "80em", bold = FALS
 <!-- print("Please upload SamplePlan file first") -->
 <!-- ``` -->
 
-```{asis, echo = TRUE, eval = evaldistribs, warning=FALSE}
+```{asis, echo = evaldistribs, warning=FALSE}
 ## Distributions
 ```
 
@@ -156,7 +158,7 @@ kableExtra::column_spec(1:ncol(reactives$sampleplan),width = "80em", bold = FALS
 <!-- ``` -->
 
 
-```{asis, echo = TRUE, eval = evalreadnumbers, warning=FALSE,message=FALSE}
+```{asis, echo = evalreadnumbers}
 ### Read Numbers
 ```
 ```{r, echo = FALSE, eval = evalreadnumbers, warning=FALSE,message=FALSE}
@@ -189,70 +191,96 @@ plot(counts)
 <!--         labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides") -->
 <!-- ``` -->
 
-```{asis, echo = TRUE, warning= FALSE, message = FALSE, eval = evaldensity}
+```{asis, echo = evaldensity}
 ### Density ridges
 #### All guides
 ```
-```{r, echo = FALSE, eval = evaldensity, message=FALSE, warning=FALSE}
+```{r, eval = evaldensity, message=FALSE, warning=FALSE,echo=FALSE}
+if(evaldensityGenesList == TRUE){
  counts <- reactives$joined
      plot(counts %>%
         ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
         geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
         facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
         labs(title = "Distribution of normalzed log-cpm by sample", subtitle = "All guides"))
+}
 ```
-```{asis, echo = TRUE, warning= FALSE, message = FALSE, eval = evaldensity}
-#### Essential genes
+
+```{asis, echo = evaldensity}
+#### Per genes type density ridges
 ```
 ```{r, echo = FALSE, eval = evaldensity,message=FALSE, warning=FALSE}
-if(evaldensityGenesList == TRUE){
-counts <- reactives$joined
+if(evaldensityGenesList2 == TRUE){
 ess_genes <- ess_genes()
-counts <- filter(counts, .data$Gene %in% ess_genes$X)
+non_ess_genes <- non_ess_genes()
+
+#counts <- filter(counts, .data$Gene %in% ess_genes$X)
+counts <- filter(reactives$joined, .data$gene %in% ess_genes$X)
 plot1 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) + 
   geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
   facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
   scale_fill_viridis_c() +
   labs(title = "Distribution of normalised log-cpms", subtitle = "Essential genes")
-}
-```
-```{asis, echo = TRUE, warning= FALSE, message = FALSE, eval = evaldensity}
-#### Non Essential genes
-```
-```{r, echo = FALSE, eval = evaldensity,message=FALSE, warning=FALSE}
-if(evaldensityGenesList == TRUE){
-counts <- reactives$joined
-ess_genes <- non_ess_genes()
-# print(head(ess_genes))
-# print(head(counts))
-counts <- counts %>%
-  filter(.data$Gene %in% ess_genes$X)
-plot2 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
+
+counts <- reactives$joined %>%
+        filter(.data$gene %in% c(as.character(non_ess_genes$X),"Non-Targeting","negative_control"))
+
+  plot2 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) +
   geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
   facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
   scale_fill_viridis_c() +
   labs(title = "Distribution of normalised log-cpms", subtitle = "Non Essential genes")
-}
 
 grid.arrange(plot1,plot2,ncol = 2)
+
+} 
 ```
 
+```{r, echo = FALSE, eval = evaldensity,message=TRUE, warning=FALSE}
+if (evaldensityGenesList2 == FALSE){
+ print("Provide both essential and non essential genes lists first") 
+}
+```
 
-```{asis,echo = TRUE,eval = evalddescript}
+<!-- # ```{asis, echo = evaldensity} -->
+<!-- # #### Non Essential genes -->
+<!-- # ``` -->
+
+<!-- ```{r, echo = FALSE, eval = evaldensity,message=FALSE, warning=FALSE} -->
+<!-- if(evaldensityGenesList == TRUE){ -->
+<!-- counts <- reactives$joined -->
+<!-- ess_genes <- non_ess_genes() -->
+<!-- # print(head(ess_genes)) -->
+<!-- # print(head(counts)) -->
+<!-- counts <- counts %>% -->
+<!--         filter(.data$gene %in% c(as.character(non_ess_genes$X),"Non-Targeting","negative_control")) -->
+
+<!--   plot2 <- ggplot(counts, aes(x = .data$log_cpm, y = .data$Timepoint)) + -->
+<!--   geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") + -->
+<!--   facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") + -->
+<!--   scale_fill_viridis_c() + -->
+<!--   labs(title = "Distribution of normalised log-cpms", subtitle = "Non Essential genes") -->
+<!-- } -->
+
+<!-- grid.arrange(plot1,plot2,ncol = 2) -->
+<!-- ``` -->
+
+
+```{asis,echo = evalddescript}
 ## Descriptive data analysis
 ```
-```{asis, echo = TRUE, eval = evaltemporal_evolution, warning=FALSE}
+```{asis, echo = evaltemporal_evolution, warning=FALSE}
 ### Temporal evolution
 ##### All guides
 ```
 ```{r, echo = FALSE, eval = evaltemporal_evolution, warning=FALSE}
 if(is.null(diff_boxes$diff_box_all) | is.null(diff_boxes$diff_box_ess)){
-  print("Please perform positive screening in the dedicated app tab first")
+  print("Please compute diff boxes ont the temporal evolution tab first")
 } else {
 plot(diff_boxes$diff_box_all)
 }
 ```
-```{asis, echo = TRUE, eval = evaltemporal_evolution, warning=FALSE}
+```{asis, echo = evaltemporal_evolution, warning=FALSE}
 #### Essential genes
 ```
 ```{r, echo = FALSE, eval = evaltemporal_evolution, warning=FALSE}
@@ -263,27 +291,24 @@ print("Please provide essential and non essential genes lists first")
 ```{r, echo = FALSE, eval = evaltemporal_evolutionGenesList, warning=FALSE}
 if(evaltemporal_evolutionGenesList == TRUE){
 if(is.null(diff_boxes$diff_box_all) | is.null(diff_boxes$diff_box_ess)){
-  print("Please perform positive screening in the dedicated app tab first")
+  print("Please compute diff boxes ont the temporal evolution tab first")
 } else {
 plot(diff_boxes$diff_box_ess)
 }
 }
 ```
 
-```{asis,echo = TRUE,eval = evalstatanal}
+```{asis,echo = evalstatanal}
 ## Statistical data analysis
 ```
 
-```{asis, echo = TRUE, eval = evalJoinedtatanal, warning=FALSE,message=FALSE,error=FALSE,results=FALSE}
+```{asis, echo = evalJoinedtatanal}
 # Volcano plot
 ```
 
 ```{r, echo = FALSE, eval = evalJoinedtatanal, warning=FALSE,message=FALSE,error=FALSE,results=FALSE}
 
-req(DEA$concatenated$results)
-req(DEA$reactives$selectedcomp)
-req(DEA$reactives$selectedFC)
-req(DEA$reactives$selectedPvalT)
+if(!is.null(DEA$concatenated$results) & !is.null(DEA$reactives$selectedcomp) & !is.null(DEA$reactives$selectedFC) & !is.null(DEA$reactives$selectedPvalT)) {
 
 volcanolist <- list()
 
@@ -318,13 +343,18 @@ ggplot <- ggplot(res, aes(x = estimate, y = -log10(p.value))) +
         box.padding = unit(0.35, "lines"),
         point.padding = unit(0.3, "lines")
       )
-
-  #volcanolist <- c(ggplot,volcanolist)
-#}
 plot(ggplot)
+}
 ```
 
-```{asis,echo=TRUE,eval = evalSessionInfo}
+```{r, echo = FALSE, eval = evalJoinedtatanal,message=TRUE, warning=FALSE}
+if(!is.null(DEA$concatenated$results) & !is.null(DEA$reactives$selectedcomp) & !is.null(DEA$reactives$selectedFC) & !is.null(DEA$reactives$selectedPvalT)) {
+} else {
+  print("First draw a volcano plot in the Explore DEA results tab")
+}
+```
+
+```{asis,echo=evalSessionInfo}
 # Session Information
 ```
 

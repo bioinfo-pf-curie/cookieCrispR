@@ -250,66 +250,45 @@ ui_crispr_app <- function(request){
         tabItem(tabName = "Statistical_analysis",
                 CRISPRDeaModUI(id = "DEA")),
         tabItem(tabName = "Report",
-                          "Report Editor",
                           h2("About this report"),
                           h4("This content has been loaded from the template report `.Rmd` file. Please edit it at your best convenience!"),
                           h4("Some <!–html_preserve–> text may appear on this preview. Do not worry it will disappear when generating and saving the report."),            icon = icon("pencil"),
                           h1("Report Editor"),
                           fluidRow(
-                             column(width = 6,
+                             column(width = 12,
                                 box(width = '100%',
-                                title = "markdown options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = TRUE,
-                                column(width = 12,radioButtons("rmd_dl_format", label = "Choose Format:", c("HTML" = "html", "R Markdown" = "rmd"), inline = TRUE),
+                                title = "markdown options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = FALSE,
+                                column(width = 6,radioButtons("rmd_dl_format", label = "Choose Format:", c("HTML" = "html", "R Markdown" = "rmd"), inline = TRUE),
                                 textInput("report_title", "Title: "),
                                 textInput("report_author", "Author: "),
-                                radioButtons("report_toc", "Table of Contents", choices = list("Yes" = "true", "No" = "false")),
-                                radioButtons("report_ns", "Number sections", choices = list("Yes" = "true", "No" = "false")),
-                                pickerInput("report_theme", "Theme",
-                                            choices = list("Default" = "default", "Cerulean" = "cerulean",
-                                                           "Journal" = "journal", "Flatly" = "flatly",
-                                                           "Readable" = "readable", "Spacelab" = "spacelab",
-                                                           "United" = "united", "Cosmo" = "cosmo"),multiple = FALSE,
-                                            choicesOpt = NULL,
-                                            inline = FALSE,
-                                            options = pickerOptions(
-                                              actionsBox = TRUE,
-                                              liveSearch = TRUE,
-                                              liveSearchStyle = "contains"
-                                            ))
-                                ))),
-                             fluidRow(
-                               column(width = 6,
-                                   #box(width = '100%',
-                                    #   title = "Sections options", status = "primary", solidHeader = TRUE, collapsible = TRUE, collapsed = FALSE,
-                                       #fluidRow(
-                                         column(width = 12,
-                                              #fluidRow(
-                                                checkboxGroupInput("include",label = "Add/remove sections in the report",
+                                radioButtons("report_toc", "Table of Contents", choices = list("Yes" = "true", "No" = "false"))
+                                ),
+                                column(width = 6,
+                                       fluidRow(
+                                              checkboxGroupInput("include",label = "Add/remove sections in the report",
                                                                  choices = c("Data Overview" = "DataOverview","read_numbers",
                                                                              "density_ridges","temporal_evolution",
                                                                              "Volcano plots","SessionInfo")),
-                                                br(),
-                                                br(),
-                                                br(),
-                                                #conditionalPanel(condition = "input.include.includes('Volcanoplots')",
-                                                #conditionalPanel(condition = 'input.include.indexOf("Volcano plots") > -1',
-                                                                 # pickerInput("volcanoslist",width = '100%',
-                                                                 #             label = "Select comparisons and add volcanos to report",
-                                                                 #             choices = NULL,
-                                                                 #             options = pickerOptions(
-                                                                 #               actionsBox = TRUE,
-                                                                 #               title = "Select comparison",
-                                                                 #               liveSearch = TRUE,
-                                                                 #               liveSearchStyle = "contains",
-                                                                 #             ),
-                                                                 #             selected = NULL,
-                                                                 #             multiple = TRUE,
-                                                                 #             choicesOpt = NULL,
-                                                                 #             inline = FALSE)
-                                      #)
-                                  ))
-                            )),
-                          #),
+                                       br(),
+                                       br(),
+                                       br(),
+                                       radioButtons("report_ns", "Number sections", choices = list("Yes" = "true", "No" = "false")),
+                                       pickerInput("report_theme", "Theme",
+                                                   choices = list("Default" = "default", "Cerulean" = "cerulean",
+                                                                  "Journal" = "journal", "Flatly" = "flatly",
+                                                                  "Readable" = "readable", "Spacelab" = "spacelab",
+                                                                  "United" = "united", "Cosmo" = "cosmo"),multiple = FALSE,
+                                                   choicesOpt = NULL,
+                                                   inline = FALSE,
+                                                   options = pickerOptions(
+                                                     actionsBox = TRUE,
+                                                     liveSearch = TRUE,
+                                                     liveSearchStyle = "contains"
+                                                   )))
+                                       )
+                                    )
+                                )
+                          ),
                           fluidRow(
                             column(3,
                                    actionButton("updatepreview_button", "Update report",class = "btn btn-primary"),p()
