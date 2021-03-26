@@ -56,23 +56,11 @@
       "Source": "Bioconductor",
       "Hash": "744ce1b8f59ad5827fe03f30a4fe8e50"
     },
-    "BioshinyModules": {
-      "Package": "BioshinyModules",
-      "Version": "0.1.0",
-      "Source": "unknown",
-      "Hash": "555a14d0678992a9b9973d9d48eb4d13"
-    },
     "Biostrings": {
       "Package": "Biostrings",
       "Version": "2.54.0",
       "Source": "Bioconductor",
       "Hash": "edf03f0e37fc3c09c95dcf8bf3900972"
-    },
-    "CRISPRApp": {
-      "Package": "CRISPRApp",
-      "Version": "2.0.0",
-      "Source": "unknown",
-      "Hash": "fb1f6c533ed5385d347072e2356ce3f1"
     },
     "DBI": {
       "Package": "DBI",
@@ -306,6 +294,12 @@
       "Repository": "CRAN",
       "Hash": "543776ae6848fde2f48ff3816d0628bc"
     },
+    "biobroom": {
+      "Package": "biobroom",
+      "Version": "1.18.0",
+      "Source": "Bioconductor",
+      "Hash": "82aeed34528ded218f98063c22b49d63"
+    },
     "biomaRt": {
       "Package": "biomaRt",
       "Version": "2.42.1",
@@ -353,6 +347,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "570a24963009b9cce0869a0463c83580"
+    },
+    "broom": {
+      "Package": "broom",
+      "Version": "0.7.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "d5ab8846336cfb2e3c17e5a806eb3045"
     },
     "bslib": {
       "Package": "bslib",
