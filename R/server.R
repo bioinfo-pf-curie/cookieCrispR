@@ -149,6 +149,10 @@ observeEvent(c(input$removeguides,input$removegenes,input$removesamples,reactive
     toc(log = TRUE)
   }
     reactives$selectedcountsRaw <- selectedcountsRaw
+    read_number$toplot <- TRUE
+    dists$toplot <- TRUE
+    differencetoT0$toplot <- TRUE
+    ROC$toplot <- TRUE
   setProgress(1)
   })
 })
@@ -182,16 +186,20 @@ observeEvent(c(input$sample_plan),priority = 10,{
                  if(semicolonssplan ==  TRUE && commassplan == FALSE){
                   #samples <- read.table(inFile$datapath, sep = ";", header = TRUE, fill = TRUE)
                   samples <- as.data.frame(fread(inFile$datapath, sep = ";", header = TRUE, fill = TRUE))
+                  samples <- samples[which(!(samples[,1] %in% c(""," ",NA))),]
                   reactives$sampleplanRaw <- samples
+                  print(samples)
                   reactives$samples <- as.character(samples$Sample_ID)
                  } else if (commassplan == TRUE && semicolonssplan ==  FALSE ){
                    samples <- as.data.frame(fread(inFile$datapath, sep = ",", header = TRUE, fill = TRUE))
+                   samples <- samples[which(!(samples[,1] %in% c(""," ",NA))),]
                    #samples <- read.table(inFile$datapath, sep = ",", header = TRUE, fill = TRUE)
                    reactives$sampleplanRaw <- samples
                    reactives$samples <- as.character(samples$Sample_ID)
                  } else if (commassplan == FALSE && semicolonssplan ==  FALSE && tabssplan == TRUE ){
                    #samples <- read.table(inFile$datapath, sep = "\t", header = TRUE, fill = TRUE)
                    samples <- as.data.frame(fread(inFile$datapath, sep = "\t", header = TRUE, fill = TRUE))
+                   samples <- samples[which(!(samples[,1] %in% c(""," ",NA))),]
                    reactives$sampleplanRaw <- samples
                    reactives$samples <- as.character(samples$Sample_ID)
                  }  else if(semicolonssplan ==  TRUE && commassplan == TRUE){
@@ -204,7 +212,6 @@ observeEvent(c(input$sample_plan),priority = 10,{
                  }
                  }
       print("end of sampleplan check sep")
-      
 })
 
 observeEvent(c(reactives$sampleplanRaw,input$removesamples),{   
@@ -233,7 +240,10 @@ observeEvent(c(reactives$sampleplanRaw,input$removesamples),{
           mutate(Timepoint_num = as.numeric(gsub("[^0-9.-]", "", .data$Timepoint))) %>% 
           mutate(Timepoint = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
       print("DONE")
-      
+      read_number$toplot <- TRUE
+      differencetoT0$toplot <- TRUE
+      dists$toplot <- TRUE
+      ROC$toplot <- TRUE
       reactives$sampleplan <- samples
       }
     
@@ -312,9 +322,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       if(nrow(control_sgRNA) == 0){
         control_sgRNA <- NULL
       }
-      
-      # print("controlsgRNA")
-      # print(head(control_sgRNA))
 
       norm_data <- sg_norm(counts,
                              sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
@@ -323,13 +330,12 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       reactives$norm_data <- norm_data
       incProgress(0.3)
 
-      norm_cpm <- cpm(norm_data$counts, log = FALSE)
+      norm_cpm <- cpm(norm_data$counts, log = TRUE)
       reactives$norm_cpm <- norm_cpm
       setProgress(1)
       })
       
     withProgress(message = 'Data transformation for distributions', value = 0.5, {
-     print("a")
         req(reactives$sampleplan)
         req(reactives$selectedcountsRaw)
         samples <- reactives$sampleplan
@@ -346,7 +352,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
         counts <- counts  %>%
           filter(Sample_ID %in% samples$Sample_ID)
         
-        
         if(!(is.null(input$timepoints_order))){
         counts <- full_join(counts, samples) %>%
           mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order)) %>%  mutate(Gene = gene)
@@ -355,37 +360,8 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
             mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint))) %>%  mutate(Gene = gene)
         }
         
-        # counts <- full_join(counts, samples) %>%
-        #   mutate(Gene = gene)
-        print("space")
-        print(head(counts))
         
-        reactives$joined <- counts %>%  mutate(Gene = gene)
-
-      
-        
-      ##### old reactive joine ####
-      #norm_cpm <- cbind(norm_cpm,norm_data$genes)
-      # norm_cpm <- gather(norm_cpm, value = "cpm", key = "Sample_ID",-.data$sgRNA, -.data$Gene)
-      # 
-      # norm_cpm <- norm_cpm %>%
-      #     dplyr::group_by(.data$Sample_ID) %>%
-      #     #dplyr::mutate(log_cpm = 1 + .data$cpm) %>%
-      #     #dplyr::mutate(log10_cpm = 1 + .data$cpm) %>%
-      #     dplyr::mutate(log_cpm = log2(1 + .data$cpm)) %>%
-      #     dplyr::mutate(log10_cpm = log10(1 + .data$cpm)) %>%
-      #     dplyr::ungroup()
-      # 
-      # print("jooining norm cpm")
-      # if(!(is.null(input$timepoints_order))){
-      # norm_cpm <- full_join(norm_cpm, samples) %>%
-      #   mutate(Timepoint = factor(.data$Timepoint, levels = input$timepoints_order))
-      # } else {
-      # norm_cpm <- full_join(norm_cpm, samples) %>%
-      #     mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint)))
-      # }
-      #reactives$joined <- norm_cpm
-        
+      reactives$joined <- counts %>%  mutate(Gene = gene)
       print("joining done")
     setProgress(1)
     })
@@ -418,9 +394,10 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
 #########################################################################################################
 #################################### Negative screening #################################################
 #########################################################################################################
-
+differencetoT0 <- reactiveValues(toplot = TRUE)
 observeEvent(input$sidebarmenu,{    
       if (input$sidebarmenu ==  "Tev"){
+        if(differencetoT0$toplot == TRUE){
       req(input$timepoints_order)
       req(reactives$joined)
       withProgress(message = 'Difference to initial timepoint calculation', value = 0.5, {
@@ -437,8 +414,10 @@ observeEvent(input$sidebarmenu,{
       print("DONE")
       reactives$diff_t0 <- fin
       })
+      differencetoT0$toplot <- FALSE
       }
-    })
+      }
+})
 
 ######### Plots and tables outputs ####################################
     output$counts_table <- DT::renderDataTable({
@@ -446,15 +425,12 @@ observeEvent(input$sidebarmenu,{
       DT::datatable(reactives$selectedcountsRaw, rownames = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
     })
     
-    #observeEvent(input$countstabset,{
-    #req(reactives$joined)
-    #if(input$countstabset=="NormalizedCounts log10(cpm)"){
     output$normalized_counts_table <- DT::renderDataTable({
-      DT::datatable(reactives$joined %>% select(sgRNA,Gene,Sample_ID,log_cpm) %>% tidyr::spread(key=Sample_ID,value=log10_cpm),
+      DT::datatable(reactives$joined %>% select(sgRNA,Gene,Sample_ID,log_cpm) %>% 
+                      #tidyr::spread(key=Sample_ID,value=log10_cpm),
+                      tidyr::spread(key=Sample_ID,value=log_cpm),
                     rownames = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
     }) # end of datatable
-    #} # end of if
-    #}) # end of observer
 
 observeEvent(reactives$samples,{
 req(reactives$samples)
@@ -475,9 +451,10 @@ observe({
     })
 }) # end of observer
        
-    read_number <- reactiveValues(plot = NULL)
+    read_number <- reactiveValues(plot = NULL,toplot = TRUE)
     observeEvent(input$sidebarmenu,{    
         if (input$sidebarmenu ==  "Rawdist"){
+          if(read_number$toplot == TRUE){
       req(reactives$counts)
       req(reactives$sampleplan)
       print("read number observer")
@@ -503,7 +480,9 @@ observe({
       setProgress(1)
       print("end of progress updating data")
       })
-      }
+      read_number$toplot <- FALSE
+    } # enf of toplot if
+    } # end of sidebarif
   })
     
     output$read_number <- renderPlot({
@@ -516,92 +495,109 @@ observe({
       },
       content = function(file){
         pdf(file = file)
-        plot(read_number())
+        plot(read_number$plot)
         dev.off()
       }
     )
     
-    #boxplot_all <- reactive({
-    dists <- reactiveValues(boxall = NULL,density = NULL)
-    # observeEvent(c(input$sidebarmenu,reactives$joined),{   
-    #   req(reactives$joined)
-    #   if (input$sidebarmenu ==  "Rawdist"){
-    #   print("boxplots all")
-    #   withProgress(message = 'Rendering boxplots all', value = 0.5,{
-    #   
-    #   counts <- reactives$joined 
-    #   counts <- counts %>% filter(!(str_detect(gene,paste(c("Non-Targeting","negative_control"),collapse = "|"))))
-    #   print(unique(counts$gene))
-    #   
-    #   if(length(unique(counts$Cell_line)) >= 2){
-    #   plot <- counts %>% 
-    #     ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) + 
-    #     labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
-    #   } else{
-    #   plot <- counts %>% 
-    #       ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
-    #       labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
-    #   }
-    #   dists$boxall <- plot
-    #   print("done")
-    #   setProgress(1)
-    #   })
-    #   }
-    # })
+    #boxplot_all <- reactive(
+    dists <- reactiveValues(boxall = NULL,boxess = NULL, boxnoness =  NULL,density = NULL,toplot = TRUE)
+    observeEvent(c(input$sidebarmenu,reactives$joined),{
+      req(reactives$joined)
+      if (input$sidebarmenu ==  "Rawdist"){
+        if(dists$toplot == TRUE){
+      print("boxplots all")
+      withProgress(message = 'Rendering boxplots all', value = 0.5,{
+
+      if(length(unique(reactives$joined$Cell_line)) >= 2){
+      plot <- reactives$joined %>%
+        ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) +
+        labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
+      } else{
+      plot <- reactives$joined %>%
+          ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
+          labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
+      }
+      dists$boxall <- plot
+      if(!is.null(ess_genes())){
+      if(length(unique(reactives$joined$Cell_line)) >= 2){
+        plot <- reactives$joined %>% 
+          filter(gene %in% as.character(ess_genes()$X)) %>%
+          ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) +
+          labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
+      } else{
+        plot <- reactives$joined %>% 
+          filter(gene %in% as.character(ess_genes()$X)) %>%
+          ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
+          labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
+      }
+      dists$boxess <- plot
+      }
+      if(!is.null(non_ess_genes())){
+      if(length(unique(reactives$joined$Cell_line)) >= 2){
+        plot <- reactives$joined %>%
+          filter(gene %in% c("Non-Targeting","negative_control",as.character(non_ess_genes()$X))) %>%
+          ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) +
+          labs(title = "Distribution of normalized log-cpm by sample", subtitle = "Non essential and control guides")
+      } else{
+        plot <- reactives$joined %>%
+          filter(gene %in% c("Non-Targeting","negative_control",as.character(non_ess_genes()$X))) %>%
+          ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
+          labs(title = "Distribution of normalized log-cpm by sample", subtitle = "Non essential and control guides")
+      }
+      dists$boxnoness <- plot
+      }
+      setProgress(1)
+      })
+      dists$toplot <- FALSE
+        }
+      }
+    })
+
+    output$boxplot_all <- renderPlot({
+      plot(dists$boxall)
+    })
     
-    # output$boxplot_all <- renderPlot({
-    #   plot(dists$boxall)
-    # })
+    output$dlbox_all <- downloadHandler(
+      filename = function(){
+        paste("Boxplots_all_guides",Sys.Date(),".pdf",sep="")
+      },
+      content = function(file){
+        pdf(file = file)
+        plot(dists$boxall)
+        dev.off()
+      }
+    )
     
-    # output$dlbox_all <- downloadHandler(
-    #   filename = function(){
-    #     paste("Boxplots_all_samples",Sys.Date(),".pdf",sep="")
-    #   },
-    #   content = function(file){
-    #     pdf(file = file)
-    #     plot(dists$boxall)
-    #     dev.off()
-    #   }
-    # )
+    output$boxplot_ess <- renderPlot({
+      plot(dists$boxess)
+    })
     
-    #density_ridge <- reactive({
-    #observeEvent(input$sidebarmenu,{
-    # observeEvent(c(input$sidebarmenu),{   
-    #   print("density ridge obszerver")
-    #   req(reactives$joined)
-    #   print(head(reactives$joined))
-    #   if (input$sidebarmenu ==  "Rawdist"){
-    #   counts <- reactives$joined
-    #   counts <- counts %>% filter(!(str_detect(gene,paste(c("Non-Targeting","negative_control"),collapse = "|"))))
-    #   withProgress(message = 'Calculating density ridges', value = 0.5, {
-    #   incProgress(0.3)
-    #   counts <-  counts %>%
-    #     #ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
-    #     ggplot(aes(x = .data$log_cpm, y = .data$Timepoint)) +
-    #     geom_density_ridges(alpha = 0.6, show.legend = FALSE, fill = "gray50") +
-    #     facet_wrap(vars(.data$Cell_line, .data$Replicate), ncol = 1, strip.position = "right") +
-    #     labs(title = "Distribution of normalzed log-cpm by sample", subtitle = "All guides")
-    #   #return(plot(counts))
-    #   dists$density <- counts
-    #   }) # end of progress
-    #   }
-    # })
-    # 
-    # output$density_ridge <- renderPlot({
-    #   #plot(density_ridge())
-    #   plot(dists$density)
-    # })
+    output$dlbox_ess <- downloadHandler(
+      filename = function(){
+        paste("Boxplots_essential_guides",Sys.Date(),".pdf",sep="")
+      },
+      content = function(file){
+        pdf(file = file)
+        plot(dists$boxess)
+        dev.off()
+      }
+    )
     
-    # output$dldensity_ridge <- downloadHandler(
-    #   filename = function(){
-    #     paste("Density_ridges_",Sys.Date(),".pdf",sep="")
-    #   },
-    #   content = function(file){
-    #     pdf(file = file)
-    #     plot(dists$density)
-    #     dev.off()
-    #   }
-    # )
+    output$boxplot_noness <- renderPlot({
+      plot(dists$boxnoness)
+    })
+    
+    output$dlbox_noness <- downloadHandler(
+      filename = function(){
+        paste("Boxplots_nonessential_and_control_guides",Sys.Date(),".pdf",sep="")
+      },
+      content = function(file){
+        pdf(file = file)
+        plot(dists$boxnoness)
+        dev.off()
+      }
+    )
     
     essential_distribs <- reactive({
       req(reactives$joined)
@@ -630,19 +626,13 @@ observe({
     nonessential_distribs <- reactive({
 
       req(reactives$joined)
+      req(non_ess_genes())
       counts <- reactives$joined
       non_ess_genes <- non_ess_genes()
-      print(head(non_ess_genes()))
-      
       print("non ess and control selection")
       
-      print(head(unique(counts$gene)))
-      
       counts <- counts %>%
-        #filter(.data$Gene %in% non_ess_genes$X)
         filter(.data$gene %in% c(as.character(non_ess_genes$X),"Non-Targeting","negative_control"))
-      
-      print(unique(counts$gene))
       
       subtitle <- 'Not enssential and control genes'
       
@@ -683,33 +673,30 @@ observe({
       timepoints <- levels(reactives$sampleplan$Timepoint)
       print(timepoints)
       orderInput(inputId = 'timepoints', label = 'Re-order your timepoints here :', items = timepoints, as_source = F)
-      #orderInput(inputId = 'timepoints_order', label = 'Re-order your timepoints here :', items = timepoints, as_source = F)
-      
     })
     
-    ############## NEGATIV SCREENING ################
+    ############## DIFF BOXES TEV CONTROL ################
     diff_boxes <- reactiveValues(diff_box_ess = NULL,diff_box_all = NULL)
 
     observeEvent(reactives$diff_t0,{
     req(input$timepoints_order[[1]])
     req(reactives$diff_t0)
-    req(non_ess_genes())
     firstpoint <- input$timepoints_order[[1]]
+    if(is.null(input$essential) | is.null(input$nonessential)){
+      showModal(
+        modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
+                    footer = tagList(
+                      modalButton("Got it"))
+        )
+      )
+    } else {
     non_ess_genes <- non_ess_genes()
-      
-      print("diff box all")
-      diff_t0 <- reactives$diff_t0 %>%
+    diff_t0 <- reactives$diff_t0 %>%
         filter(.data$Timepoint != firstpoint)
-      
-      print(unique(diff_t0$gene))
       
       diff_t0 <- diff_t0 %>%
         filter(.data$gene %in% c(as.character(non_ess_genes$X),"Non-Targeting","negative_control"))
-      print(unique(reactives$diff_t0$gene))
-      
-      print(unique(diff_t0$gene))
-      
-      #print(head())
+
       diff_boxes$diff_box_all <- diff_t0 %>%
         filter(.data$Timepoint != firstpoint) %>%
         filter(.data$gene %in% c(as.character(non_ess_genes$X),"Non-Targeting","negative_control")) %>%
@@ -718,6 +705,7 @@ observe({
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ," - Non essential and control genes"))
       
       print('DONE')
+    }
     })
     
     output$diff_box_all <- renderPlot({
@@ -728,15 +716,17 @@ observe({
       subtitle <- ' - Essential genes'
       req(reactives$diff_t0)
       firstpoint <- input$timepoints_order[[1]]
+      if(is.null(input$essential) | is.null(input$nonessential)){
+      } else {
       ess_genes <- ess_genes()
       print(reactives$diff_t0)
       diff_boxes$diff_box_ess <-  reactives$diff_t0 %>% 
         filter(.data$Timepoint != !!firstpoint) %>%
         filter(.data$Gene %in% ess_genes[,1]) %>%
-        ggplot(aes(x = .data$Timepoint, y= .data$diff, fill = .data$Replicate)) + geom_boxplot() + facet_grid(.~ .data$Cell_line) +
+        ggplot(aes(x = .data$Timepoint, y= .data$diff, fill = .data$Replicate)) + geom_boxplot() +  facet_grid(.data$Treatment ~ .data$Cell_line) +
         ylab(paste0("diff_",firstpoint)) + 
         labs(title = paste0("Boxplots of log fold change from ", firstpoint ,paste0(subtitle,"'s guides")))
-      
+      }
     })
     
     output$diff_box_ess <- renderPlot({
@@ -749,17 +739,18 @@ observe({
       },
       content = function(file){
         pdf(file = file)
-        plot(diff_box_ess())
-        plot(diff_box_all())
+        plot(diff_boxes$diff_box_ess)
+        plot(diff_boxes$diff_box_all)
         dev.off()
       }
     )
 #################### ROC ####################
-ROC <- reactiveValues(plot = NULL,AUC = NULL)
+ROC <- reactiveValues(plot = NULL,AUC = NULL,toplot = TRUE)
 
 #observe({
 observeEvent(c(input$sidebarmenu,reactives$joined),{
   if (input$sidebarmenu ==  "Roc"){
+    if(ROC$toplot == TRUE){
     req(reactives$joined)
     print(head(reactives$joined))
     if(is.null(input$essential) | is.null(input$nonessential)){
@@ -772,28 +763,11 @@ observeEvent(c(input$sidebarmenu,reactives$joined),{
     } else {
     ess_genes <- ess_genes()
     non_ess_genes <- non_ess_genes()
-      ##################################################
-      ### Comment this block to retrieve all cpm way ##########
-      # samples <- reactives$sampleplan
-      # #counts  <- reactives$countsRaw
-      # counts  <- reactives$selectedcountsRaw
-      # annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
-      # counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
-      # counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
-      # counts <- counts %>%
-      #   dplyr::group_by(.data$Sample_ID) %>%
-      #   dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + cpm))  %>%
-      #   dplyr::ungroup()
-      # 
-      # counts <- counts  %>%
-      #   filter(Sample_ID %in% samples$Sample_ID)
-      # 
-      # counts <- full_join(counts, samples) %>%
-      #   mutate(Gene = gene)
+ 
     req(input$timepoints_order)
     
     counts <- reactives$joined %>% filter(!(str_detect(gene,paste(c("Non-Targeting","negative_control"),collapse = "|"))))
-      #   
+         
         firstpoint <- input$timepoints_order[[1]]
         counts$Timepoint <- relevel(as.factor(counts$Timepoint), ref = firstpoint)
 
@@ -851,7 +825,10 @@ observeEvent(c(input$sidebarmenu,reactives$joined),{
         coord_equal()
       
       })
-    }}
+        ROC$toplot <- FALSE
+    }
+  }
+}
 })
     
 output$roc <- renderPlot({
@@ -1013,10 +990,8 @@ observeEvent(c(input$sidebarmenu,
     sgRNAannot <- reactives$norm_data$genes
     
     ################# NORM PIERRE ######
-    print(head(DeaToClustGenes$list))
     ClustDataa <- reactives$norm_cpm
     #ClustDataa <- reactives$norm_data$counts
-    print(head(ClustDataa))
     ClustDataa <- tibble::rownames_to_column(as.data.frame(ClustDataa),"sgRNA")
     ClustDataa <- ClustDataa %>%
       left_join(sgRNAannot, by = "sgRNA")

@@ -36,9 +36,9 @@ ui_crispr_app <- function(request){
         menuItem("Descriptive analysis", tabName = "Descriptive_data_analysis",
                  menuSubItem("Raw distributions","Rawdist"),
                  menuSubItem("Temporal evolution","Tev"),
-                 menuSubItem("ROC Curves","Roc"),
+                 menuSubItem("ROC Curves","Roc")#,
                  #menuSubItem("Clustering","Clustering"),
-                 menuSubItem('Compare conditions','CompCond')
+                 #menuSubItem('Compare conditions','CompCond')
                  ),
         menuItem("Statistical analysis",tabName = "Statistical_analysis"),
         menuItem("Clustering", tabName = "Clustering"),
@@ -150,20 +150,16 @@ ui_crispr_app <- function(request){
                              plotOutput("read_number"),
                              downloadButton("dlreadnumber","Download read numbers plot")
                       ))),
-                # fluidRow(
-                #   box(collapsible = TRUE, collapsed = TRUE,
-                #       width = 12, status = "success", solidHeader = TRUE,
-                #       title = "Normalized log_cpm distributions",
-                #       plotOutput("boxplot_all", width = "100%", height = 600),
-                #       downloadButton("dlbox_all","Download Boxplots")
-                #   )),
-                # fluidRow(
-                #   box(collapsible = TRUE, collapsed = TRUE,
-                #       width = 12,status = "success",solidHeader = TRUE,
-                #       title="Density ridges",
-                #       plotOutput("density_ridge", width = "100%", height = 600),
-                #       downloadButton("dldensity_ridge","Download Densitity ridges plots")
-                #   )),
+                fluidRow(
+                   box(collapsible = TRUE, collapsed = FALSE,
+                       width = 12, status = "success", solidHeader = TRUE,
+                       title = "Normalized log_cpm distributions",
+                       column(width = 12,
+                       plotOutput("boxplot_all", width = "100%", height = 600),
+                       downloadButton("dlbox_all","Download Boxplots all guides")),
+                       column(width = 6,plotOutput("boxplot_noness"),downloadButton("dlbox_noness","Download Boxplots non essentials and control guides")),
+                       column(width = 6,plotOutput("boxplot_ess"),downloadButton("dlbox_ess","Download Boxplots essential guides"))
+                )),
                 fluidRow(
                   box(collapsible = TRUE, collapsed = FALSE,
                       width = 12, status = "success", solidHeader = TRUE,

@@ -694,7 +694,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     #req(input$ExploreIntra2)
     #req(results$scores)
     req(results$scores[[input$ExploreIntra2]])
-    scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp"))
+    scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp","RRA_enrich_adjp","RRA_dep_adjp"))
     
     datatable(scores,rownames=FALSE,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -709,7 +709,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
       paste(input$ExploreIntra2,"_RRAscores", Sys.Date(), ".csv", sep=",")
     },
     content = function(file) {
-      scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp"))
+      scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp","RRA_enrich_adjp","RRA_dep_adjp"))
       #scores <- scores[order(scores$RRA_adjp),]
       write.csv(scores,file)
     }
@@ -865,36 +865,6 @@ observeEvent(Volcano$plot,{
     )
   })
    
-  # output$results_table <- DT::renderDataTable({
-  #   res <- bind_rows(results$up,results$down) %>%
-  #     column_to_rownames("sgRNA")%>%
-  #     select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
-  #     mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
-  #     select(c("estimate","adj_p.value","ENSEMBL"))
-  #   colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
-  #   datatable(
-  #     res,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
-  #       "function(settings, json) {",
-  #       "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
-  #       "}")))
-  # })
-
-  # output$resdl <- downloadHandler(
-  #   filename = function() {
-  #     paste("DEA-PDX-Results", Sys.Date(), ".csv", sep=",")
-  #   },
-  #   content = function(file) {
-  #     res <- bind_rows(results$up,results$down) %>%
-  #       column_to_rownames("sgRNA")%>%
-  #       select(c("estimate","adj_p.value_dep","adj_p.value_enrich","ENSEMBL")) %>%
-  #       mutate(adj_p.value = min(adj_p.value_dep,adj_p.value_enrich)) %>%
-  #       select(c("estimate","adj_p.value","ENSEMBL"))
-  #     colnames(res) <- c("logFC","adj_p.value","ENSEMBL")
-  #     res <- res[order(res$adj_p.value),]
-  #     #print(colnames(concatenated$results[[input$ExploreIntra]]))
-  #     write.csv(res %>% select(-ENSEMBL),file)
-  #   }
-  # )
 
   output$up_table <- DT::renderDataTable({
     ups <- results$up %>%
@@ -930,8 +900,8 @@ observeEvent(Volcano$plot,{
   output$down_table <- DT::renderDataTable({
     down <- results$down %>%
       column_to_rownames("sgRNA") %>%
-      select(c("estimate","p.value","adj_p.value_dep","ENSEMBL"))
-    colnames(down) <- c("logFC","p.value","adj_p.value_dep","ENSEMBL")
+      select(c("estimate","adj_p.value_dep","ENSEMBL"))
+    colnames(down) <- c("logFC","adj_p.value_dep","ENSEMBL")
     down <- down[order(down$adj_p.value_dep),]
     datatable(
       down,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
@@ -945,12 +915,12 @@ observeEvent(Volcano$plot,{
       paste("DEA-DOWN-PDX-Results", Sys.Date(), ".csv", sep=",")
     },
     content = function(file) {
-      downs <- results$down %>%
+      down <- results$down %>%
         column_to_rownames("sgRNA")%>%
-        select(c("estimate","p.value","adj_p.value_dep"))
-      colnames(downs) <- c("logFC","p.value","adj_p.value_dep")
+        select(c("estimate","adj_p.value_dep"))
+      colnames(down) <- c("logFC","adj_p.value_dep")
       down <- down[order(down$adj_p.value_dep),]
-      write.csv(downs, file)
+      write.csv(down, file)
     }
   )
   # 
