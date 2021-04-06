@@ -249,11 +249,6 @@ observeEvent(c(reactives$sampleplanRaw,input$removesamples),{
     
 }) # end of observer
     
-# observeEvent(c(input$removesamples),{
-#   reactives$checkcoherence <- FALSE
-# })
-
-
 ## Join counts and annotations
 observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
                input$timepoints_order),{
@@ -267,11 +262,11 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
         reactives$annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
         counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
         counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
-        sumcols <- sum(.data$count)
+        sumcols <- sum(counts$count)
         incProgress(0.3,detail = "Computing cpm...")
         counts <- counts %>%
           dplyr::group_by(.data$Sample_ID) %>%
-          dplyr::mutate(cpm = 1e6 * .data$count / as.numeric(sumcols), log_cpm = log2(1 + cpm))  %>%
+          dplyr::mutate(cpm = 1e6 * .data$count / as.numeric(sumcols), log_cpm = log10(1 + cpm))  %>%
           dplyr::ungroup()
         #toc(log=TRUE)
         })
@@ -338,19 +333,9 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
     withProgress(message = 'Data transformation for distributions', value = 0.5, {
         req(reactives$sampleplan)
         req(reactives$selectedcountsRaw)
+        req(reactives$counts)
         samples <- reactives$sampleplan
-        #counts  <- reactives$countsRaw
-        counts  <- reactives$selectedcountsRaw
-        annot_sgRNA <- dplyr::select(counts, .data$sgRNA, Gene = .data$gene)
-        counts <- gather(counts, value = "count", key = "Sample_ID", -.data$sgRNA, -.data$gene)
-        counts <- dplyr::mutate(counts, Sample_ID = gsub(".R[1-9].fastq","",.data$Sample_ID))
-        counts <- counts %>%
-          dplyr::group_by(.data$Sample_ID) %>%
-          dplyr::mutate(cpm = 1e6 * .data$count / sum(.data$count), log_cpm = log10(1 + cpm))  %>%
-          dplyr::ungroup()
-        
-        counts <- counts  %>%
-          filter(Sample_ID %in% samples$Sample_ID)
+        counts <- reactives$counts
         
         if(!(is.null(input$timepoints_order))){
         counts <- full_join(counts, samples) %>%
@@ -359,9 +344,8 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
         counts <- full_join(counts, samples) %>%
             mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint))) %>%  mutate(Gene = gene)
         }
-        
-        
       reactives$joined <- counts %>%  mutate(Gene = gene)
+      print(head(reactives$joined))
       print("joining done")
     setProgress(1)
     })
@@ -400,6 +384,8 @@ observeEvent(input$sidebarmenu,{
         if(differencetoT0$toplot == TRUE){
       req(input$timepoints_order)
       req(reactives$joined)
+      print("aaa")
+      print(head(reactives$joined))
       withProgress(message = 'Difference to initial timepoint calculation', value = 0.5, {
       counts <- reactives$joined
       firstpoint <- input$timepoints_order[[1]]
@@ -412,6 +398,7 @@ observeEvent(input$sidebarmenu,{
         ungroup()
      
       print("DONE")
+      print(head(fin))
       reactives$diff_t0 <- fin
       })
       differencetoT0$toplot <- FALSE
