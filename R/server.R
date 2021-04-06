@@ -345,7 +345,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
             mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint))) %>%  mutate(Gene = gene)
         }
       reactives$joined <- counts %>%  mutate(Gene = gene)
-      print(head(reactives$joined))
       print("joining done")
     setProgress(1)
     })
@@ -384,8 +383,6 @@ observeEvent(input$sidebarmenu,{
         if(differencetoT0$toplot == TRUE){
       req(input$timepoints_order)
       req(reactives$joined)
-      print("aaa")
-      print(head(reactives$joined))
       withProgress(message = 'Difference to initial timepoint calculation', value = 0.5, {
       counts <- reactives$joined
       firstpoint <- input$timepoints_order[[1]]
@@ -397,8 +394,6 @@ observeEvent(input$sidebarmenu,{
         mutate(diff = log_cpm - first(log_cpm)) %>% 
         ungroup()
      
-      print("DONE")
-      print(head(fin))
       reactives$diff_t0 <- fin
       })
       differencetoT0$toplot <- FALSE
@@ -706,7 +701,6 @@ observe({
       if(is.null(input$essential) | is.null(input$nonessential)){
       } else {
       ess_genes <- ess_genes()
-      print(reactives$diff_t0)
       diff_boxes$diff_box_ess <-  reactives$diff_t0 %>% 
         filter(.data$Timepoint != !!firstpoint) %>%
         filter(.data$Gene %in% ess_genes[,1]) %>%
@@ -739,7 +733,6 @@ observeEvent(c(input$sidebarmenu,reactives$joined),{
   if (input$sidebarmenu ==  "Roc"){
     if(ROC$toplot == TRUE){
     req(reactives$joined)
-    print(head(reactives$joined))
     if(is.null(input$essential) | is.null(input$nonessential)){
       showModal(
         modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
@@ -985,8 +978,6 @@ observeEvent(c(input$sidebarmenu,
     ClustDataa <- ClustDataa %>% filter(Gene %in% as.character(DeaToClustGenes$list))
     
     ClustDataa <- as.data.frame(ClustDataa)
-    print(ncol(ClustDataa))
-    print(nrow(ClustDataa))
     if(ncol(ClustDataa) > 0 && nrow(ClustDataa) > 0){
  
       ClustDataa <- column_to_rownames(ClustDataa,"sgRNA") %>% select(-c(Gene))

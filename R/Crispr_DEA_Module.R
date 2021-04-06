@@ -216,7 +216,7 @@ CRISPRDeaModUI <- function(id)  {
                                            liveSearch = TRUE,
                                            liveSearchStyle = "contains"),width = '100%')),
                              column(width = 6,
-                                    numericInput(ns("n_perm"),"Please select a number of permutations for rra scores computing",value = 200, min = 100, max = 4000),
+                                    numericInput(ns("n_perm"),"Please select a number of permutations for rra scores computing",value = 500, min = 100, max = 4000),
                                     "Increasing this value will also increase both ",
                                     "results precision and computing time",
                                     br()
@@ -450,19 +450,22 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                      # Remove control guides RNA for differential analysis
                      #counts <- filter(as.data.frame(counts), str_detect(Gene,"Non-Targeting"))
                      
+                     print("design")
+                     print(reactives$design)
+                     
+                     print('contrast')
+                     print(reactives$contrast)
+                     
                      ## Supprime car difficile à calibrer ############ 
                     ### Filtre sur nombre minimal de counts
                      kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
                      counts <- counts[kept,]
                      
-                     #incProgress(0.3,detail = "voomWithQualityWeights")
-                     #results$v <- limma::voomWithQualityWeights(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
                      incProgress(0.3,detail = "voom")
                      results$v <- limma::voom(counts, design = reactives$design, normalize.method = "none", span = 0.5, plot = FALSE)
                      
                      res_fit <- limma::lmFit(results$v, method = "ls")
                      incProgress(0.3,detail = "fitting model")
-                     res_eb <- eBayes(res_fit, robust = FALSE)
                      fit <- purrr::map(reactives$contrast, ~contrasts.fit(res_fit, contrasts = .x))
                      res_eb <- purrr::map(fit, ~eBayes(.x, robust = FALSE))
                      incProgress(0.3,detail = "Formating results")
@@ -538,7 +541,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                    results$nsignfc <- length(which(res$adj_p.value < input$PvalsT & abs(res$estimate) > input$FCT))
                    up <- which(res$adj_p.value_enrich < input$PvalsT)
                    down <- which(res$adj_p.value_dep < input$PvalsT)
-                   #print(head(res$Gene))
                    res$ENSEMBL <- createLink(res$Gene)
                    print('end of DEG')
                    results$up <- res[up,]
