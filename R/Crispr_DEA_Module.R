@@ -445,16 +445,12 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                    if (!is.null(norm_data$data$counts) && !is.null(reactives$design)){
                      withProgress(message = 'Computing differential analysis', value = 0.5,{
                      incProgress(0.3,detail = "Filtering low expressed guides")
-                     counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
+
+                     #counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
+                     counts <- norm_data$data[,colnames(norm_data$data)%in%rownames(reactives$design)]
                      
                      # Remove control guides RNA for differential analysis
                      #counts <- filter(as.data.frame(counts), str_detect(Gene,"Non-Targeting"))
-                     
-                     print("design")
-                     print(reactives$design)
-                     
-                     print('contrast')
-                     print(reactives$contrast)
                      
                      ## Supprime car difficile à calibrer ############ 
                     ### Filtre sur nombre minimal de counts

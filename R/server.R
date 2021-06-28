@@ -1037,6 +1037,7 @@ observeEvent(c(reactives$norm_data,input$sidebarmenu),{
   if(!is.null(reactives$norm_data)){
     if(input$sidebarmenu=="Statistical_analysis"){
     DEAnormdata$data <- reactives$norm_data
+    
     }
   }
 })
