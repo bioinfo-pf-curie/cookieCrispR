@@ -20,7 +20,8 @@ reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplan
                               joined = NULL,countsRaw = NULL, counts = NULL,
                             annot_sgRNA = NULL, norm_data =  NULL,norm_cpm =  NULL, guidelist = NULL,
                             genelist =  NULL,sample = NULL,checkcoherence = TRUE, normalize = TRUE,
-                            checkcountscols = TRUE,interactive_boxplots = NULL,diff_t0 = NULL
+                            checkcountscols = TRUE,interactive_boxplots = NULL,diff_t0 = NULL,
+                            control_sgRNA = NULL
                             )
 
 ##### Upload files and datatable construction ####################
@@ -295,11 +296,54 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
 
 })
 
-observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$countstabset),priority = 10,{
+ctrlterm <- reactiveValues(term = NULL)
+observeEvent(reactives$annot_sgRNA,{
+  req(reactives$annot_sgRNA)
+  annot_sgRNA <- reactives$annot_sgRNA
+
+  save(annot_sgRNA,file ="~/annot.rda")
+  
+  control_sgRNA <- filter(annot_sgRNA, str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|")))
+  
+  if(nrow(control_sgRNA) == 0){
+    showModal(modalDialog(
+      title = "No control guides found in data",
+      HTML("By default the app search guides annoted as Non-Targeting or negative_control </br></br>
+            Maybe controls in your data are annoted in a different manner </br></br>"),
+      textInput("customctrl",label = "Type a character string (case sensitive)",width = "100%"),
+      footer = tagList(
+        actionButton("useit","Use this term to search for control guides",width = "100%")
+      ))
+    )
+    observeEvent(input$useit,{
+      req(input$customctrl)
+      req(input$useit)
+      control_sgRNA <- filter(annot_sgRNA,str_detect(Gene,
+                                                     paste(c("Non-Targeting","negative_control",input$customctrl),collapse = "|")))
+      ctrlterm$term <- input$customctrl
+      #print("control_sgRNA")
+      #print(head(control_sgRNA))
+      if(nrow(control_sgRNA) == 0){
+        control_sgRNA <- NULL
+      }
+      reactives$control_sgRNA <- control_sgRNA
+      removeModal()
+    })
+    # print(head(control_sgRNA))
+  }
+  if(nrow(control_sgRNA) == 0){
+    control_sgRNA <- NULL
+  }
+  reactives$control_sgRNA <- control_sgRNA
+})
+
+observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$countstabset,reactives$control_sgRNA),priority = 10,{
       samples <- reactives$sampleplan
       if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & input$sidebarmenu != "DataInput" & reactives$normalize == TRUE | input$countstabset=="NormalizedCounts log10(cpm)"  & reactives$normalize == TRUE){
-      #if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & reactives$normalize == TRUE){
-      reactives$normalize <- "DONE"
+      if(is.null(reactives$control_sgRNA)){
+        return()
+      } else {
+        reactives$normalize <- "DONE"
       withProgress(message = 'Data normalization edgeR', value = 0.5, {
       annot_sgRNA <- reactives$annot_sgRNA
       
@@ -310,25 +354,21 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
 
       counts <- counts %>%
            column_to_rownames("sgRNA")
-      
-      save(annot_sgRNA,file ="~/annot.rda")
-      
-      control_sgRNA <- filter(annot_sgRNA, str_detect(Gene,"Non-Targeting"))
-      if(nrow(control_sgRNA) == 0){
-        control_sgRNA <- NULL
-      }
 
       norm_data <- sg_norm(counts,
                              sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
-                             sgRNA_annot = annot_sgRNA, control_sgRNA = control_sgRNA$sgRNA)
+                             sgRNA_annot = annot_sgRNA, control_sgRNA = reactives$control_sgRNA$sgRNA)
       
       reactives$norm_data <- norm_data
+      
+      save(norm_data,file ="~/norm_data.rda")
+      
       incProgress(0.3)
 
       norm_cpm <- cpm(norm_data$counts, log = TRUE)
       reactives$norm_cpm <- norm_cpm
       setProgress(1)
-      })
+    })
       
     withProgress(message = 'Data transformation for distributions', value = 0.5, {
         req(reactives$sampleplan)
@@ -351,6 +391,7 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       #setProgress(1)
       #}) # end of progress
       }# end of if
+    } # end of else
 }) # End of observer    
 
     ess_genes <- reactive({
@@ -1037,7 +1078,6 @@ observeEvent(c(reactives$norm_data,input$sidebarmenu),{
   if(!is.null(reactives$norm_data)){
     if(input$sidebarmenu=="Statistical_analysis"){
     DEAnormdata$data <- reactives$norm_data
-    
     }
   }
 })
@@ -1055,7 +1095,7 @@ observeEvent(input$sidebarmenu,{
 
 DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                   norm_data = DEAnormdata,
-                  sampleplan = DEAMetadata)
+                  sampleplan = DEAMetadata, ctrlterm = ctrlterm$term)
 
 observeEvent(DEA$concatenated$results,ignoreInit = TRUE,{
 req(DEA$concatenated$results)
@@ -1064,12 +1104,31 @@ updatePickerInput(session = session, 'volcanoslist',choices = as.character(names
 
 observeEvent(input$sidebarmenu,priority = -1,{
   if(input$sidebarmenu=="Statistical_analysis"){
-    if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
+    # if(DEAnormdata$data == "noctrlfound") {
+    #   showModal(modalDialog(
+    #     title = "No control guides found in data",
+    #     HTML("Have you used the appropriate term to find it ?"),
+    #     footer = tagList(
+    #       modalButton("Got it")
+    #     ))
+    #   )
+  #  } else if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
+  if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
+    if(is.null(reactives$control_sgRNA)){
+          showModal(modalDialog(
+            title = "No control guides found in data",
+            HTML("Have you used the appropriate term to find it ?"),
+            footer = tagList(
+              modalButton("Got it")
+            ))
+          )
+  } else {
   showModal(modalDialog(
     title = "Upload both count matrix and sampleplan first",
     footer = tagList(
       modalButton("Got it")
     )))
+     }
     }}
 })
 #########################################################################

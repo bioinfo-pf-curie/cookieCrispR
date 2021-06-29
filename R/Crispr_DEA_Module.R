@@ -260,9 +260,8 @@ CRISPRDeaModUI <- function(id)  {
 #' @import dplyr
 #' @importFrom tictoc tic toc
 
-#CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL, var = NULL,
 CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
-                               norm_data = NULL) {
+                               norm_data = NULL,ctrlterm = NULL) {
   
   ### Define reactives #############
   req(sampleplan)
@@ -445,14 +444,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                    if (!is.null(norm_data$data$counts) && !is.null(reactives$design)){
                      withProgress(message = 'Computing differential analysis', value = 0.5,{
                      incProgress(0.3,detail = "Filtering low expressed guides")
-
-                     #counts <- norm_data$data$counts[,colnames(norm_data$data$counts)%in%rownames(reactives$design)]
                      counts <- norm_data$data[,colnames(norm_data$data)%in%rownames(reactives$design)]
-                     
-                     # Remove control guides RNA for differential analysis
-                     #counts <- filter(as.data.frame(counts), str_detect(Gene,"Non-Targeting"))
-                     
-                     ## Supprime car difficile à calibrer ############ 
+  
                     ### Filtre sur nombre minimal de counts
                      kept <- which(rowSums(edgeR::cpm(counts) >= 1) >= 2)
                      counts <- counts[kept,]
@@ -495,7 +488,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   createLink <- function(val) {
     #sprintf('<a href="https://www.ensembl.org/Homo_sapiens/Gene/Summary?g=%s" target="_blank" class="btn btn-primary">Info</a>',val)
     sprintf('<a href="https://www.ensembl.org/Homo_sapiens/Gene/Summary?g=%s" target="_blank" class="btn btn-primary">Info</a>',gsub("_[0-9]","",gsub("sg","",val)))
-    
   }
   
   observeEvent(c(concatenated$results),priority = 10,{
@@ -556,74 +548,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                    }
                  }) # end of observer
   
-  #n_perm <- 2000
-  # alpha_thr <- 0.3
-  # observeEvent(c(input$DEGtabs,norm_data$data$genes),{
-  #   req(norm_data$data$genes)
-  #   if(input$DEGtabs == "RRAscores") {
-  #     if(!is.null(concatenated$results)){
-  #       if((length(concatenated$results) != length(results$old_res)) | length(concatenated$results) == 1){
-  #         showModal(modalDialog(
-  #           title = "Please select a number of permutations for rra scores computing",
-  #           numericInput(ns("n_perm"),"Select a number of permutation",value = 200, min = 100, max = 4000),
-  #           br(),
-  #           "Increasing this value will also increase both results precision and computing time",
-  #           footer = tagList(
-  #             actionButton(ns("gotit"),"Launch permutations")
-  #           )))
-  #       observeEvent(input$gotit,{
-  #       req(input$n_perm)
-  #       removeModal()
-  #       results$old_res <- concatenated$results
-  #       n <- length(concatenated$results)
-  #       names <- names(concatenated$results)
-  #       sgRNAannot <- norm_data$data$genes
-  #       print(sgRNAannot$Gene)
-  # 
-  #       sgRNAannot <- filter(sgRNAannot, str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|")))
-  #       
-  #       withProgress(message = paste0('Computing per gene RRA score from DEA results (nperms = ',input$n_perm,')'), value = 0.5,{
-  #         results$scores <- NULL
-  #         
-  #         #### Compute en simultane toutes les comps
-  #         scores <- lapply(seq_along(concatenated$results),function(x){
-  #           incProgress(as.numeric(1/n),detail = paste0("processing ",names[x]))
-  #           computed_scores <- compute_score_RRA(concatenated$results[[x]],alpha_thr = alpha_thr)
-  #           print(paste0("Launching RRA adj pval with ",input$n_perm," permutations..."))
-  #           compute_RRA_pval(guide_res = concatenated$results[[x]],
-  #                            gene_res = computed_scores,
-  #                            n_guides = 6,
-  #                            non_target =  sgRNAannot,
-  #                            alpha_thr = alpha_thr,
-  #                            n_perm = as.integer(input$n_perm))
-  #         })
-  # 
-  #         ### Compute seulement la comp active
-  #         names(scores) <- names
-  #         print("resutsscores")
-  #         results$scores <- scores
-  #         print(head(results$scores))
-  #         setProgress(1)
-  #       })
-  #       })# end of progress
-  #     } else {
-  #       showModal(modalDialog(HTML(
-  #        "<b> Please perform differential analysis first or rerun with </b></br>
-  #        To do so select at least two variables for the comparison then click on the build button.
-  #       "),
-  #         title = "Missing previous step !",
-  #         footer = tagList(
-  #           modalButton("Got it"))
-  #       ))
-  #     #})
-  #       } # end of if
-  #     }
-  #   }
-  # }) # end of observer
-  
-  #n_perm <- 2000
   alpha_thr <- 0.3
-  #observeEvent(c(input$DEGtabs,norm_data$data$genes),{
   observeEvent(c(input$computeRRA),{
     req(input$computeRRA)
     req(norm_data$data$genes)
@@ -635,8 +560,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
             n <- length(concatenated$results)
             names <- names(concatenated$results)
             sgRNAannot <- norm_data$data$genes
-
-            sgRNAannot <- filter(sgRNAannot, str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|")))
+            sgRNAannot <- filter(sgRNAannot, str_detect(Gene,paste(c("Non-Targeting","negative_control",ctrlterm$term),collapse = "|")))
 
             withProgress(message = paste0('Computing per gene RRA score from DEA results (nperms = ',input$n_perm,')'), value = 0.5,{
               results$scores <- NULL
@@ -651,7 +575,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                                          n_perm = as.integer(input$n_perm))
 
               results$scores[[input$ExploreIntra2]] <- scores
-              print(head(results$scores))
               setProgress(1)
           })# end of progress
     } else {
@@ -983,12 +906,7 @@ observeEvent(Volcano$plot,{
   observe({
     selected_comp_rra$list <- as.character(input$ExploreIntra2)
   })
-  
-  #observeEvent(c(selected_comp_rra$list,results$res, concatenated$results), ignoreInit = TRUE,{
-  #observe({
-  #print("selected comp rra")
-  #print(selected_comp_rra)
+
   return(list(results=results,reactives=reactives,concatenated=concatenated,selected_comp_rra = selected_comp_rra ))
-  #})
-  
+
 }
