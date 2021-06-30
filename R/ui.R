@@ -156,9 +156,17 @@ ui_crispr_app <- function(request){
                        title = "Normalized log_cpm distributions",
                        column(width = 12,
                        plotOutput("boxplot_all", width = "100%", height = 600),
-                       downloadButton("dlbox_all","Download Boxplots all guides")),
-                       column(width = 6,plotOutput("boxplot_noness"),downloadButton("dlbox_noness","Download Boxplots non essentials and control guides")),
-                       column(width = 6,plotOutput("boxplot_ess"),downloadButton("dlbox_ess","Download Boxplots essential guides"))
+                       #downloadButton("dlbox_all","Download Boxplots all guides")
+                       ),
+                       column(width = 6,plotOutput("boxplot_noness"),
+                              #downloadButton("dlbox_noness","Download Boxplots non essentials and control guides")
+                              ),
+                       column(width = 6,plotOutput("boxplot_ess"),
+                              #downloadButton("dlbox_ess","Download Boxplots essential guides")
+                              ),
+                       br(),
+                       column(width = 12,downloadButton("dlbox_all","Download Boxplots ",width = "100%")),
+                       br()
                 )),
                 fluidRow(
                   box(collapsible = TRUE, collapsed = FALSE,
@@ -169,7 +177,6 @@ ui_crispr_app <- function(request){
                       downloadButton("splited_distribs","Download distributions per gene categories")
                   ))
         ),
-        #tabItem("ScreeningResults",
         tabItem("Tev",
                 fluidRow(
                       column(width=6,plotOutput("diff_box_all", width = "100%", height = 600)),
@@ -180,9 +187,6 @@ ui_crispr_app <- function(request){
             ),
             tabItem("Roc",
                     fluidRow(
-                      # box(collapsible = TRUE, collapsed = FALSE,
-                      #    width = 12, status = "success", solidHeader = TRUE,
-                      #    title = "ROC",
                       column(width = 12,
                          div(style = 'overflow-x: scroll',plotOutput("roc")),
                          downloadButton("dlROC","Download ROC plots", class = "butt"),
@@ -191,14 +195,12 @@ ui_crispr_app <- function(request){
                          DT::dataTableOutput('auc'),
                          br(),
                          downloadButton("dlauc","Download AUCs table", class = "butt")
-                    #)
                   )
                 )
             ),
             tabItem("Clustering",
                   fluidRow(
                     column(width = 12,infoBoxOutput("InfoCompHeatmap", width = 12)),
-                    #numericInput("ScoreThres","Threshold on RRA scores to subset genes for heatmap",value = 0.9, min = 0.001, max = 0.2),
                     br(),
                       column(width = 12,ClusteringUIMod(id = "heatmapID"))
                   )

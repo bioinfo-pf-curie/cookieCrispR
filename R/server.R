@@ -588,6 +588,8 @@ observe({
       content = function(file){
         pdf(file = file)
         plot(dists$boxall)
+        plot(dists$boxess)
+        plot(dists$boxnoness)
         dev.off()
       }
     )
@@ -596,31 +598,31 @@ observe({
       plot(dists$boxess)
     })
     
-    output$dlbox_ess <- downloadHandler(
-      filename = function(){
-        paste("Boxplots_essential_guides",Sys.Date(),".pdf",sep="")
-      },
-      content = function(file){
-        pdf(file = file)
-        plot(dists$boxess)
-        dev.off()
-      }
-    )
+    # output$dlbox_ess <- downloadHandler(
+    #   filename = function(){
+    #     paste("Boxplots_essential_guides",Sys.Date(),".pdf",sep="")
+    #   },
+    #   content = function(file){
+    #     pdf(file = file)
+    #     plot(dists$boxess)
+    #     dev.off()
+    #   }
+    # )
     
     output$boxplot_noness <- renderPlot({
       plot(dists$boxnoness)
     })
     
-    output$dlbox_noness <- downloadHandler(
-      filename = function(){
-        paste("Boxplots_nonessential_and_control_guides",Sys.Date(),".pdf",sep="")
-      },
-      content = function(file){
-        pdf(file = file)
-        plot(dists$boxnoness)
-        dev.off()
-      }
-    )
+    # output$dlbox_noness <- downloadHandler(
+    #   filename = function(){
+    #     paste("Boxplots_nonessential_and_control_guides",Sys.Date(),".pdf",sep="")
+    #   },
+    #   content = function(file){
+    #     pdf(file = file)
+    #     plot(dists$boxnoness)
+    #     dev.off()
+    #   }
+    # )
     
     essential_distribs <- reactive({
       req(reactives$joined)
@@ -1104,15 +1106,6 @@ updatePickerInput(session = session, 'volcanoslist',choices = as.character(names
 
 observeEvent(input$sidebarmenu,priority = -1,{
   if(input$sidebarmenu=="Statistical_analysis"){
-    # if(DEAnormdata$data == "noctrlfound") {
-    #   showModal(modalDialog(
-    #     title = "No control guides found in data",
-    #     HTML("Have you used the appropriate term to find it ?"),
-    #     footer = tagList(
-    #       modalButton("Got it")
-    #     ))
-    #   )
-  #  } else if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
   if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
     if(is.null(reactives$control_sgRNA)){
           showModal(modalDialog(
