@@ -189,7 +189,6 @@ observeEvent(c(input$sample_plan),priority = 10,{
                   samples <- as.data.frame(fread(inFile$datapath, sep = ";", header = TRUE, fill = TRUE))
                   samples <- samples[which(!(samples[,1] %in% c(""," ",NA))),]
                   reactives$sampleplanRaw <- samples
-                  print(samples)
                   reactives$samples <- as.character(samples$Sample_ID)
                  } else if (commassplan == TRUE && semicolonssplan ==  FALSE ){
                    samples <- as.data.frame(fread(inFile$datapath, sep = ",", header = TRUE, fill = TRUE))
@@ -218,7 +217,6 @@ observeEvent(c(input$sample_plan),priority = 10,{
 observeEvent(c(reactives$sampleplanRaw,input$removesamples),{   
   
       if(reactives$sampleplanGood == TRUE){
-
       print("Arranging sample plan")
       samples <- reactives$sampleplanRaw
       samples$Sample_ID <- as.character(samples$Sample_ID)
@@ -301,8 +299,6 @@ observeEvent(reactives$annot_sgRNA,{
   req(reactives$annot_sgRNA)
   annot_sgRNA <- reactives$annot_sgRNA
 
-  save(annot_sgRNA,file ="~/annot.rda")
-  
   control_sgRNA <- filter(annot_sgRNA, str_detect(Gene,paste(c("Non-Targeting","negative_control"),collapse = "|")))
   
   if(nrow(control_sgRNA) == 0){
@@ -321,15 +317,12 @@ observeEvent(reactives$annot_sgRNA,{
       control_sgRNA <- filter(annot_sgRNA,str_detect(Gene,
                                                      paste(c("Non-Targeting","negative_control",input$customctrl),collapse = "|")))
       ctrlterm$term <- input$customctrl
-      #print("control_sgRNA")
-      #print(head(control_sgRNA))
       if(nrow(control_sgRNA) == 0){
         control_sgRNA <- NULL
       }
       reactives$control_sgRNA <- control_sgRNA
       removeModal()
     })
-    # print(head(control_sgRNA))
   }
   if(nrow(control_sgRNA) == 0){
     control_sgRNA <- NULL
@@ -360,8 +353,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
                              sgRNA_annot = annot_sgRNA, control_sgRNA = reactives$control_sgRNA$sgRNA)
       
       reactives$norm_data <- norm_data
-      
-      save(norm_data,file ="~/norm_data.rda")
       
       incProgress(0.3)
 
@@ -450,7 +441,6 @@ observeEvent(input$sidebarmenu,{
     
     output$normalized_counts_table <- DT::renderDataTable({
       DT::datatable(reactives$joined %>% select(sgRNA,Gene,Sample_ID,log_cpm) %>% 
-                      #tidyr::spread(key=Sample_ID,value=log10_cpm),
                       tidyr::spread(key=Sample_ID,value=log_cpm),
                     rownames = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE))
     }) # end of datatable
@@ -523,7 +513,6 @@ observe({
       }
     )
     
-    #boxplot_all <- reactive(
     dists <- reactiveValues(boxall = NULL,boxess = NULL, boxnoness =  NULL,density = NULL,toplot = TRUE)
     observeEvent(c(input$sidebarmenu,reactives$joined),{
       req(reactives$joined)
@@ -547,12 +536,12 @@ observe({
         plot <- reactives$joined %>% 
           filter(gene %in% as.character(ess_genes()$X)) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) +
-          labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
+          labs(title = "Distribution of normalized log-cpm by sample", subtitle = "essential guides")
       } else{
         plot <- reactives$joined %>% 
           filter(gene %in% as.character(ess_genes()$X)) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
-          labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
+          labs(title = "Distribution of normalized log-cpm by sample", subtitle = "essential guides")
       }
       dists$boxess <- plot
       }
@@ -598,31 +587,9 @@ observe({
       plot(dists$boxess)
     })
     
-    # output$dlbox_ess <- downloadHandler(
-    #   filename = function(){
-    #     paste("Boxplots_essential_guides",Sys.Date(),".pdf",sep="")
-    #   },
-    #   content = function(file){
-    #     pdf(file = file)
-    #     plot(dists$boxess)
-    #     dev.off()
-    #   }
-    # )
-    
     output$boxplot_noness <- renderPlot({
       plot(dists$boxnoness)
     })
-    
-    # output$dlbox_noness <- downloadHandler(
-    #   filename = function(){
-    #     paste("Boxplots_nonessential_and_control_guides",Sys.Date(),".pdf",sep="")
-    #   },
-    #   content = function(file){
-    #     pdf(file = file)
-    #     plot(dists$boxnoness)
-    #     dev.off()
-    #   }
-    # )
     
     essential_distribs <- reactive({
       req(reactives$joined)
@@ -769,9 +736,8 @@ observe({
       }
     )
 #################### ROC ####################
-ROC <- reactiveValues(plot = NULL,AUC = NULL,toplot = TRUE)
+ROC <- reactiveValues(plot = NULL,AUC = NULL,toplot = TRUE, d = NULL)
 
-#observe({
 observeEvent(c(input$sidebarmenu,reactives$joined),{
   if (input$sidebarmenu ==  "Roc"){
     if(ROC$toplot == TRUE){
@@ -800,7 +766,6 @@ observeEvent(c(input$sidebarmenu,reactives$joined),{
           mutate(diff = log_cpm - first(log_cpm)) %>% 
           ungroup()
       #########################################################
-        
         
       withProgress(message = 'Calculating ROC curves', value = 0.5, {
       d <- fin %>% select(.data$sgRNA, .data$Cell_line, .data$Replicate, .data$Timepoint, .data$Gene, .data$Treatment, .data$diff) %>%
@@ -838,22 +803,33 @@ observeEvent(c(input$sidebarmenu,reactives$joined),{
       AUC_table$AUC <- as.character(AUC_table$AUC)
       ROC$AUC <- AUC_table
 
-      d <- left_join(d,AUC_table, by = c("Cell_line","Replicate","Treatment","Timepoint"))
-      
-      ROC$plot <- d %>% ggplot(aes(x = FP, y = TP, color = Timepoint)) + 
-        geom_abline(slope = 1, lty = 3) + 
-        xlim(0,1.3) +
-        geom_dl(aes(label = AUC), method = "last.polygons")  +
-        geom_line() + facet_grid(Treatment + Cell_line ~ Replicate) + 
-        coord_equal()
-      
+      ROC$d <- left_join(d,AUC_table, by = c("Cell_line","Replicate","Treatment","Timepoint"))
       })
         ROC$toplot <- FALSE
     }
-  }
-}
-})
-    
+    }
+    }
+  })
+      
+    observeEvent(c(ROC$d,input$labels),{
+      req(ROC$d)
+      if(input$labels == TRUE){
+        ROC$plot <- ROC$d %>% ggplot(aes(x = FP, y = TP, color = Timepoint)) + 
+          geom_abline(slope = 1, lty = 3) + 
+          xlim(0,1.3) +
+          geom_dl(aes(label = AUC), method = "last.polygons")  +
+          geom_line() + facet_grid(Treatment + Cell_line ~ Replicate) + 
+          coord_equal()
+      } else if(input$labels == FALSE){
+      ROC$plot <- ROC$d %>% ggplot(aes(x = FP, y = TP, color = Timepoint)) + 
+        geom_abline(slope = 1, lty = 3) + 
+        xlim(0,1.3) +
+        #geom_dl(aes(label = AUC), method = "last.polygons")  +
+        geom_line() + facet_grid(Treatment + Cell_line ~ Replicate) + 
+        coord_equal()
+      }
+    })
+
 output$roc <- renderPlot({
    req(ROC$plot)
    plot(ROC$plot)
@@ -891,8 +867,7 @@ output$dlauc <- downloadHandler(
 )
 
 ########################## Observers ############################
-#observe({
-  observeEvent(input$sidebarmenu,{
+observeEvent(input$sidebarmenu,{
   if(input$sidebarmenu == "CompCond"){
   updatePickerInput(session,"conditionreference1",
                     choices = as.character(unique(reactives$sampleplan$Treatment)))
@@ -947,12 +922,9 @@ output$positive_boxplots <- renderGirafe({
   reactives$interactive_boxplots
 })
 
-
-
 ################################################################################
 ################################# HEATMAP ######################################"
 ################################################################################
-
 
 observeEvent(DEA$selected_comp$list,{
   req(DEA$selected_comp$list)
@@ -1097,7 +1069,9 @@ observeEvent(input$sidebarmenu,{
 
 DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                   norm_data = DEAnormdata,
-                  sampleplan = DEAMetadata, ctrlterm = ctrlterm$term)
+                  sampleplan = DEAMetadata, ctrlterm = ctrlterm$term,
+                  ess_genes=ess_genes,
+                  non_ess_genes = non_ess_genes)
 
 observeEvent(DEA$concatenated$results,ignoreInit = TRUE,{
 req(DEA$concatenated$results)

@@ -90,19 +90,6 @@ ui_crispr_app <- function(request){
                   box(
                     width = 12, status = "success", solidHeader = TRUE, collapsible = TRUE,collapsed = FALSE,
                     title = "Counts table",
-                    # column(width = 6,
-                    # pickerInput("removeguides", "Remove guides for further analysis",
-                    #             choices = NULL,
-                    #             selected = NULL,
-                    #             multiple = TRUE,
-                    #             choicesOpt = NULL,
-                    #             inline = FALSE,
-                    #             options = pickerOptions(
-                    #               actionsBox = TRUE,
-                    #               title = "Select guides you want to remove",
-                    #               liveSearch = TRUE,
-                    #               liveSearchStyle = "contains"
-                    #             ))),
                     column(width = 12,
                            pickerInput("removegenes", "Remove genes for further analysis",
                                        choices = NULL,
@@ -116,10 +103,9 @@ ui_crispr_app <- function(request){
                                          liveSearch = TRUE,
                                          liveSearchStyle = "contains"
                                        ))),
-                    #div(style = 'overflow-x: scroll', DT::dataTableOutput("counts_table"))
                     tabsetPanel(id="countstabset",
                       tabPanel("Rawcounts",br(),DT::dataTableOutput("counts_table")),
-                      tabPanel("NormalizedCounts log10(cpm)",br(),DT::dataTableOutput("normalized_counts_table"))
+                      tabPanel("log10(cpm)",br(),DT::dataTableOutput("normalized_counts_table"))
                     )
                   )),
                 fluidRow(
@@ -146,7 +132,6 @@ ui_crispr_app <- function(request){
                       width = 12,status = "success",solidHeader = TRUE,
                       title="Read counts",
                       column(width=12,
-                             #div(style = 'overflow-x: scroll',DT::dataTableOutput("read_number"))
                              plotOutput("read_number"),
                              downloadButton("dlreadnumber","Download read numbers plot")
                       ))),
@@ -156,13 +141,10 @@ ui_crispr_app <- function(request){
                        title = "Normalized log_cpm distributions",
                        column(width = 12,
                        plotOutput("boxplot_all", width = "100%", height = 600),
-                       #downloadButton("dlbox_all","Download Boxplots all guides")
                        ),
                        column(width = 6,plotOutput("boxplot_noness"),
-                              #downloadButton("dlbox_noness","Download Boxplots non essentials and control guides")
                               ),
                        column(width = 6,plotOutput("boxplot_ess"),
-                              #downloadButton("dlbox_ess","Download Boxplots essential guides")
                               ),
                        br(),
                        column(width = 12,downloadButton("dlbox_all","Download Boxplots ",width = "100%")),
@@ -188,6 +170,7 @@ ui_crispr_app <- function(request){
             tabItem("Roc",
                     fluidRow(
                       column(width = 12,
+                         checkboxInput("labels","Print AUC labels on plots",value = FALSE),
                          div(style = 'overflow-x: scroll',plotOutput("roc")),
                          downloadButton("dlROC","Download ROC plots", class = "butt"),
                          br(),

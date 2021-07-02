@@ -225,7 +225,22 @@ CRISPRDeaModUI <- function(id)  {
                              fluidRow(column(width = 12,
                                     actionButton(ns("computeRRA"),"Launch permutations",width = '100%'))),
                              br(),
-                             #numericInput("n_perm","Select a number of permutation"),
+                             column(width = 12,
+                                    pickerInput(ns("GeneVolcanoAggregated"),"Select genes to annotate on volcano",
+                                                selected = NULL,
+                                                multiple = TRUE,
+                                                choicesOpt = NULL,
+                                                width = "100%",
+                                                inline = FALSE,
+                                                choices = NULL,
+                                                options = pickerOptions(
+                                                  title = "Select genes to annotate",
+                                                  liveSearch = TRUE,
+                                                  liveSearchStyle = "contains",
+                                                  actionsBox = TRUE
+                                                ))),
+                             fluidRow(column(width = 12,plotOutput(ns("aggregated_plot")))),
+                             br(),
                              fluidRow(column(width = 12,DT::dataTableOutput(ns("RRAscores")))),
                              br(),
                              fluidRow(column(width = 12,downloadButton(ns("scoresdl"),"Download RRA scores")))
@@ -261,7 +276,7 @@ CRISPRDeaModUI <- function(id)  {
 #' @importFrom tictoc tic toc
 
 CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
-                               norm_data = NULL,ctrlterm = NULL) {
+                               norm_data = NULL,ctrlterm = NULL,ess_genes = NULL,non_ess_genes = NULL) {
   
   ### Define reactives #############
   req(sampleplan)
@@ -269,7 +284,11 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   ns <- session$ns
   
   reactives <- reactiveValues(design = NULL, formula = NULL, contrast = NULL, selectedcomp = NULL,
-                              selectedFC = NULL,selectedPvalT = NULL,GeneVolcano = NULL)
+                              selectedFC = NULL,selectedPvalT = NULL,GeneVolcano = NULL,ess_genes = NULL,non_ess_genes = NULL)
+  observe({
+  reactives$ess_genes <- ess_genes()
+  reactives$non_ess_genes <- non_ess_genes()
+  })
   sampleplanmodel <- reactiveValues(table = NULL)
   results <- reactiveValues(res = NULL, up = NULL, down = NULL,nsignfc = NULL,v = NULL,boxplots = NULL,
                             scores = NULL,old_res = "NULL")
@@ -549,7 +568,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                  }) # end of observer
   
   alpha_thr <- 0.3
-  observeEvent(c(input$computeRRA),{
+  observeEvent(c(input$computeRRA),priority = 10,{
     req(input$computeRRA)
     req(norm_data$data$genes)
     #req(input$ExploreIntra2)
@@ -636,6 +655,84 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     }
   )
 
+  ## Aggregated volcano ##
+  #observeEvent(c(results$scores,input$ExploreIntra2,ess_genes(),non_ess_genes()),{
+  observe({
+  #observeEvent(c(results$scores,input$ExploreIntra2),{
+    print("Creating aggregated volcano")
+    req(results$scores)
+    req(input$ExploreIntra2)
+    selected_scores <- results$scores[[input$ExploreIntra2]]
+    res <- concatenated$results[[input$ExploreIntra2]]
+
+    if(!is.null(res) && !is.null(selected_scores)){
+
+    res <- res %>% select(Gene, estimate)
+    res_aggregated <- aggregate(res$estimate,list(res$Gene),mean)
+    colnames(res_aggregated) <- c("Gene","meanlogFC")
+    
+    selected_scores <- selected_scores %>% select(Gene,RRA_dep_score)
+    
+    joined <- left_join(res_aggregated,selected_scores, by = "Gene")
+  
+   ess_genes <- reactives$ess_genes
+   non_ess_genes <- reactives$non_ess_genes
+   if(is.null(reactives$ess_genes) | is.null(reactives$non_ess_genes)){
+     joined$Type <- "Unknown type"
+   } else {
+    ess_genes <- ess_genes()
+    non_ess_genes <- non_ess_genes()
+    ess_genes$V2 <- 'essential genes'
+    non_ess_genes$V2 <- 'non essential genes'
+    colnames(ess_genes) <- c("Gene","Type")
+    colnames(non_ess_genes) <- c("Gene","Type")
+    genetypes <- rbind(ess_genes,non_ess_genes)
+    joined <- left_join(joined,genetypes, by = c("Gene")) %>%
+      replace_na(list(Type ="Other"))
+
+    }
+    #Volcano$aggregated_plot <- ggplot
+    Volcano$aggregated_joined <- joined
+    } else {
+    #Volcano$aggregated_plot <- NULL
+    Volcano$aggregated_joined <- NULL
+    }
+  })
+  
+  observe({
+    updatePickerInput("GeneVolcanoAggregated", session = session, choices = Volcano$aggregated_joined$Gene)
+  })
+  
+  output$aggregated_plot <- renderPlot({
+    #req(Volcano$aggregated_plot)
+    req(Volcano$aggregated_joined)
+    
+    joined <- Volcano$aggregated_joined %>% 
+      mutate(Type = if_else(Gene %in% input$GeneVolcanoAggregated , "Annotated genes", Type))
+    
+    ggplot(joined, aes(x = meanlogFC, y = -log10(RRA_dep_score), 
+                                 colour = factor(Type),alpha = factor(Type), size = factor(Type))) +
+      expand_limits(y = c(min(-log10(joined$RRA_dep_score)), 1)) +
+      geom_point(show_guide = TRUE) +
+      ggtitle(input$ExploreIntra2) +
+      scale_colour_manual(name = NULL, 
+                          values =c('Other'='black','essential genes'='red', "non essential genes" = "blue","Annotated genes" = "green",
+                                    "Unknown type" = 'black'))+ 
+      theme(legend.position = "top",
+            legend.direction = "horizontal") +
+      scale_size_manual(values =c("Unknown type"= 0.5,'Other'=0.5,'essential genes'=1.3, "non essential genes" = 1.3,"Annotated genes" = 1.5)) +
+      scale_alpha_manual(values =c("Unknown type"= 0.5,'Other'=0.4,'essential genes'=0.6, "non essential genes" = 0.6,"Annotated genes" = 0.8)) + 
+      guides(size = FALSE, alpha =FALSE) +
+        ggrepel::geom_text_repel(
+          data = subset(Volcano$aggregated_joined,Gene %in% input$GeneVolcanoAggregated),
+          aes(label = Gene),
+          size = 5,
+          force = 2,
+          box.padding = unit(0.35, "lines"),
+          point.padding = unit(0.3, "lines"))
+    
+  })
+
   output$Pvals_distrib <- renderGirafe({
     req(concatenated$results)
     req(input$ExploreIntra)
@@ -652,8 +749,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     updatePickerInput("GeneVolcano", session = session, choices = rownames(norm_data$data$counts))
   })
   # 
-  Volcano <- reactiveValues(plot = NULL)
-  #observeEvent(concatenated$results,{
+  Volcano <- reactiveValues(plot = NULL, aggregated_plot = NULL)
   observe({
     req(concatenated$results)
     req(input$ExploreIntra)
@@ -682,7 +778,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     toc(log = TRUE)
   })
   # 
-observeEvent(Volcano$plot,{
+#observeEvent(Volcano$plot,{
   output$Volcano <- renderPlot({
     req(Volcano$plot)
     req(input$ExploreIntra)
@@ -703,9 +799,10 @@ observeEvent(Volcano$plot,{
     return(ggplot)
     toc(log = TRUE)
   })
-})
+#})
   # 
-  observeEvent(input$GeneVolcano,{
+  observeEvent(c(input$GeneVolcano,input$ExploreIntra),{
+  #observe({
     if(length(input$GeneVolcano) >1){
       req(norm_data$data)
       req(sampleplanmodel$table)
@@ -714,35 +811,37 @@ observeEvent(Volcano$plot,{
         incProgress(0.3)
         groups_table <- sampleplanmodel$table
         groups_table$Samples <- rownames(groups_table)
-        if(input$comptype == "Intra-Treatment"){
+        #if(input$comptype == "Intra-Treatment"){
+        if(input$ExploreIntra %in% concatenated$resultsIntraNames){
           group1 <- stringr::str_split_fixed(gsub(paste0(input$Treatlevel,"_"),"",input$ExploreIntra),"-",n=2)[,1]
           group2 <- stringr::str_split_fixed(gsub(paste0(input$Treatlevel,"_"),"",input$ExploreIntra),"-",n=2)[,2]
           groups_table <- groups_table[,c("Treatment","Timepoint","Samples")] %>%
             filter(Treatment == input$Treatlevel)
-         } else if(input$comptype == "Inter-Treatment"){
-           if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
-             group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
-             group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
-             groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
-               filter(Treatment == c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
-               filter(SupplementaryInfo == c(input$Mut1,input$Mut2))  %>%
-               mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
-           } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) == 1){
-             group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
-             group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
-             groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
-               filter(Treatment %in% unique(sampleplanmodel$table$Treatment)) %>%
-               filter(SupplementaryInfo == c(input$Mut1,input$Mut2))  %>%
-               mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
-           } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) == 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
-             group1 <- gsub(paste0(unique(sampleplanmodel$table$SupplementaryInfo),"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
-             group2 <- gsub(paste0(unique(sampleplanmodel$table$SupplementaryInfo),"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
-             groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
-               filter(Treatment %in% c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
-               filter(SupplementaryInfo == unique(sampleplanmodel$table$SupplementaryInfo))  %>%
-               mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
-          }
-         }
+         #} else if(input$ExploreIntra %in% concatenated$resultsInterNames){
+         #} else if(input$comptype == "Inter-Treatment"){
+          #  if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+          #    group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
+          #    group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
+          #    groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
+          #      filter(Treatment == c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
+          #      filter(SupplementaryInfo == c(input$Mut1,input$Mut2))  %>%
+          #      mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
+          #  } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) == 1){
+          #    group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
+          #    group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
+          #    groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
+          #      filter(Treatment %in% unique(sampleplanmodel$table$Treatment)) %>%
+          #      filter(SupplementaryInfo == c(input$Mut1,input$Mut2))  %>%
+          #      mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
+          #  } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) == 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
+          #    group1 <- gsub(paste0(unique(sampleplanmodel$table$SupplementaryInfo),"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
+          #    group2 <- gsub(paste0(unique(sampleplanmodel$table$SupplementaryInfo),"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
+          #    groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
+          #      filter(Treatment %in% c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
+          #      filter(SupplementaryInfo == unique(sampleplanmodel$table$SupplementaryInfo))  %>%
+          #      mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
+          # }
+         #}
 
         boxplotdata <- results$v$E[which(rownames(results$v$E) %in% input$GeneVolcano),]
         boxplotdata <- rbind(boxplotdata,colnames(boxplotdata))
@@ -752,7 +851,8 @@ observeEvent(Volcano$plot,{
         boxplotdata$Samples <- as.character(boxplotdata$Samples)
         boxplotdata <- inner_join(boxplotdata,groups_table, by = "Samples")
         boxplotdata$COUNTS <- as.numeric(boxplotdata$COUNTS)
-        if(input$comptype == "Intra-Treatment"){
+        #if(input$ExploreIntra %in% concatenated$resultsIntraNames){
+        #if(input$comptype == "Intra-Treatment"){
             boxplotdata[,c(group1,group2)] <- as.character(boxplotdata[,"Timepoint"])
             results$boxplots <- ggplot(boxplotdata, aes(x=Timepoint, y=COUNTS,fill = Timepoint)) +
               geom_boxplot() +
@@ -763,26 +863,31 @@ observeEvent(Volcano$plot,{
                          # size = 2,
                          aes_string(fill="Timepoint"), show.legend = T)
             setProgress(1)
-        } else if(input$comptype == "Inter-Treatment"){
+        #} else if(input$ExploreIntra %in% concatenated$resultsInterNames){
+        #} else if(input$comptype == "Inter-Treatment"){
           boxplotdata[,c(group1,group2)] <- as.character(boxplotdata[,"Timepoint"])
           results$boxplots <- ggplot(boxplotdata, aes(x=COMP, y=COUNTS,fill = COMP)) +
             geom_boxplot() +
             facet_grid(Timepoint ~ GENE) +
+            #facet_grid(. ~ GENE) +
             geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
                                                      seed = 1234),
                        pch=21,
                        # size = 2,
                        aes_string(fill="COMP"), show.legend = T)
           setProgress(1)
+        } else if(input$ExploreIntra %in% concatenated$resultsInterNames){
+          results$boxplots <- NULL
         }
       }) # end of progress
     }
-  })
+  }) #%>% bindEvent(input$GeneVolcano,Volcano$plot)
    
   output$boxplots <- renderPlot(results$boxplots)
   output$boxplots_error <- renderText({
     validate(
-      need(length(input$GeneVolcano) >= 2, "Select at least two genes to draw boxplots...")
+      need(length(input$GeneVolcano) >= 2, "Select at least two genes to draw boxplots..."),
+      need(input$ExploreIntra %in% concatenated$resultsInterNames, "Boxplots are only available for intra comparisons")
     )
   })
    
@@ -790,10 +895,8 @@ observeEvent(Volcano$plot,{
   output$up_table <- DT::renderDataTable({
     ups <- results$up %>%
       column_to_rownames("sgRNA") %>%
-    #   select(c("estimate","p.value","adj_p.value_enrich","ENSEMBL"))
-    # colnames(ups) <- c("logFC","p.value","adj_p.value_enrich","ENSEMBL")
-    select(c("estimate","adj_p.value_enrich","ENSEMBL"))
-    colnames(ups) <- c("logFC","adj_p.value_enrich","ENSEMBL")
+    select(c("Gene","estimate","adj_p.value_enrich","ENSEMBL"))
+    colnames(ups) <- c("Gene","logFC","adj_p.value_enrich","ENSEMBL")
     ups <- ups[order(ups$adj_p.value_enrich),]
     datatable(
       ups,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
@@ -811,8 +914,8 @@ observeEvent(Volcano$plot,{
         column_to_rownames("sgRNA") %>%
       #   select(c("estimate","p.value","adj_p.value_enrich"))
       # colnames(ups) <- c("logFC","p.value","adj_p.value_enrich")
-      select(c("estimate","adj_p.value_enrich"))
-      colnames(ups) <- c("logFC","adj_p.value_enrich")
+      select(c("Gene","estimate","adj_p.value_enrich"))
+      colnames(ups) <- c("Gene","logFC","adj_p.value_enrich")
       ups <- ups[order(ups$adj_p.value_enrich),]
       write.csv(ups, file)
     }
@@ -821,8 +924,8 @@ observeEvent(Volcano$plot,{
   output$down_table <- DT::renderDataTable({
     down <- results$down %>%
       column_to_rownames("sgRNA") %>%
-      select(c("estimate","adj_p.value_dep","ENSEMBL"))
-    colnames(down) <- c("logFC","adj_p.value_dep","ENSEMBL")
+      select(c("Gene","estimate","adj_p.value_dep","ENSEMBL"))
+    colnames(down) <- c("Gene","logFC","adj_p.value_dep","ENSEMBL")
     down <- down[order(down$adj_p.value_dep),]
     datatable(
       down,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
@@ -838,8 +941,8 @@ observeEvent(Volcano$plot,{
     content = function(file) {
       down <- results$down %>%
         column_to_rownames("sgRNA")%>%
-        select(c("estimate","adj_p.value_dep"))
-      colnames(down) <- c("logFC","adj_p.value_dep")
+        select(c("Gene","estimate","adj_p.value_dep"))
+      colnames(down) <- c("Gene","logFC","adj_p.value_dep")
       down <- down[order(down$adj_p.value_dep),]
       write.csv(down, file)
     }
