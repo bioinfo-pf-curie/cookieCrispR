@@ -225,3 +225,11 @@ pickerSelectOptions <- function(choices, selected = NULL, choicesOpt = NULL, max
     }
   }))
 }
+
+
+### calculating spearman correlation ####
+
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}

@@ -22,6 +22,7 @@
 #' @importFrom htmlwidgets JS
 #' @import knitr
 #' @import shinyBS
+#' @import ComplexHeatmap
 #' @importFrom xfun embed_files
 #' @import kableExtra
 #' @importFrom gridExtra grid.arrange

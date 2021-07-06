@@ -4,7 +4,16 @@
 \alias{CRISPRDeaModServer}
 \title{Perform DE analysis server side}
 \usage{
-CRISPRDeaModServer(input, output, session, sampleplan = NULL, norm_data = NULL)
+CRISPRDeaModServer(
+  input,
+  output,
+  session,
+  sampleplan = NULL,
+  norm_data = NULL,
+  ctrlterm = NULL,
+  ess_genes = NULL,
+  non_ess_genes = NULL
+)
 }
 \arguments{
 \item{input, output, session}{standards \code{shiny} server arguments.}

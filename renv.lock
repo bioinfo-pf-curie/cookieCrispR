@@ -56,11 +56,23 @@
       "Source": "Bioconductor",
       "Hash": "744ce1b8f59ad5827fe03f30a4fe8e50"
     },
+    "BioshinyModules": {
+      "Package": "BioshinyModules",
+      "Version": "0.1.0",
+      "Source": "unknown",
+      "Hash": "555a14d0678992a9b9973d9d48eb4d13"
+    },
     "Biostrings": {
       "Package": "Biostrings",
       "Version": "2.54.0",
       "Source": "Bioconductor",
       "Hash": "edf03f0e37fc3c09c95dcf8bf3900972"
+    },
+    "ComplexHeatmap": {
+      "Package": "ComplexHeatmap",
+      "Version": "2.2.0",
+      "Source": "Bioconductor",
+      "Hash": "f492083ab656ec37164ffcb15b3d70dc"
     },
     "DBI": {
       "Package": "DBI",
@@ -124,6 +136,20 @@
       "Version": "1.38.0",
       "Source": "Bioconductor",
       "Hash": "8ff54983afa8eda100fa0fcadd6816bf"
+    },
+    "GetoptLong": {
+      "Package": "GetoptLong",
+      "Version": "1.0.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "61fac01c73abf03ac72e88dc3952c1e3"
+    },
+    "GlobalOptions": {
+      "Package": "GlobalOptions",
+      "Version": "0.1.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "c3f7b221e60c28f5f3533d74c6fef024"
     },
     "Hmisc": {
       "Package": "Hmisc",
@@ -397,6 +423,13 @@
       "Repository": "CRAN",
       "Hash": "a667800d5f0350371bedeb8b8b950289"
     },
+    "circlize": {
+      "Package": "circlize",
+      "Version": "0.4.13",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "7fe204e42ae9addc35147f8a5a8739fb"
+    },
     "class": {
       "Package": "class",
       "Version": "7.3-17",
@@ -417,6 +450,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "ebaa97ac99cc2daf04e77eecc7b781d7"
+    },
+    "clue": {
+      "Package": "clue",
+      "Version": "0.3-59",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "8ee8f6a7c92de95407c0e770b20ea41e"
     },
     "cluster": {
       "Package": "cluster",
@@ -1181,6 +1221,13 @@
       "Repository": "CRAN",
       "Hash": "bb5996d0bd962d214a11140d77589917"
     },
+    "rjson": {
+      "Package": "rjson",
+      "Version": "0.2.20",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "7d597f982ee6263716b6a2f28efd29fa"
+    },
     "rlang": {
       "Package": "rlang",
       "Version": "0.4.10",
@@ -1256,6 +1303,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "d972f50a1404cf4c413f6c3ca29efc59"
+    },
+    "shape": {
+      "Package": "shape",
+      "Version": "1.4.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "9067f962730f58b14d8ae54ca885509f"
     },
     "shiny": {
       "Package": "shiny",

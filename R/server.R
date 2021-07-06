@@ -265,8 +265,10 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
         incProgress(0.3,detail = "Computing cpm...")
         counts <- counts %>%
           dplyr::group_by(.data$Sample_ID) %>%
-          dplyr::mutate(cpm = 1e6 * .data$count / as.numeric(sumcols), log_cpm = log10(1 + cpm))  %>%
+          dplyr::mutate(cpm = 1e6 * .data$count / as.numeric(sumcols), log_cpm = log10(1 + cpm),log2_cpm = log2(1+cpm))  %>%
           dplyr::ungroup()
+        
+        print(head(counts))
         #toc(log=TRUE)
         })
       
@@ -293,6 +295,110 @@ observeEvent(c(reactives$selectedcountsRaw,reactives$sampleplan,
       } # end of if is null
 
 })
+
+# #########################################################################################################
+# ########################################## Sample to sample correlations ################################"
+# #########################################################################################################
+# 
+
+observeEvent(reactives$sampleplan,{
+  req(reactives$sampleplan)
+  cn <- colnames(reactives$sampleplan %>% select(-Sample_ID,-Timepoint_num))
+  updatePickerInput(session=session,"correlationsAnnot",choices = cn)
+})
+
+correlation_reactives <- reactiveValues(coefficients = NULL, plot = NULL)
+observeEvent(c(reactives$counts,input$correlationsAnnot),{
+
+  req(reactives$counts)
+  req(reactives$samples)
+  counts <- reactives$counts
+
+    counts <- reactives$counts %>%
+      dplyr::select(sgRNA, Sample_ID,log2_cpm) %>%
+      spread(key = Sample_ID, value = log2_cpm) %>%
+      as.data.frame()
+
+    counts <- counts %>%
+      column_to_rownames("sgRNA")
+    
+    samples <- reactives$sampleplan
+    #save(counts,samples,file = "~/sampletosamplecorrelations.rda")
+
+    spearman_corr <- cor(x=counts, method = 'spearman')
+    dd <- as.dist((1-spearman_corr)/2)
+    hc <- hclust(dd)
+    spearman_corr <- spearman_corr[hc$order,hc$order]
+    
+    spearman_corr <- signif(spearman_corr, digits = 3)
+    correlation_reactives$coefficients <- spearman_corr
+
+    spearman_corr <- as.matrix(spearman_corr)
+    cn <- colnames(spearman_corr)
+    rn <- rownames(spearman_corr)
+    samples <- samples %>% column_to_rownames("Sample_ID")
+    
+    top_annotation <- NULL
+    if(length(input$correlationsAnnot) > 0){
+      samples <- samples[cn,input$correlationsAnnot]
+      if (length(input$correlationsAnnot) >= 2 ){
+        print("b")
+        top_annotation <- HeatmapAnnotation(
+          df = samples,
+          which = "col",
+          show_legend = TRUE)
+      } else {
+        print("ddede")
+        top_annotation <- HeatmapAnnotation(
+          Annot_name = samples,
+          which = "col",
+          show_legend = TRUE)
+        names(top_annotation) <- input$correlationsAnnot
+        
+      }
+    }
+    
+    print('plot')
+    print(top_annotation)
+    save(spearman_corr,samples,file = "~/sampletosamplecorrelations.rda")
+    
+    correlation_reactives$plot  <- Heatmap(spearman_corr,
+            name = "coefficient",
+            column_title = "spearman correlation on log2(cpm +1) counts",
+            cluster_rows = FALSE,cluster_columns = FALSE,
+            top_annotation = top_annotation
+            )
+    
+    #correlation_reactives$plot <- heatmap
+
+})
+
+output$correlation_heatmap <- renderPlot({
+  req(correlation_reactives$plot)
+  correlation_reactives$plot
+})
+
+output$dlcorrelation_heatmap <- downloadHandler(
+  filename = function(){
+    paste("Correlations_heatmap_",Sys.Date(),".pdf",sep="")
+  },
+  content = function(file){
+    pdf(file = file)
+    #plot(correlation_reactives$plot)
+    draw(correlation_reactives$plot)
+    dev.off()
+  }
+)
+
+output$dlcorrelation_coefficients <- downloadHandler(
+  filename = function(){
+    paste("Correlation_coefficients_",Sys.Date(),".csv",sep="")
+  },
+  content = function(file){
+    req(correlation_reactives$coefficients)
+    write.table(x = correlation_reactives$coefficients,file = file,sep = ",", quote = FALSE, row.names = FALSE)
+  }
+)
 
 ctrlterm <- reactiveValues(term = NULL)
 observeEvent(reactives$annot_sgRNA,{
@@ -332,7 +438,7 @@ observeEvent(reactives$annot_sgRNA,{
 
 observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$countstabset,reactives$control_sgRNA),priority = 10,{
       samples <- reactives$sampleplan
-      if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & input$sidebarmenu != "DataInput" & reactives$normalize == TRUE | input$countstabset=="NormalizedCounts log10(cpm)"  & reactives$normalize == TRUE){
+      if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & input$sidebarmenu != "DataInput" & reactives$normalize == TRUE | input$countstabset=="log10(cpm)"  & reactives$normalize == TRUE){
       if(is.null(reactives$control_sgRNA)){
         return()
       } else {
