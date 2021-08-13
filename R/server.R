@@ -413,7 +413,7 @@ observeEvent(reactives$annot_sgRNA,{
       title = "No control guides found in data",
       HTML("By default the app search guides annoted as Non-Targeting or negative_control </br></br>
             Maybe controls in your data are annoted in a different manner </br></br>"),
-      textInput("customctrl",label = "Type a character string (case sensitive)",width = "100%"),br(),
+      textInput("customctrl",label = "Enter here the character string defining the control guides in your data (case sensitive)",width = "100%"),br(),
       HTML("YOU CAN ENTER A RANDOM CHARACTER STRING IF YOU PLAN TO PROCESS A POSITIVE SRCEENING </br></br>"),
       footer = tagList(
         actionButton("useit","Use this term to search for control guides",width = "100%")
