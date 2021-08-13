@@ -239,7 +239,11 @@ CRISPRDeaModUI <- function(id)  {
                                                   liveSearchStyle = "contains",
                                                   actionsBox = TRUE
                                                 ))),
-                             fluidRow(column(width = 12,plotOutput(ns("aggregated_plot")))),
+                             fluidRow(column(width = 12,
+                                             plotOutput(ns("aggregated_plot")),
+                                             downloadButton(ns("dlaggregated_plot"),"Download aggregated volcano plot")
+                                             )
+                                      ),
                              br(),
                              fluidRow(column(width = 12,DT::dataTableOutput(ns("RRAscores")))),
                              br(),
@@ -592,8 +596,19 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                                          non_target =  sgRNAannot, 
                                          alpha_thr = alpha_thr,
                                          n_perm = as.integer(input$n_perm))
+              
+              res <- concatenated$results[[input$ExploreIntra2]]
+              
+              if(!is.null(res) && !is.null(scores)){
+                res <- res %>% select(Gene, estimate)
+                res_aggregated <- aggregate(res$estimate,list(res$Gene),mean)
+                colnames(res_aggregated) <- c("Gene","meanlogFC")
+                #selected_scores <- selected_scores %>% select(Gene,RRA_dep_score)
+                joined <- left_join(res_aggregated,scores, by = "Gene")
+              }
+              results$scores[[input$ExploreIntra2]] <- joined
 
-              results$scores[[input$ExploreIntra2]] <- scores
+              #results$scores[[input$ExploreIntra2]] <- scores
               setProgress(1)
           })# end of progress
     } else {
@@ -634,7 +649,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     #req(input$ExploreIntra2)
     #req(results$scores)
     req(results$scores[[input$ExploreIntra2]])
-    scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","RRA_adjp","RRA_enrich_adjp","RRA_dep_adjp"))
+    scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","meanlogFC","RRA_adjp","RRA_enrich_adjp","RRA_dep_adjp"))
     
     datatable(scores,rownames=FALSE,escape = FALSE,options = list(scrollX=TRUE, scrollCollapse=TRUE,initComplete = JS(
         "function(settings, json) {",
@@ -665,15 +680,9 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     selected_scores <- results$scores[[input$ExploreIntra2]]
     res <- concatenated$results[[input$ExploreIntra2]]
 
-    if(!is.null(res) && !is.null(selected_scores)){
-
-    res <- res %>% select(Gene, estimate)
-    res_aggregated <- aggregate(res$estimate,list(res$Gene),mean)
-    colnames(res_aggregated) <- c("Gene","meanlogFC")
-    
-    selected_scores <- selected_scores %>% select(Gene,RRA_dep_score)
-    
-    joined <- left_join(res_aggregated,selected_scores, by = "Gene")
+  if(!is.null(res) && !is.null(selected_scores)){
+      
+   joined <- results$scores[[input$ExploreIntra2]]
   
    ess_genes <- reactives$ess_genes
    non_ess_genes <- reactives$non_ess_genes
@@ -710,7 +719,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     joined <- Volcano$aggregated_joined %>% 
       mutate(Type = if_else(Gene %in% input$GeneVolcanoAggregated , "Annotated genes", Type))
     
-    ggplot(joined, aes(x = meanlogFC, y = -log10(RRA_dep_score), 
+    Volcano$aggregated_plot <- ggplot(joined, aes(x = meanlogFC, y = -log10(RRA_dep_score), 
                                  colour = factor(Type),alpha = factor(Type), size = factor(Type))) +
       expand_limits(y = c(min(-log10(joined$RRA_dep_score)), 1)) +
       geom_point(show_guide = TRUE) +
@@ -731,7 +740,21 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
           box.padding = unit(0.35, "lines"),
           point.padding = unit(0.3, "lines"))
     
+    plot(Volcano$aggregated_plot)
+    
   })
+  
+  output$dlaggregated_plot <- downloadHandler(
+    filename = function(){
+      paste("Volcano_aggregated_",Sys.Date(),".pdf",sep="")
+    },
+    content = function(file){
+      req(Volcano$aggregated_plot)
+      pdf(file = file)
+      plot(Volcano$aggregated_plot)
+      dev.off()
+    }
+  )
 
   output$Pvals_distrib <- renderGirafe({
     req(concatenated$results)
