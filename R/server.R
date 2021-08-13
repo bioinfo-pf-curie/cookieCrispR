@@ -402,6 +402,7 @@ output$dlcorrelation_coefficients <- downloadHandler(
 
 ctrlterm <- reactiveValues(term = NULL)
 observeEvent(reactives$annot_sgRNA,{
+  if(input$screentype == "negative"){
   req(reactives$annot_sgRNA)
   annot_sgRNA <- reactives$annot_sgRNA
 
@@ -434,6 +435,7 @@ observeEvent(reactives$annot_sgRNA,{
     control_sgRNA <- NULL
   }
   reactives$control_sgRNA <- control_sgRNA
+  } # end of screentype check
 })
 
 observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$countstabset,reactives$control_sgRNA),priority = 10,{
@@ -454,10 +456,19 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       counts <- counts %>%
            column_to_rownames("sgRNA")
 
+      
+      print(head(annot_sgRNA))
+      print(head(reactives$control_sgRNA$sgRNA))
+      
+      if(input$screentype == "negative"){
       norm_data <- sg_norm(counts,
                              sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
                              sgRNA_annot = annot_sgRNA, control_sgRNA = reactives$control_sgRNA$sgRNA)
-      
+      } else {
+        norm_data <- sg_norm(counts,
+                             sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
+                             sgRNA_annot = annot_sgRNA, control_sgRNA = annot_sgRNA$sgRNA)
+      }
       reactives$norm_data <- norm_data
       
       incProgress(0.3)
@@ -1187,6 +1198,7 @@ updatePickerInput(session = session, 'volcanoslist',choices = as.character(names
 observeEvent(input$sidebarmenu,priority = -1,{
   if(input$sidebarmenu=="Statistical_analysis"){
   if(is.null(DEAnormdata$data) | is.null(DEAMetadata$table)){
+    if(input$screentype == "negative"){
     if(is.null(reactives$control_sgRNA)){
           showModal(modalDialog(
             title = "No control guides found in data",
@@ -1196,12 +1208,13 @@ observeEvent(input$sidebarmenu,priority = -1,{
             ))
           )
   } else {
+    print("hoooo")
   showModal(modalDialog(
     title = "Upload both count matrix and sampleplan first",
     footer = tagList(
       modalButton("Got it")
     )))
-     }
+     }}
     }}
 })
 #########################################################################

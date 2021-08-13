@@ -68,6 +68,9 @@ ui_crispr_app <- function(request){
                                            #fluidRow(
                                           column(width = 6,
                                                  fileInput("counts","Global counts")),
+                                          # column(width = 6,
+                                          #        radioButtons("screentype","Screening type :", choices = c("negative","positive"),
+                                          #                     selected = "negative")),
                                            # column(width = 12,fileInput(inputId = "restore", accept = ".rda", label = "Restore Previous analysis",
                                            #                            buttonLabel=list(icon("angle-double-up"))))
                                            ),
