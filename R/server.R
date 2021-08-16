@@ -442,9 +442,9 @@ observeEvent(reactives$annot_sgRNA,{
 observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$countstabset,reactives$control_sgRNA),priority = 10,{
       samples <- reactives$sampleplan
       if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & input$sidebarmenu != "DataInput" & reactives$normalize == TRUE | input$countstabset=="log10(cpm)"  & reactives$normalize == TRUE){
-      if(is.null(reactives$control_sgRNA)){
-        return()
-      } else {
+      #if(is.null(reactives$control_sgRNA)){
+      #  return()
+      #} else {
         reactives$normalize <- "DONE"
       withProgress(message = 'Data normalization edgeR', value = 0.5, {
       annot_sgRNA <- reactives$annot_sgRNA
@@ -460,6 +460,7 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       
       print(head(annot_sgRNA))
       print(head(reactives$control_sgRNA$sgRNA))
+      print(input$screentype)
       
       if(input$screentype == "negative"){
       norm_data <- sg_norm(counts,
@@ -470,6 +471,8 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
                              sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
                              sgRNA_annot = annot_sgRNA, control_sgRNA = annot_sgRNA$sgRNA)
       }
+      print(head(annot_sgRNA$sgRNA))
+      print(head(norm_data))
       reactives$norm_data <- norm_data
       
       incProgress(0.3)
@@ -500,7 +503,7 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       #setProgress(1)
       #}) # end of progress
       }# end of if
-    } # end of else
+    #} # end of else
 }) # End of observer    
 
     ess_genes <- reactive({
