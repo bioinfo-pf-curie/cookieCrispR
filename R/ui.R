@@ -6,24 +6,6 @@ ui_crispr_app <- function(request){
   
   tagList(dashboardPage(skin = "green",
     dashboardHeader(title = "Cookie CRISPR"#,
-    # dropdownMenu(type = "notifications", badgeStatus = "success",
-    #              messageItem("Notifications",
-    #                          "This is the content of a message.",
-    #                          time = "5 mins" )
-    # ),
-    # dropdownMenu(
-      # type = "tasks",icon = icon("cog"),badgeStatus = NULL,
-      # headerText = "pcaExplorer task menu",
-      # notificationItem(
-      #   text = actionButton("init2","Exit App & save",
-      #                       class = "btn_no_border",
-      #                       onclick = "setTimeout(function(){window.close();}, 100); "),
-      #   icon = icon("sign-out"),status = "primary"),
-      # menuItem(
-      #   #text = downloadButton("state_save_sc","Save State as .rda")
-      #   text = actionButton("init", "Save State as .rda", icon = icon("download"))
-      #   )
-    #) # end of dropdownMenu
     ),  # End of Header
     dashboardSidebar(
       sidebarUserPanel("Institut Curie",
@@ -46,6 +28,19 @@ ui_crispr_app <- function(request){
       )
     ),
     dashboardBody(
+      tags$head(
+        tags$style(
+          HTML(".shiny-notification {
+              height: 100px;
+              width: 800px;
+              position:fixed;
+              opacity:0.91;
+              top: calc(50% - 50px);;
+              left: calc(50% - 400px);;
+            }
+           "
+          )
+        )),
       tabItems(
         tabItem(tabName = "DataInput",
                 useShinyjs(),

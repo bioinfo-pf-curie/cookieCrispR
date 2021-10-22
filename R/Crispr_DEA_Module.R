@@ -30,7 +30,7 @@ CRISPRDeaModUI <- function(id)  {
       fluidRow(
         #div(class = "span161",
         tabsetPanel(type = "pills",id = ns("DEGtabs"),
-                    tabPanel("RUN DEA",
+                    tabPanel("Build models",
                              #fluidPage(
                             br(),
                             fluidRow(
@@ -131,7 +131,7 @@ CRISPRDeaModUI <- function(id)  {
                              br(),
                              br()
                     ), # end of first tabs
-                    tabPanel("Explore results",
+                    tabPanel("Guide level analysis",
                              br(),
                              tagList(
                                #fluidRow(column(width = 12,infoBoxOutput(ns("selected_line")))),
@@ -184,7 +184,6 @@ CRISPRDeaModUI <- function(id)  {
                                ),# end of fluidRow
                                fluidRow(box(title = span(icon("arrow-circle-down"),"DEA Tables"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                    status = "success",width= 12,
-                                   #fluidRow(
                                    tags$head(tags$style(".butt{background-color:#2E8B57;}")),
                                    # column(width =12,
                                    #        h4("All genes :"),
@@ -205,8 +204,10 @@ CRISPRDeaModUI <- function(id)  {
                              ) # end of box
                              ) # end of Taglist
                     ), # end of second tab
-                    tabPanel("RRAscores",
-                             fluidRow(
+                    tabPanel("Gene level analysis",
+                             br(),
+                             fluidRow(box(title = "Compute RRA scores",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
+                                          status = "success",width= 12,
                              column(width = 6,
                              br(),
                              pickerInput(ns("ExploreIntra2"),label= "Select a comparison to compute", selected = NULL,
@@ -219,13 +220,15 @@ CRISPRDeaModUI <- function(id)  {
                                     numericInput(ns("n_perm"),"Please select a number of permutations for rra scores computing",value = 500, min = 100, max = 4000),
                                     "Increasing this value will also increase both ",
                                     "results precision and computing time",
-                                    br()
-                             )),
+                                    br(),br()
+                             ),
                              br(),
                              fluidRow(column(width = 12,
-                                    actionButton(ns("computeRRA"),"Launch permutations",width = '100%'))),
+                                    actionButton(ns("computeRRA"),"Launch permutations",width = '100%'),br())))),
                              br(),
-                             column(width = 12,
+                            fluidRow(box(title = "Gene level volcano plot",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
+                                         status = "success",width= 12,
+                                    column(width = 12,
                                     pickerInput(ns("GeneVolcanoAggregated"),"Select genes to annotate on volcano",
                                                 selected = NULL,
                                                 multiple = TRUE,
@@ -239,15 +242,25 @@ CRISPRDeaModUI <- function(id)  {
                                                   liveSearchStyle = "contains",
                                                   actionsBox = TRUE
                                                 ))),
+                             #),
+                             column(width = 12,
+                                    pickerInput(ns("rra_y"),
+                                                width = "100%",
+                                                label = "select a type of score to plot on y axis",
+                                                choices = c("Depleted"= "RRA_dep_score" ,"Enriched"= "RRA_enrich_score",
+                                                            "Depleted_adj"= "RRA_dep_adjp",
+                                                            "Enriched_adj"= "RRA_enrich_adjp"))),
                              fluidRow(column(width = 12,
                                              plotOutput(ns("aggregated_plot")),
-                                             downloadButton(ns("dlaggregated_plot"),"Download aggregated volcano plot")
+                                             downloadButton(ns("dlaggregated_plot"),"Download aggregated volcano plot"),br()
                                              )
-                                      ),
+                                      ))),
                              br(),
+                    fluidRow(box(title = "Results table",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
+                                 status = "success",width= 12,
                              fluidRow(column(width = 12,DT::dataTableOutput(ns("RRAscores")))),
                              br(),
-                             fluidRow(column(width = 12,downloadButton(ns("scoresdl"),"Download RRA scores")))
+                             fluidRow(column(width = 12,downloadButton(ns("scoresdl"),"Download RRA scores"),br()))))
                     ) # end of 3 tab
         )
         #) # end of div
@@ -310,22 +323,29 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   })
   
   observeEvent(c(sampleplanmodel$table,input$comptype),{
+    withProgress(message = 'Loading metadata', value = 0.5, {
     updatePickerInput(session=session,"Treatlevel",
                       choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
                       selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[1])
+    })
   })
+
   observeEvent(c(sampleplan$table),{
+    withProgress(message = 'Loading metadata', value = 0.5, {
     updatePickerInput(session=session,"celline",
                       choices = unique(sampleplan$table$Cell_line),selected = unique(sampleplan$table$Cell_line)[1])
+    })
   })
   observeEvent(c(sampleplanmodel$table,input$comptype),{
     if(length(unique(sampleplanmodel$table$Treatment)) >= 2){
+    withProgress(message = 'Loading metadata', value = 0.5, {
     updatePickerInput(session=session,"TreatlevelInter1",
                       choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
                       selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[1])
     updatePickerInput(session=session,"TreatlevelInter2",
                       choices = unique(as.character(sampleplanmodel$table[,"Treatment"])),
                       selected = unique(as.character(sampleplanmodel$table[,"Treatment"]))[2])
+    })
     }
   })
   observeEvent(c(sampleplanmodel$table,input$comptype),{
@@ -544,7 +564,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   observeEvent(c(concatenated$results,
                  input$FCT,
                  input$PvalsT,input$DEGtabs,input$ExploreIntra),ignoreInit = TRUE,{
-                   if(input$DEGtabs == "Explore results"){
+                   if(input$DEGtabs == "Guide level analysis"){
                    if(!is.null(concatenated$results)){
                    req(input$ExploreIntra)
                    res <- concatenated$results[[input$ExploreIntra]]
@@ -561,7 +581,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                    showModal(modalDialog(
                        HTML(
                          "<b> Please perform differential analysis first</b></br>
-         Select variables in the RUN DEA menu then click on the build button.
+                  Select variables in the Build models outlet then click on the build button.
                        "),
                        title = "Missing previous step !",
                        footer = tagList(
@@ -596,6 +616,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                                          non_target =  sgRNAannot, 
                                          alpha_thr = alpha_thr,
                                          n_perm = as.integer(input$n_perm))
+
+              scores <- filter(scores,!str_detect(Gene,paste(c("Non-Targeting","negative_control",ctrlterm$term),collapse = "|")))
               
               res <- concatenated$results[[input$ExploreIntra2]]
               
@@ -626,7 +648,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
       } else {
           showModal(modalDialog(HTML(
             "<b> Please perform differential analysis first</b></br>
-         Select variables in the RUN DEA menu then click on the build button.
+         Select variables in the Build models outlet menu then click on the build button.
         "),
             title = "Missing previous step !",
             footer = tagList(
@@ -683,7 +705,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   if(!is.null(res) && !is.null(selected_scores)){
       
    joined <- results$scores[[input$ExploreIntra2]]
-  
    ess_genes <- reactives$ess_genes
    non_ess_genes <- reactives$non_ess_genes
    if(is.null(reactives$ess_genes) | is.null(reactives$non_ess_genes)){
@@ -714,14 +735,16 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   
   output$aggregated_plot <- renderPlot({
     #req(Volcano$aggregated_plot)
+    req(input$rra_y)
     req(Volcano$aggregated_joined)
     
     joined <- Volcano$aggregated_joined %>% 
       mutate(Type = if_else(Gene %in% input$GeneVolcanoAggregated , "Annotated genes", Type))
     
-    Volcano$aggregated_plot <- ggplot(joined, aes(x = meanlogFC, y = -log10(RRA_dep_score), 
-                                 colour = factor(Type),alpha = factor(Type), size = factor(Type))) +
-      expand_limits(y = c(min(-log10(joined$RRA_dep_score)), 1)) +
+    joined[,input$rra_y] <- -log10(joined[,input$rra_y])
+    Volcano$aggregated_plot <- ggplot(joined, aes_string(x = 'meanlogFC', y = input$rra_y, 
+                                                         colour = "Type",alpha = "Type", size = "Type")) +
+      expand_limits(y = c(min(-log10(joined[,input$rra_y])), 1)) +
       geom_point(show_guide = TRUE) +
       ggtitle(input$ExploreIntra2) +
       scale_colour_manual(name = NULL, 

@@ -23,8 +23,7 @@ sg_norm <- function(counts, control_sgRNA = NULL, sample_annot = NULL, sgRNA_ann
   
   # contruct DGEList
   dge_all <- DGEList(counts = counts, samples = sample_annot, genes = sgRNA_annot)
-  save(list = c("dge_all"), file = "~/DGE_list.rda")
-  
+
   # compute normFactors on control if present
   if (!is.null(control_sgRNA)) {
     print("control guides found")
@@ -110,18 +109,7 @@ compute_RRA_pval <- function(guide_res, gene_res, non_target, n_perm = NULL, n_g
   print(head(guide_res))
   print(head(non_target))
   object_non_target <- filter_(guide_res, ~sgRNA %in% non_target$sgRNA)
-  #object_non_target <- filter_(guide_res, ~Gene %in% non_target$Gene)
-  # random_tab <- data.frame(sgRNA = sample(non_target$sgRNA, n_guides * n_perm, replace = TRUE),
-  #                          Gene = rep(paste0("random_non_target_", seq_len(n_perm)), each = n_guides),
-  #                          p.value = sample(object_non_target$p.value, size = n_guides * n_perm, replace = TRUE),
-  #                          p.value_dep = sample(object_non_target$p.value_dep, size = n_guides * n_perm, replace = TRUE),
-  #                          p.value_enrich = sample(object_non_target$p.value_enrich, size = n_guides * n_perm, replace = TRUE)
-                           
-  # print(object_non_target)
-  # print(head(object_non_target$p.value))
-  # print(head(object_non_target$p.value_dep))
-  # print(head(object_non_target$p.value_enrich))
-  
+
   print("randomtab")
     random_tab <- data.frame(sgRNA = sample(non_target$sgRNA, ng_x_np, replace = TRUE),
                               Gene = rep(paste0("random_non_target_", seq_len(n_perm)), each = n_guides),

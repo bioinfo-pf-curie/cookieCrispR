@@ -1190,7 +1190,9 @@ observeEvent(input$sidebarmenu,{
 
 DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                   norm_data = DEAnormdata,
-                  sampleplan = DEAMetadata, ctrlterm = ctrlterm$term,
+                  sampleplan = DEAMetadata, 
+                  #ctrlterm = ctrlterm$term,
+                  ctrlterm = ctrlterm,
                   ess_genes=ess_genes,
                   non_ess_genes = non_ess_genes)
 
