@@ -41,28 +41,37 @@ ui_crispr_app <- function(request){
            "
           )
         )),
+      fluidPage(
+        use_cicerone(),
       tabItems(
         tabItem(tabName = "DataInput",
                 useShinyjs(),
                 #useShinyalert(),
                 infoBoxOutput("Totguidenumber",width = 6),
                 valueBoxOutput("Depth",width = 6),
+                br(),
                 fluidRow(
-                  box(
-                    width = 12,status = "success",solidHeader = TRUE,
-                    title="Inputs",
-                    tabsetPanel(type = "tabs",
+                    box(title = p('Inputs',actionButton("startCicerone0",label=NULL,icon = icon("info-circle"))),
+                    width = 12,
+                    status = "success",solidHeader = TRUE,
+                    #title="Inputs",
+                        tabsetPanel(type = "tabs",
                                 tabPanel("Uploads",
+                                         #fluidPage(
                                          #fluidRow(
-                                           column(width=6,fileInput("sample_plan","Sample infos")),
+                                           column(width=6,div(id = "sample_plandiv",fileInput("sample_plan","Sample infos"))),
                                            column(width=6,
-                                                  uiOutput("orderUI")),
-                                         fluidRow(),
-                                           column(width=6,fileInput("essential","Essential genes")),
-                                           column(width=6,fileInput("nonessential","Other genes")),
+                                                  div(id = "orderUIdiv",uiOutput("orderUI"))),
+                                           fluidRow(),
+                                           #div(id = 'genelistdiv',
+                                               column(width=6,
+                                                      div(id = "essentialdiv",fileInput("essential","Essential genes"))),
+                                               column(width=6,
+                                                      div(id = "nonessentialdiv",fileInput("nonessential","Other genes"))),
+                                               #),
                                            #fluidRow(
                                           column(width = 6,
-                                                 fileInput("counts","Global counts")),
+                                                 div(id = "countsdiv",fileInput("counts","Global counts"))),
                                           column(width = 6,
                                                  radioButtons("screentype","Screening type :", choices = c("negative","positive"),
                                                               selected = "negative")),
@@ -73,23 +82,26 @@ ui_crispr_app <- function(request){
                                          uiOutput("Datahelptext"),
                                          fluidRow(
                                            column(width = 4,
-                                                  downloadButton("DlTestSplan","DL sample plan example", class = "butt"),
+                                                  downloadButton("DlTestSplan","DL sample plan example",style = "width:100%;"),#, class = "butt"),
                                                   tags$head(tags$style(".butt{background-color:#add8e6;} .butt{color: #337ab7;}"))
                                                   ),
-                                           column(width = 4,downloadButton("DlTestCounts","DL counts matrix example", class = "butt")),
-                                           column(width = 4,downloadButton("DlTesGuideList","DL Genes list example", class = "butt"))
+                                           column(width = 4,downloadButton("DlTestCounts","DL counts matrix example",style = "width:100%;")),#, class = "butt")),
+                                           column(width = 4,downloadButton("DlTesGuideList","DL Genes list example",style = "width:100%;"))#, class = "butt"))
                                            )#,
                                          #downloadButton("state_save_sc","Save State as .rda",style = "visibility: hidden;"),
                                          #downloadButton("exit_and_save","Save State as .rda",style = "visibility: hidden;")
                                 )
-                    ))),
-                
+                    )# end of tabset
+                    
+                    )# end of box
+                    #) # end of div
+                    ), 
                 fluidRow(
                   box(
                     width = 12, status = "success", solidHeader = TRUE, collapsible = TRUE,collapsed = FALSE,
-                    title = "Counts table",
+                    title = "Counts table", id ='countstablebox',
                     column(width = 12,
-                           pickerInput("removegenes", "Remove genes for further analysis",
+                           div(id = "removegenesdiv",pickerInput("removegenes", "Remove genes for further analysis",
                                        choices = NULL,
                                        selected = NULL,
                                        multiple = TRUE,
@@ -100,7 +112,7 @@ ui_crispr_app <- function(request){
                                          title = "Select genes you want to remove",
                                          liveSearch = TRUE,
                                          liveSearchStyle = "contains"
-                                       ))),
+                                       )))),
                     tabsetPanel(id="countstabset",
                       tabPanel("Rawcounts",br(),DT::dataTableOutput("counts_table")),
                       tabPanel("log10(cpm)",br(),DT::dataTableOutput("normalized_counts_table"))
@@ -109,8 +121,9 @@ ui_crispr_app <- function(request){
                 fluidRow(
                   box(
                     width = 12, status = "success", solideHeader = TRUE, collapsed = FALSE,collapsible = TRUE,
-                    title = "Sample plan",
-                    column(width = 12,pickerInput("removesamples", "Remove samples for further analysis",
+                    title = "Sample plan", id = "sampleplanbox",
+                    column(width = 12,
+                           div(id = "removesamplesdiv",pickerInput("removesamples", "Remove samples for further analysis",
                                 choices = NULL,
                                 selected = NULL,
                                 multiple = TRUE,
@@ -121,11 +134,11 @@ ui_crispr_app <- function(request){
                                   title = "Select samples you want to remove",
                                   liveSearch = TRUE,
                                   liveSearchStyle = "contains"
-                                ))),
+                                )))),
                     column(width = 12,div(style = 'overflow-x: scroll',DT::dataTableOutput("sample_plan_table"))),
                   ),
                   column(width = 12,
-                         pickerInput(inputId = "correlationsAnnot","Choose variables to construct annotations",width = '100%',
+                         div(id = 'correlationsAnnotdiv',pickerInput(inputId = "correlationsAnnot","Choose variables to construct annotations",width = '100%',
                                      choices = NULL,
                                      selected = NULL,
                                      multiple = TRUE,
@@ -136,13 +149,16 @@ ui_crispr_app <- function(request){
                                        title = "Select multiple conditions here",
                                        liveSearch = TRUE,
                                        liveSearchStyle = "contains",
-                                     )),
+                                     ))),
                          plotOutput("correlation_heatmap")),
-                  br(),
+                  br(),br(),
                   column(width = 6,
-                         downloadButton("dlcorrelation_heatmap","Download correlations heatmaps",width = '100%')),
+                         br(),
+                         downloadButton("dlcorrelation_heatmap","Download correlations heatmaps",
+                                        style = "width:100%;")),
                   column(width = 6,
-                         downloadButton("dlcorrelation_coefficients","Dowload correlations coefficients",width = "100%")),
+                         br(),
+                         downloadButton("dlcorrelation_coefficients","Download correlations coefficients",style = "width:100%;")),
                 )),
         tabItem(tabName = "Rawdist",
                 fluidRow(
@@ -151,7 +167,8 @@ ui_crispr_app <- function(request){
                       title="Read counts",
                       column(width=12,
                              plotOutput("read_number"),
-                             downloadButton("dlreadnumber","Download read numbers plot")
+                             downloadButton("dlreadnumber","Download read numbers plot",style = "width:100%;"),
+                             br(),br()
                       ))),
                 fluidRow(
                    box(collapsible = TRUE, collapsed = FALSE,
@@ -165,8 +182,8 @@ ui_crispr_app <- function(request){
                        column(width = 6,plotOutput("boxplot_ess"),
                               ),
                        br(),
-                       column(width = 12,downloadButton("dlbox_all","Download Boxplots ",width = "100%")),
-                       br()
+                       column(width = 12,downloadButton("dlbox_all","Download Boxplots ",style = "width:100%;"),br(),br()),
+                       # br()
                 )),
                 fluidRow(
                   box(collapsible = TRUE, collapsed = FALSE,
@@ -174,15 +191,15 @@ ui_crispr_app <- function(request){
                       title = "Counts distributions for essential and non essential gene",
                       column(width=6,plotOutput("essential_distribs", width = "100%", height = 600)),
                       column(width=6,plotOutput("nonessential_distribs", width = "100%", height = 600)),
-                      downloadButton("splited_distribs","Download distributions per gene categories")
+                      downloadButton("splited_distribs","Download distributions per gene categories",style = "width:100%;"),br(),br()
                   ))
         ),
         tabItem("Tev",
                 fluidRow(
-                      column(width=6,plotOutput("diff_box_all", width = "100%", height = 600)),
-                      column(width=6,plotOutput("diff_box_ess", width = "100%", height = 600)),
-                      br(),
-                      downloadButton("dldiffboxes","Download difference to zero boxes")
+                      column(width=6,plotOutput("diff_box_all", width = "100%", height = 600),br()),
+                      column(width=6,plotOutput("diff_box_ess", width = "100%", height = 600),br()),
+                      downloadButton("dldiffboxes","Download difference to zero boxes",style = "width:100%;"),
+                      br()
                 )
             ),
             tabItem("Roc",
@@ -190,12 +207,12 @@ ui_crispr_app <- function(request){
                       column(width = 12,
                          checkboxInput("labels","Print AUC labels on plots",value = FALSE),
                          div(style = 'overflow-x: scroll',plotOutput("roc")),
-                         downloadButton("dlROC","Download ROC plots", class = "butt"),
                          br(),
-                         br(),
+                         downloadButton("dlROC","Download ROC plots",style = "width:100%;"),#class = "butt"
+                         br(),br(),
                          DT::dataTableOutput('auc'),
                          br(),
-                         downloadButton("dlauc","Download AUCs table", class = "butt")
+                         downloadButton("dlauc","Download AUCs table",style = "width:100%;")#, class = "butt"
                   )
                 )
             ),
@@ -347,7 +364,7 @@ ui_crispr_app <- function(request){
                             )
                           )
                 ) # end of tabBox
-                )
+                ))
       )
   ),
   tags$footer(

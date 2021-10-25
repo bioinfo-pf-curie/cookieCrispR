@@ -35,7 +35,8 @@ CRISPRDeaModUI <- function(id)  {
                             br(),
                             fluidRow(
                             column(width = 6,
-                                   pickerInput(ns("celline"),width = '100%',
+                                   div(id = ns("cellinediv"),
+                                       pickerInput(ns("celline"),width = '100%',
                                        label = "Select a cell line to perform analysis ",
                                        #choices =  sampleplanmodel$table$Cell_line,
                                        choices = NULL,
@@ -48,9 +49,10 @@ CRISPRDeaModUI <- function(id)  {
                                        selected = NULL,
                                        multiple = FALSE,
                                        choicesOpt = NULL,
-                                       inline = FALSE)),
-                            column(width = 6,
-                                   pickerInput(ns("comptype"),width = '100%',
+                                       inline = FALSE))),
+                            column(width = 5,
+                                   div(id = ns("comptypediv"),
+                                        pickerInput(ns("comptype"),width = '100%',
                                          label = "Select a type of comparison",
                                          choices = c("Intra-Treatment","Inter-Treatment"),
                                          options = pickerOptions(
@@ -62,11 +64,14 @@ CRISPRDeaModUI <- function(id)  {
                                   selected = "Intra-Treatment",
                                   multiple = FALSE,
                                   choicesOpt = NULL,
-                                  inline = FALSE)),
-                                  column(width = 6,
+                                  inline = FALSE))),
+                            column(width = 1,
+                                   br(),
+                                   actionButton(ns("startCicerone"),label=NULL,icon = icon("info-circle"))),
+                            column(width = 6,
                                   br(),
                                   actionButton(ns("Build"),"Build Model",width = '100%')),
-                                  column(width = 6,
+                                  column(width = 5,
                                   conditionalPanel(condition = 'input.comptype == "Intra-Treatment"' ,ns = NS(id),
                                                    pickerInput(ns("Treatlevel"),width = '100%',
                                                    "Select a treatment to perform intra comparison",choices = NULL,
@@ -193,13 +198,13 @@ CRISPRDeaModUI <- function(id)  {
                                           br(),
                                           h4("Upp regulated genes :"),
                                           DT::dataTableOutput(ns('up_table')),
-                                          downloadButton(ns("updl"),"Up-regulated")),
+                                          downloadButton(ns("updl"),"Up-regulated"),br()),
                                    column(width = 6,
                                           br(),
                                           h4("Down regulated genes :"),
                                           #br(),
                                           DT::dataTableOutput(ns('down_table')),
-                                          downloadButton(ns("downdl"),"Down-regulated"))
+                                          downloadButton(ns("downdl"),"Down-regulated"),br())
                                )#,
                              ) # end of box
                              ) # end of Taglist
@@ -302,9 +307,73 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   
   reactives <- reactiveValues(design = NULL, formula = NULL, contrast = NULL, selectedcomp = NULL,
                               selectedFC = NULL,selectedPvalT = NULL,GeneVolcano = NULL,ess_genes = NULL,non_ess_genes = NULL)
+  
+  
+  
+############ Cicerone ############
+
+    # step(el = "[data-value='Tables']",
+    #      title = "Per genes DEA P values are downloadable here",
+    #      is_id = FALSE)
+    # 
+  guide <- Cicerone$
+    new(id = ns("ciceroneGuide"))$
+    step(el = ns("cellinediv"),
+         title ="Select the cell line you want to analyse",
+         HTML(
+           "Values are taken from the <i>Cell_line</i> column of your sample plan</br></br>")
+    )$
+    step(
+      el = ns("comptypediv"),
+      title = "Select a comparison type",
+      HTML("Two types of comparison are available in the app </br><li><b>Intra Treatment comparison :</b> 
+      For the samples with the same Treatment value, will compute differential analysis for each timepoint against the initial timepoint </li>
+      <li><b>Inter Treatment comparison :</b> Set up a comparison using <i>Treatment</i> and <i>Supplementary info</i> values. Then run the differential analysis. You must have samples with equivalent timeponts available in your data</li>")
+    )$
+    step(
+      el = ns("Build"),
+      "Then build model and run the analysis !"
+    )$
+    step(el = "[data-value='Guide level analysis']",
+         title = "There you can explore results at the guide level",
+         HTML("Explore guide expression and P values, "),
+         is_id = FALSE)$
+    step(el = "[data-value='Gene level analysis']",
+         title = "There you can explore results at the guide level",
+         HTML('Concatenated signal at the gene level is used here. So you will have mean expression across all the guides from the same gene
+              <a href="https://www.researchgate.net/publication/320188713_A_comparative_study_of_rank_aggregation_methods_for_partial_and_top_ranked_lists_in_genomic_applications">The robust rank aggregation method (RRA)</a> is used here to statistically access guides results consistency for the same gene'),
+         is_id = FALSE)
+
+#     step(
+#       el = ns("Pvals_distrib"),
+#       title = "P-values distribution",
+#       HTML("This distribution gives you insights about the quality of your analysis, its shape can be helpuf to diagnose potential problems on data </br></br> Note that a skewing of the null distribution towards 1 indicated the test is too conservative so results in more Type II Errors 
+# #And skewing towards 0 gives too many false positives (Type I error). </br></br><a href='http://varianceexplained.org/statistics/interpreting-pvalue-histogram/'> How to interpret a p-value histogram </a>")
+#     )$
+#     step(el = ns("Volcano"),
+#          title = "Volcano plot",
+#          HTML("Here is the volcano plot on your DEA results. Green dots correspond to significant hits regarding your filters' thresholds")
+#     )$
+#     step(el = ns("GeneVolcanodiv"),
+#          title = "Annotate genes on volcano",
+#          HTML("Select gene names here, they'll be direcltly annotated on the Volcano. If at least two genes are selected, boxplots of expression will be drawn under the volcano plot figure")
+#          
+#     )$
+#     step(el = ns("dlfigures"),
+#          title = "All figures are downloadable here")
+  
+  observeEvent(input$startCicerone, {
+    guide$init()$start()
+  })
+  
+  ##################### END OF CICERONE ##########################
+  
+  
   observe({
-  reactives$ess_genes <- ess_genes()
-  reactives$non_ess_genes <- non_ess_genes()
+  # reactives$ess_genes <- ess_genes()
+  # reactives$non_ess_genes <- non_ess_genes()
+  reactives$ess_genes <- ess_genes
+  reactives$non_ess_genes <- non_ess_genes
   })
   sampleplanmodel <- reactiveValues(table = NULL)
   results <- reactiveValues(res = NULL, up = NULL, down = NULL,nsignfc = NULL,v = NULL,boxplots = NULL,

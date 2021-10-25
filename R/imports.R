@@ -35,5 +35,6 @@
 #' @importFrom DESeq2 vst
 #' @import edgeR
 #' @importFrom purrr imap_dfr reduce map_dbl
+#' @import cicerone
 #' 
 NULL

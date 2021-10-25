@@ -21,8 +21,90 @@ reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplan
                             annot_sgRNA = NULL, norm_data =  NULL,norm_cpm =  NULL, guidelist = NULL,
                             genelist =  NULL,sample = NULL,checkcoherence = TRUE, normalize = TRUE,
                             checkcountscols = TRUE,interactive_boxplots = NULL,diff_t0 = NULL,
-                            control_sgRNA = NULL
+                            control_sgRNA = NULL,essential = NULL, non_essential = NULL
                             )
+
+############ Cicerone ############
+
+guide0 <- Cicerone$
+  new(id = "ciceroneGuide0")$
+  step(el = "sample_plandiv",
+       title ="Import your sample plan here",
+       position = "top"#,
+  )$
+  step(
+    el = "orderUIdiv",
+    title = "Re-order timepoints",
+    HTML("The app try to automaticaly figure out the correct order for your timepoints. If you see errors you can use this button to re-order them")
+  )$
+  step(el = 'essentialdiv',title = "Import your essentials' genes list here")$
+  step(el = 'nonessentialdiv',title = "Import your non essentials' genes list here")$
+  step(
+    el = "screentype",
+    title = 'Select the screen type corresponding to your data',
+    HTML("The main difference is the normalization method used")
+  )$
+  step(el = 'countsdiv',title = "Import your counts table here")$
+  step(el = "[data-value='Help']",
+       title = "More information about input files formats is available here",
+       is_id = FALSE)$
+  #step(el = "Counts table",
+  step(el = "countstablebox",
+       title = "Here is an overview of your counts data")$
+  step("[data-value='log10(cpm)']",title = "Here is an overview of your log2cpm(counts)",is_id = FALSE)$
+  step("removegenesdiv",title = "You have got the possibility to remove genes for further analysis here")$
+  step("sampleplanbox",title = "Here is an overview of your sampleplan")$  
+  step("removesamplesdiv",title = "You have got the possibility to remove samples for further analysis here")$
+  step("correlation_heatmap", title = "Sample to sample correlation heatmap")$
+  step("correlationsAnnotdiv", title = "Use this button to annotate the correlation heatmap")$
+  step("dlcorrelation_heatmap",title = "Click here to download the heatmap")$
+  step("dlcorrelation_coefficients",title = "Click here to download correlation coeffcients")
+
+
+
+  
+
+
+ 
+    # HTML("Two types of comparison are available in the app </br><li><b>Intra Treatment comparison :</b> 
+    #   For the samples with the same Treatment value, will compute differential analysis for each timepoint against the initial timepoint </li>
+    #   <li><b>Inter Treatment comparison :</b> Set up a comparison using <i>Treatment</i> and <i>Supplementary info</i> values. Then run the differential analysis. You must have samples with equivalent timeponts available in your data</li>")
+  #)#$
+
+observeEvent(input$startCicerone0, {
+  withProgress(message = 'Loading example dataset...', value = 0.5, {
+  metadata_path <- system.file("extdata", "SampleDescriptiondatatest.txt", package = "CRISPRApp")
+  reactives$sampleplan <- read.table(metadata_path, sep = ";",header = TRUE) %>%
+    mutate(Timepoint = as.factor(.data$Timepoint)) %>%
+    mutate(Treatment = as.factor(.data$Treatment)) %>%
+    mutate(Timepoint_num = as.numeric(gsub("[^0-9.-]", "", .data$Timepoint))) %>% 
+    mutate(Timepoint = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
+  reactives$samples <- as.character(reactives$sampleplan$Sample_ID)
+  
+  counts_path <- system.file("extdata", "global_counts_table_datatest.csv", package = "CRISPRApp")
+  counts <- as.data.frame(fread(counts_path, sep = ",", header = TRUE,fill = TRUE))
+  counts <- counts %>% rename(X = V1)
+  counts <- dplyr::rename(counts, sgRNA = .data$X)
+  counts <- dplyr::select(counts, -.data$sequence)
+  reactives$guidelist <- as.character(unique(counts$sgRNA))
+  reactives$genelist <- as.character(unique(counts$gene))
+  reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
+  
+  essential_path <- system.file("extdata", "essentials.csv", package = "CRISPRApp")
+  ess_genes <- read.table(essential_path, header=FALSE)
+  ess_genes <- ess_genes %>% rename(X = V1)
+  reactives$essential <- ess_genes
+  non_essential_path <- system.file("extdata", "non_essentials_datatest.csv", package = "CRISPRApp")
+  non_ess_genes <- read.table(non_essential_path, header=FALSE)
+  non_ess_genes <- non_ess_genes %>% rename(X = V1)
+  reactives$non_essential <- non_ess_genes
+  
+  print("guideinit")
+  guide0$init()$start()
+  })
+})
+
+##################### END OF CICERONE ##########################
 
 ##### Upload files and datatable construction ####################
 ## counts table  
@@ -442,10 +524,8 @@ observeEvent(reactives$annot_sgRNA,{
 observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$countstabset,reactives$control_sgRNA),priority = 10,{
       samples <- reactives$sampleplan
       if(!is.null(reactives$sampleplan) & !is.null(reactives$counts) & input$sidebarmenu != "DataInput" & reactives$normalize == TRUE | input$countstabset=="log10(cpm)"  & reactives$normalize == TRUE){
-      #if(is.null(reactives$control_sgRNA)){
-      #  return()
-      #} else {
-        reactives$normalize <- "DONE"
+
+      reactives$normalize <- "DONE"
       withProgress(message = 'Data normalization edgeR', value = 0.5, {
       annot_sgRNA <- reactives$annot_sgRNA
       
@@ -457,11 +537,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       counts <- counts %>%
            column_to_rownames("sgRNA")
 
-      
-      print(head(annot_sgRNA))
-      print(head(reactives$control_sgRNA$sgRNA))
-      print(input$screentype)
-      
       if(input$screentype == "negative"){
       norm_data <- sg_norm(counts,
                              sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
@@ -471,8 +546,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
                              sample_annot = column_to_rownames(samples, "Sample_ID")[colnames(counts), ],
                              sgRNA_annot = annot_sgRNA, control_sgRNA = annot_sgRNA$sgRNA)
       }
-      print(head(annot_sgRNA$sgRNA))
-      print(head(norm_data))
       reactives$norm_data <- norm_data
       
       incProgress(0.3)
@@ -484,7 +557,7 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       
     withProgress(message = 'Data transformation for distributions', value = 0.5, {
         req(reactives$sampleplan)
-        req(reactives$selectedcountsRaw)
+        #req(reactives$selectedcountsRaw)
         req(reactives$counts)
         samples <- reactives$sampleplan
         counts <- reactives$counts
@@ -497,6 +570,8 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
             mutate(Timepoint = factor(.data$Timepoint, level = unique(.data$Timepoint))) %>%  mutate(Gene = gene)
         }
       reactives$joined <- counts %>%  mutate(Gene = gene)
+      joined <- reactives$joined 
+      save(joined, file = "~/crispr_joined.rda")
       print("joining done")
     setProgress(1)
     })
@@ -506,17 +581,21 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
     #} # end of else
 }) # End of observer    
 
-    ess_genes <- reactive({
+
+    #ess_genes <- reactive({
+     observe({ 
       req(input$essential)
       inFile <- input$essential
       ess_genes <- read.table(inFile$datapath, header=FALSE)
       if ("V1" %in% colnames(ess_genes)){
         ess_genes <- ess_genes %>% rename(X = V1)
       }
-      return(ess_genes)
+      #return(ess_genes)
+      reactives$essential <- ess_genes
     })
     
-    non_ess_genes <- reactive({
+    observe({ 
+    #non_ess_genes <- reactive({
       req(input$nonessential)
       inFile <- input$nonessential
       non_ess <- read.table(inFile$datapath, header = FALSE)
@@ -525,6 +604,7 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
         #non_ess$V1 <- c(non_ess$V1,"Non-Targeting","negative_control")
       }
       return(non_ess)
+      reactives$non_essential <- non_ess
     })
 
 #########################################################################################################
@@ -652,29 +732,35 @@ observe({
           labs(title = "Distribution of normalized log-cpm by sample", subtitle = "All guides")
       }
       dists$boxall <- plot
-      if(!is.null(ess_genes())){
+      #if(!is.null(ess_genes())){
+      if(!is.null(reactives$essential)){
       if(length(unique(reactives$joined$Cell_line)) >= 2){
         plot <- reactives$joined %>% 
-          filter(gene %in% as.character(ess_genes()$X)) %>%
+          #filter(gene %in% as.character(ess_genes()$X)) %>%
+          filter(gene %in% as.character(reactives$essential$X)) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) +
           labs(title = "Distribution of normalized log-cpm by sample", subtitle = "essential guides")
       } else{
         plot <- reactives$joined %>% 
-          filter(gene %in% as.character(ess_genes()$X)) %>%
+          filter(gene %in% as.character(reactives$essential$X)) %>%
+          #filter(gene %in% as.character(ess_genes()$X)) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
           labs(title = "Distribution of normalized log-cpm by sample", subtitle = "essential guides")
       }
       dists$boxess <- plot
       }
-      if(!is.null(non_ess_genes())){
+      #if(!is.null(non_ess_genes())){
+      if(!is.null(reactives$non_essential)){
       if(length(unique(reactives$joined$Cell_line)) >= 2){
         plot <- reactives$joined %>%
-          filter(gene %in% c("Non-Targeting","negative_control",as.character(non_ess_genes()$X))) %>%
+          #filter(gene %in% c("Non-Targeting","negative_control",as.character(non_ess_genes()$X))) %>%
+          filter(gene %in% c("Non-Targeting","negative_control",as.character(reactives$non_essential$X))) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) +
           labs(title = "Distribution of normalized log-cpm by sample", subtitle = "Non essential and control guides")
       } else{
         plot <- reactives$joined %>%
-          filter(gene %in% c("Non-Targeting","negative_control",as.character(non_ess_genes()$X))) %>%
+          filter(gene %in% c("Non-Targeting","negative_control",as.character(reactives$non_essential$X))) %>%
+          #filter(gene %in% c("Non-Targeting","negative_control",as.character(non_ess_genes()$X))) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
           labs(title = "Distribution of normalized log-cpm by sample", subtitle = "Non essential and control guides")
       }
@@ -714,11 +800,13 @@ observe({
     
     essential_distribs <- reactive({
       req(reactives$joined)
+      req(reactives$essential)
       counts <- reactives$joined
-      ess_genes <- ess_genes()
+      ess_genes <- reactives$essential
+      #ess_genes <- ess_genes()
       withProgress(message = 'Calculating density ridges', value = 0.5, {
         incProgress(0.3)
-        
+  
       counts <- filter(counts, .data$gene %in% ess_genes$X)
       
       subtitle <- "Essential genes"
@@ -739,9 +827,11 @@ observe({
     nonessential_distribs <- reactive({
 
       req(reactives$joined)
-      req(non_ess_genes())
+      #req(non_ess_genes())
+      req(reactives$non_essential)
       counts <- reactives$joined
-      non_ess_genes <- non_ess_genes()
+      non_ess_genes <- reactives$non_essential
+      #non_ess_genes <- non_ess_genes()
       print("non ess and control selection")
       
       counts <- counts %>%
@@ -795,7 +885,8 @@ observe({
     req(input$timepoints_order[[1]])
     req(reactives$diff_t0)
     firstpoint <- input$timepoints_order[[1]]
-    if(is.null(input$essential) | is.null(input$nonessential)){
+    #if(is.null(input$essential) | is.null(input$nonessential)){
+    if(is.null(reactives$essential) | is.null(reactives$non_essential)){
       showModal(
         modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
                     footer = tagList(
@@ -803,7 +894,8 @@ observe({
         )
       )
     } else {
-    non_ess_genes <- non_ess_genes()
+    #non_ess_genes <- non_ess_genes()
+    non_ess_genes <- reactives$non_essential
     diff_t0 <- reactives$diff_t0 %>%
         filter(.data$Timepoint != firstpoint)
       
@@ -829,9 +921,11 @@ observe({
       subtitle <- ' - Essential genes'
       req(reactives$diff_t0)
       firstpoint <- input$timepoints_order[[1]]
-      if(is.null(input$essential) | is.null(input$nonessential)){
+      #if(is.null(input$essential) | is.null(input$nonessential)){
+      if(is.null(reactives$essential) | is.null(reactives$non_essential)){
       } else {
-      ess_genes <- ess_genes()
+      #ess_genes <- ess_genes()
+      ess_genes <- reactives$essential
       diff_boxes$diff_box_ess <-  reactives$diff_t0 %>% 
         filter(.data$Timepoint != !!firstpoint) %>%
         filter(.data$Gene %in% ess_genes[,1]) %>%
@@ -863,7 +957,8 @@ observeEvent(c(input$sidebarmenu,reactives$joined),{
   if (input$sidebarmenu ==  "Roc"){
     if(ROC$toplot == TRUE){
     req(reactives$joined)
-    if(is.null(input$essential) | is.null(input$nonessential)){
+    if(is.null(reactives$essential) | is.null(reactives$non_essential)){
+    #if(is.null(input$essential) | is.null(input$nonessential)){
       showModal(
         modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
                footer = tagList(
@@ -871,8 +966,10 @@ observeEvent(c(input$sidebarmenu,reactives$joined),{
                )
         )
     } else {
-    ess_genes <- ess_genes()
-    non_ess_genes <- non_ess_genes()
+    # ess_genes <- ess_genes()
+    # non_ess_genes <- non_ess_genes()
+    ess_genes <- reactives$essential
+    non_ess_genes <- reactives$non_essential
  
     req(input$timepoints_order)
     
@@ -1162,9 +1259,11 @@ DEAnormdata <- reactiveValues(data = NULL)
 observeEvent(c(reactives$sampleplan,input$sidebarmenu),{
   if(!is.null(reactives$sampleplan)){
     if(input$sidebarmenu=="Statistical_analysis"){
+
     DEAMetadata$table <- reactives$sampleplan %>%
        filter(!(Sample_ID %in% input$removesamples)) %>%
        column_to_rownames("Sample_ID") %>%
+       mutate(Cell_line = as.character(Cell_line)) %>%
        select(c("Cell_line","Timepoint","Treatment","SupplementaryInfo")) 
     }
   }
@@ -1179,7 +1278,8 @@ observeEvent(c(reactives$norm_data,input$sidebarmenu),{
 
 observeEvent(input$sidebarmenu,{
   if(input$sidebarmenu=="Rawdist" | input$sidebarmenu=="Tev" | input$sidebarmenu=="Roc" | input$sidebarmenu == "Clustering" | input$sidebarmenu == "CompCond"){
-    if(is.null(input$counts) | is.null(input$sample_plan)){
+    #if(is.null(input$counts) | is.null(input$sample_plan)){
+    if(is.null(reactives$counts) | is.null(reactives$sampleplan)){
       showModal(modalDialog(
         title = "Upload both count matrix and sampleplan first",
         footer = tagList(
@@ -1193,8 +1293,10 @@ DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                   sampleplan = DEAMetadata, 
                   #ctrlterm = ctrlterm$term,
                   ctrlterm = ctrlterm,
-                  ess_genes=ess_genes,
-                  non_ess_genes = non_ess_genes)
+                  # ess_genes=ess_genes,
+                  # non_ess_genes = non_ess_genes)
+                  ess_genes=reactives$essential,
+                  non_ess_genes = reactives$non_essential)
 
 observeEvent(DEA$concatenated$results,ignoreInit = TRUE,{
 req(DEA$concatenated$results)
