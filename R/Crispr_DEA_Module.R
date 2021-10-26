@@ -141,7 +141,11 @@ CRISPRDeaModUI <- function(id)  {
                              tagList(
                                #fluidRow(column(width = 12,infoBoxOutput(ns("selected_line")))),
                                fluidRow(column(width = 12,uiOutput(ns("selected_line")))),
-                               fluidRow(box(title = span(icon("cogs"), "Parameters"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
+                               fluidRow(box(
+                                 #title = span(icon("cogs"), "Parameters"),
+                                 id = ns("Parametersdiv"),
+                                 title = p("Parameters  ",actionButton(ns("startCicerone2"),label=NULL,icon = icon("info-circle"))),
+                                 collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                    status = "success",width= 12,
                                    #fluidRow(
                                      column(width = 12,pickerInput(ns("ExploreIntra"),label= "Select a comparison to explore", selected = NULL,
@@ -163,6 +167,7 @@ CRISPRDeaModUI <- function(id)  {
                                    br(),
                                    #fluidRow(
                                      column(width = 12,
+                                                   div(id = ns("GeneVolcanodiv"),
                                                    pickerInput(ns("GeneVolcano"),"Select genes to annotate on volcano",
                                                                selected = NULL,
                                                                multiple = TRUE,
@@ -174,7 +179,7 @@ CRISPRDeaModUI <- function(id)  {
                                                                  liveSearch = TRUE,
                                                                  liveSearchStyle = "contains",
                                                                  actionsBox = TRUE
-                                                               ))
+                                                               )))
                                    ),#),
                                    #fluidRow(
                                     column(width = 12,
@@ -188,7 +193,7 @@ CRISPRDeaModUI <- function(id)  {
                                )
                                ),# end of fluidRow
                                fluidRow(box(title = span(icon("arrow-circle-down"),"DEA Tables"),collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
-                                   status = "success",width= 12,
+                                   status = "success",width= 12, id = ns("DEAtablesdiv"),
                                    tags$head(tags$style(".butt{background-color:#2E8B57;}")),
                                    # column(width =12,
                                    #        h4("All genes :"),
@@ -211,16 +216,19 @@ CRISPRDeaModUI <- function(id)  {
                     ), # end of second tab
                     tabPanel("Gene level analysis",
                              br(),
-                             fluidRow(box(title = "Compute RRA scores",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
+                             fluidRow(box(#title = "Compute RRA scores",
+                                          title = p("Compute RRA scores  ",actionButton(ns("startCicerone3"),label=NULL,icon = icon("info-circle"))),
+                                          collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                           status = "success",width= 12,
                              column(width = 6,
                              br(),
-                             pickerInput(ns("ExploreIntra2"),label= "Select a comparison to compute", selected = NULL,
+                             div(id = ns("ExploreIntra2div"),
+                                 pickerInput(ns("ExploreIntra2"),label= "Select a comparison to compute", selected = NULL,
                                          multiple = FALSE,choicesOpt = NULL,inline = FALSE,choices = NULL,
                                          options = pickerOptions(
                                            title = "Select comparison",
                                            liveSearch = TRUE,
-                                           liveSearchStyle = "contains"),width = '100%')),
+                                           liveSearchStyle = "contains"),width = '100%'))),
                              column(width = 6,
                                     numericInput(ns("n_perm"),"Please select a number of permutations for rra scores computing",value = 500, min = 100, max = 4000),
                                     "Increasing this value will also increase both ",
@@ -229,12 +237,12 @@ CRISPRDeaModUI <- function(id)  {
                              ),
                              br(),
                              fluidRow(column(width = 12,
-                                    actionButton(ns("computeRRA"),"Launch permutations",width = '100%'),br())))),
-                             br(),
+                                    actionButton(ns("computeRRA"),"Launch permutations",width = '100%'),br(),br())))),
                             fluidRow(box(title = "Gene level volcano plot",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
                                          status = "success",width= 12,
+                                         id = ns('Genelevelvolcanoplotdiv'),
                                     column(width = 12,
-                                    pickerInput(ns("GeneVolcanoAggregated"),"Select genes to annotate on volcano",
+                                    div(id = ns("GeneVolcanoAggregateddiv"),pickerInput(ns("GeneVolcanoAggregated"),"Select genes to annotate on volcano",
                                                 selected = NULL,
                                                 multiple = TRUE,
                                                 choicesOpt = NULL,
@@ -246,26 +254,26 @@ CRISPRDeaModUI <- function(id)  {
                                                   liveSearch = TRUE,
                                                   liveSearchStyle = "contains",
                                                   actionsBox = TRUE
-                                                ))),
+                                                )))),
                              #),
                              column(width = 12,
-                                    pickerInput(ns("rra_y"),
+                                    div(id = "rra_ydiv",pickerInput(ns("rra_y"),
                                                 width = "100%",
                                                 label = "select a type of score to plot on y axis",
                                                 choices = c("Depleted"= "RRA_dep_score" ,"Enriched"= "RRA_enrich_score",
                                                             "Depleted_adj"= "RRA_dep_adjp",
-                                                            "Enriched_adj"= "RRA_enrich_adjp"))),
+                                                            "Enriched_adj"= "RRA_enrich_adjp")))),
                              fluidRow(column(width = 12,
                                              plotOutput(ns("aggregated_plot")),
-                                             downloadButton(ns("dlaggregated_plot"),"Download aggregated volcano plot"),br()
+                                             downloadButton(ns("dlaggregated_plot"),"Download aggregated volcano plot",style = "width:100%;"),br(),br()
                                              )
                                       ))),
-                             br(),
                     fluidRow(box(title = "Results table",collapsible = TRUE, collapsed = FALSE,solidHeader = TRUE,
+                                 id = ns("Resultstablediv"),
                                  status = "success",width= 12,
                              fluidRow(column(width = 12,DT::dataTableOutput(ns("RRAscores")))),
                              br(),
-                             fluidRow(column(width = 12,downloadButton(ns("scoresdl"),"Download RRA scores"),br()))))
+                             fluidRow(column(width = 12,downloadButton(ns("scoresdl"),"Download RRA scores",style = "width:100%;"),br(),br()))))
                     ) # end of 3 tab
         )
         #) # end of div
@@ -344,36 +352,75 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
               <a href="https://www.researchgate.net/publication/320188713_A_comparative_study_of_rank_aggregation_methods_for_partial_and_top_ranked_lists_in_genomic_applications">The robust rank aggregation method (RRA)</a> is used here to statistically access guides results consistency for the same gene'),
          is_id = FALSE)
 
-#     step(
-#       el = ns("Pvals_distrib"),
-#       title = "P-values distribution",
-#       HTML("This distribution gives you insights about the quality of your analysis, its shape can be helpuf to diagnose potential problems on data </br></br> Note that a skewing of the null distribution towards 1 indicated the test is too conservative so results in more Type II Errors 
-# #And skewing towards 0 gives too many false positives (Type I error). </br></br><a href='http://varianceexplained.org/statistics/interpreting-pvalue-histogram/'> How to interpret a p-value histogram </a>")
-#     )$
-#     step(el = ns("Volcano"),
-#          title = "Volcano plot",
-#          HTML("Here is the volcano plot on your DEA results. Green dots correspond to significant hits regarding your filters' thresholds")
-#     )$
-#     step(el = ns("GeneVolcanodiv"),
-#          title = "Annotate genes on volcano",
-#          HTML("Select gene names here, they'll be direcltly annotated on the Volcano. If at least two genes are selected, boxplots of expression will be drawn under the volcano plot figure")
-#          
-#     )$
-#     step(el = ns("dlfigures"),
-#          title = "All figures are downloadable here")
+  guide2 <- Cicerone$
+    new(id = ns("ciceroneGuide2"))$
+    step(el = ns("Parametersdiv"),
+         title ="Set up thresholds",
+         HTML(
+           "Use the log Fold change and the adjusted P value to select significative hits</br></br>")
+    )$
+    step(
+      el = ns("features_value_box"),
+      title = "Number of hits",
+      HTML("In these boxes you can see the number of significatively up/down regulated features obtained after the filtering step")
+    )$
+    step(
+      el = ns("Pvals_distrib"),
+      title = "P-values distribution",
+      HTML("This distribution gives you insights about the quality of your analysis, its shape can be helpuf to diagnose potential problems on data </br></br> Note that a skewing of the null distribution towards 1 indicated the test is too conservative so results in more Type II Errors 
+#And skewing towards 0 gives too many false positives (Type I error). </br></br><a href='http://varianceexplained.org/statistics/interpreting-pvalue-histogram/'> How to interpret a p-value histogram </a>")
+    )$
+    step(el = ns("Volcano"),
+         title = "Volcano plot",
+         HTML("Here is the volcano plot on your DEA results. Green dots correspond to significant hits regarding your filters' thresholds")
+    )$
+    step(el = ns("GeneVolcanodiv"),
+         title = "Annotate genes on volcano",
+         HTML("Select gene names here, they'll be direcltly annotated on the Volcano. If at least two genes are selected, boxplots of expression will be drawn under the volcano plot figure </br>
+              <i>Boxplots are only available for Intra comparisons</i>")
+    )$
+    step(ns("boxplots"),
+         title = "boxplots of read counts")$
+    step(ns("DEAtablesdiv"),
+         title = "Results on significative hits are avaialable and downloadable here")
+  
+  
+  guide3 <- Cicerone$
+    new(id = ns("ciceroneGuide3"))$
+    step(el = ns("ExploreIntra2div"),
+         title = "Select the comparison you want to calculate RRA scores on")$
+    step(el = ns("n_perm"),
+         title = "Select a number of permutations for rra scores computing",
+         HTML("Increasing this value will also increase both results precision and computing time </br>
+              Note that the minimal P value that you can obtain is 1/(number of permutation)"))$
+    step(el = ns("computeRRA"),
+                 title = 'Finally click here to launch computations.',
+                 HTML('This step may take time !'))$
+    step(el = ns("Genelevelvolcanoplotdiv"),
+         title = "A volcano plot at the gene level will be drawn here")$
+    step(el = ns("rra_ydiv"),title = "You can choose the score type used to draw the Volcano plot here",
+         HTML("Available choices </br><li> Depleted RRA score</li><li>Enriched RRA score</li><li> Depleted RRA score adjusted</li><li>Enriched RRA score adjusted</li>"))$
+    step(el = ns("GeneVolcanoAggregateddiv"),
+                 title = "You can select genes to annotate on volcano")$
+    step(el = ns("Resultstablediv"),
+         title = 'RRA scores results are available and downloadable here')
   
   observeEvent(input$startCicerone, {
     guide$init()$start()
   })
   
+  observeEvent(input$startCicerone2, {
+    guide2$init()$start()
+  })
+  
+  observeEvent(input$startCicerone3, {
+    guide3$init()$start()
+  })
+  
   ##################### END OF CICERONE ##########################
-  
-  
   observe({
-  # reactives$ess_genes <- ess_genes()
-  # reactives$non_ess_genes <- non_ess_genes()
-  reactives$ess_genes <- ess_genes
-  reactives$non_ess_genes <- non_ess_genes
+  reactives$ess_genes <- ess_genes$essential
+  reactives$non_ess_genes <- non_ess_genes$non_essential
   })
   sampleplanmodel <- reactiveValues(table = NULL)
   results <- reactiveValues(res = NULL, up = NULL, down = NULL,nsignfc = NULL,v = NULL,boxplots = NULL,
@@ -737,8 +784,6 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   })
   
   output$RRAscores <- DT::renderDataTable({
-    #req(input$ExploreIntra2)
-    #req(results$scores)
     req(results$scores[[input$ExploreIntra2]])
     scores <- results$scores[[input$ExploreIntra2]] %>% select(c("Gene","meanlogFC","RRA_adjp","RRA_enrich_adjp","RRA_dep_adjp"))
     
@@ -779,8 +824,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
    if(is.null(reactives$ess_genes) | is.null(reactives$non_ess_genes)){
      joined$Type <- "Unknown type"
    } else {
-    ess_genes <- ess_genes()
-    non_ess_genes <- non_ess_genes()
+    # ess_genes <- ess_genes()
+    # non_ess_genes <- non_ess_genes()
     ess_genes$V2 <- 'essential genes'
     non_ess_genes$V2 <- 'non essential genes'
     colnames(ess_genes) <- c("Gene","Type")
@@ -788,6 +833,12 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     genetypes <- rbind(ess_genes,non_ess_genes)
     joined <- left_join(joined,genetypes, by = c("Gene")) %>%
       replace_na(list(Type ="Other"))
+    
+    print("head(ess_genes)")
+    print("head(non_ess_genes)")
+    print(head(ess_genes))
+    print(head(non_ess_genes))
+    
 
     }
     #Volcano$aggregated_plot <- ggplot
@@ -806,34 +857,44 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     #req(Volcano$aggregated_plot)
     req(input$rra_y)
     req(Volcano$aggregated_joined)
+    withProgress(message = 'Rendering Volcano', value = 0.5, {
     
-    joined <- Volcano$aggregated_joined %>% 
-      mutate(Type = if_else(Gene %in% input$GeneVolcanoAggregated , "Annotated genes", Type))
+    joined <- Volcano$aggregated_joined %>%
+      #mutate(Type = if_else(Gene %in% input$GeneVolcanoAggregated , "Annotated genes", Type))
+      mutate(Type = case_when(Gene %in% input$GeneVolcanoAggregated ~ "Annotated genes",
+                              TRUE ~ as.character(Type)))
+    
+    #save(joined,file = "~/joined.rda")
     
     joined[,input$rra_y] <- -log10(joined[,input$rra_y])
     Volcano$aggregated_plot <- ggplot(joined, aes_string(x = 'meanlogFC', y = input$rra_y, 
                                                          colour = "Type",alpha = "Type", size = "Type")) +
-      expand_limits(y = c(min(-log10(joined[,input$rra_y])), 1)) +
+      #expand_limits(y = c(min(-log10(joined[,input$rra_y])), 1)) +
+      expand_limits(y = max(joined[,input$rra_y])) +
       geom_point(show_guide = TRUE) +
       ggtitle(input$ExploreIntra2) +
       scale_colour_manual(name = NULL, 
-                          values =c('Other'='black','essential genes'='red', "non essential genes" = "blue","Annotated genes" = "green",
+                          values =c('Other'='black','essential genes'='red', "non essential genes" = "blue","Annotated genes" = "green1",
                                     "Unknown type" = 'black'))+ 
       theme(legend.position = "top",
             legend.direction = "horizontal") +
-      scale_size_manual(values =c("Unknown type"= 0.5,'Other'=0.5,'essential genes'=1.3, "non essential genes" = 1.3,"Annotated genes" = 1.5)) +
+      scale_size_manual(values =c("Unknown type"= 0.5,'Other'=0.4,'essential genes'=1.3, "non essential genes" = 1.3,"Annotated genes" = 1.5)) +
       scale_alpha_manual(values =c("Unknown type"= 0.5,'Other'=0.4,'essential genes'=0.6, "non essential genes" = 0.6,"Annotated genes" = 0.8)) + 
-      guides(size = FALSE, alpha =FALSE) +
+      guides(size = FALSE, alpha =FALSE)  +
+      geom_point(data = subset(joined,Gene %in% input$GeneVolcanoAggregated)) + 
         ggrepel::geom_text_repel(
-          data = subset(Volcano$aggregated_joined,Gene %in% input$GeneVolcanoAggregated),
+          data = subset(joined,Gene %in% input$GeneVolcanoAggregated),
           aes(label = Gene),
-          size = 5,
+          size = 7,
           force = 2,
+          max.overlaps = Inf,
+          colour = "green1",
           box.padding = unit(0.35, "lines"),
           point.padding = unit(0.3, "lines"))
     
     plot(Volcano$aggregated_plot)
     
+    })
   })
   
   output$dlaggregated_plot <- downloadHandler(
@@ -892,8 +953,7 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     Volcano$plot <- ggplot
     toc(log = TRUE)
   })
-  # 
-#observeEvent(Volcano$plot,{
+  
   output$Volcano <- renderPlot({
     req(Volcano$plot)
     req(input$ExploreIntra)
@@ -914,10 +974,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
     return(ggplot)
     toc(log = TRUE)
   })
-#})
-  # 
+   
   observeEvent(c(input$GeneVolcano,input$ExploreIntra),{
-  #observe({
     if(length(input$GeneVolcano) >1){
       req(norm_data$data)
       req(sampleplanmodel$table)
@@ -926,37 +984,11 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
         incProgress(0.3)
         groups_table <- sampleplanmodel$table
         groups_table$Samples <- rownames(groups_table)
-        #if(input$comptype == "Intra-Treatment"){
         if(input$ExploreIntra %in% concatenated$resultsIntraNames){
           group1 <- stringr::str_split_fixed(gsub(paste0(input$Treatlevel,"_"),"",input$ExploreIntra),"-",n=2)[,1]
           group2 <- stringr::str_split_fixed(gsub(paste0(input$Treatlevel,"_"),"",input$ExploreIntra),"-",n=2)[,2]
           groups_table <- groups_table[,c("Treatment","Timepoint","Samples")] %>%
             filter(Treatment == input$Treatlevel)
-         #} else if(input$ExploreIntra %in% concatenated$resultsInterNames){
-         #} else if(input$comptype == "Inter-Treatment"){
-          #  if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
-          #    group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
-          #    group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
-          #    groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
-          #      filter(Treatment == c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
-          #      filter(SupplementaryInfo == c(input$Mut1,input$Mut2))  %>%
-          #      mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
-          #  } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) > 1 & length(unique(sampleplanmodel$table$Treatment)) == 1){
-          #    group1 <- gsub(paste0(input$Mut1,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
-          #    group2 <- gsub(paste0(input$Mut2,"_"),"",gsub(paste0(unique(sampleplanmodel$table$Treatment),"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
-          #    groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
-          #      filter(Treatment %in% unique(sampleplanmodel$table$Treatment)) %>%
-          #      filter(SupplementaryInfo == c(input$Mut1,input$Mut2))  %>%
-          #      mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
-          #  } else if (length(unique(sampleplanmodel$table$SupplementaryInfo)) == 1 & length(unique(sampleplanmodel$table$Treatment)) > 1){
-          #    group1 <- gsub(paste0(unique(sampleplanmodel$table$SupplementaryInfo),"_"),"",gsub(paste0(input$TreatlevelInter1,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,1]))
-          #    group2 <- gsub(paste0(unique(sampleplanmodel$table$SupplementaryInfo),"_"),"",gsub(paste0(input$TreatlevelInter2,"_"),"",stringr::str_split_fixed(input$ExploreIntra,"-",n=2)[,2]))
-          #    groups_table <- groups_table[,c("Treatment","Timepoint","Samples","SupplementaryInfo")] %>%
-          #      filter(Treatment %in% c(input$TreatlevelInter1,input$TreatlevelInter2)) %>%
-          #      filter(SupplementaryInfo == unique(sampleplanmodel$table$SupplementaryInfo))  %>%
-          #      mutate(COMP = paste0(Treatment,"_",SupplementaryInfo))
-          # }
-         #}
 
         boxplotdata <- results$v$E[which(rownames(results$v$E) %in% input$GeneVolcano),]
         boxplotdata <- rbind(boxplotdata,colnames(boxplotdata))
@@ -966,9 +998,8 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
         boxplotdata$Samples <- as.character(boxplotdata$Samples)
         boxplotdata <- inner_join(boxplotdata,groups_table, by = "Samples")
         boxplotdata$COUNTS <- as.numeric(boxplotdata$COUNTS)
-        #if(input$ExploreIntra %in% concatenated$resultsIntraNames){
-        #if(input$comptype == "Intra-Treatment"){
-            boxplotdata[,c(group1,group2)] <- as.character(boxplotdata[,"Timepoint"])
+        
+        boxplotdata[,c(group1,group2)] <- as.character(boxplotdata[,"Timepoint"])
             results$boxplots <- ggplot(boxplotdata, aes(x=Timepoint, y=COUNTS,fill = Timepoint)) +
               geom_boxplot() +
               facet_grid(. ~ GENE) +
@@ -976,37 +1007,27 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
                                                        seed = 1234),
                          pch=21,
                          # size = 2,
-                         aes_string(fill="Timepoint"), show.legend = T)
+                         aes_string(fill="Timepoint"), show.legend = T) +
+                         xlab("log2(cpm) ('voom')")
             setProgress(1)
-        #} else if(input$ExploreIntra %in% concatenated$resultsInterNames){
-        #} else if(input$comptype == "Inter-Treatment"){
-          boxplotdata[,c(group1,group2)] <- as.character(boxplotdata[,"Timepoint"])
-          results$boxplots <- ggplot(boxplotdata, aes(x=COMP, y=COUNTS,fill = COMP)) +
-            geom_boxplot() +
-            facet_grid(Timepoint ~ GENE) +
-            #facet_grid(. ~ GENE) +
-            geom_point(position=position_jitterdodge(jitter.width=0.5, dodge.width = 0.2,
-                                                     seed = 1234),
-                       pch=21,
-                       # size = 2,
-                       aes_string(fill="COMP"), show.legend = T)
-          setProgress(1)
+    
         } else if(input$ExploreIntra %in% concatenated$resultsInterNames){
           results$boxplots <- NULL
         }
       }) # end of progress
     }
   }) #%>% bindEvent(input$GeneVolcano,Volcano$plot)
-   
+  
   output$boxplots <- renderPlot(results$boxplots)
   output$boxplots_error <- renderText({
     validate(
-      need(length(input$GeneVolcano) >= 2, "Select at least two genes to draw boxplots..."),
-      need(input$ExploreIntra %in% concatenated$resultsInterNames, "Boxplots are only available for intra comparisons")
+      need(input$ExploreIntra %in% concatenated$resultsIntraNames, "Boxplots are only available for intra comparisons")
+    )
+    validate(
+      need(length(input$GeneVolcano) >= 2, "Select at least two genes to draw boxplots...")
     )
   })
    
-
   output$up_table <- DT::renderDataTable({
     ups <- results$up %>%
       column_to_rownames("sgRNA") %>%
@@ -1126,5 +1147,4 @@ CRISPRDeaModServer <- function(input, output, session,sampleplan = NULL,
   })
 
   return(list(results=results,reactives=reactives,concatenated=concatenated,selected_comp_rra = selected_comp_rra ))
-
 }

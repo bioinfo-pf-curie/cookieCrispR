@@ -21,8 +21,8 @@ reactives <- reactiveValues(sampleplan = NULL,sampleplanGood = FALSE, sampleplan
                             annot_sgRNA = NULL, norm_data =  NULL,norm_cpm =  NULL, guidelist = NULL,
                             genelist =  NULL,sample = NULL,checkcoherence = TRUE, normalize = TRUE,
                             checkcountscols = TRUE,interactive_boxplots = NULL,diff_t0 = NULL,
-                            control_sgRNA = NULL,essential = NULL, non_essential = NULL
-                            )
+                            control_sgRNA = NULL)
+geneslists <- reactiveValues(essential = NULL, non_essential = NULL)
 
 ############ Cicerone ############
 
@@ -93,11 +93,11 @@ observeEvent(input$startCicerone0, {
   essential_path <- system.file("extdata", "essentials.csv", package = "CRISPRApp")
   ess_genes <- read.table(essential_path, header=FALSE)
   ess_genes <- ess_genes %>% rename(X = V1)
-  reactives$essential <- ess_genes
+  geneslists$essential <- ess_genes
   non_essential_path <- system.file("extdata", "non_essentials_datatest.csv", package = "CRISPRApp")
   non_ess_genes <- read.table(non_essential_path, header=FALSE)
   non_ess_genes <- non_ess_genes %>% rename(X = V1)
-  reactives$non_essential <- non_ess_genes
+  geneslists$non_essential <- non_ess_genes
   
   print("guideinit")
   guide0$init()$start()
@@ -450,9 +450,6 @@ observeEvent(c(reactives$counts,input$correlationsAnnot),{
             cluster_rows = FALSE,cluster_columns = FALSE,
             top_annotation = top_annotation
             )
-    
-    #correlation_reactives$plot <- heatmap
-
 })
 
 output$correlation_heatmap <- renderPlot({
@@ -581,8 +578,6 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
     #} # end of else
 }) # End of observer    
 
-
-    #ess_genes <- reactive({
      observe({ 
       req(input$essential)
       inFile <- input$essential
@@ -590,21 +585,18 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       if ("V1" %in% colnames(ess_genes)){
         ess_genes <- ess_genes %>% rename(X = V1)
       }
-      #return(ess_genes)
-      reactives$essential <- ess_genes
+      geneslists$essential <- ess_genes
     })
     
     observe({ 
-    #non_ess_genes <- reactive({
       req(input$nonessential)
       inFile <- input$nonessential
       non_ess <- read.table(inFile$datapath, header = FALSE)
       if ("V1" %in% colnames(non_ess)){
         non_ess <- non_ess %>% rename(X = V1)
-        #non_ess$V1 <- c(non_ess$V1,"Non-Targeting","negative_control")
       }
       return(non_ess)
-      reactives$non_essential <- non_ess
+      geneslists$non_essential <- non_ess
     })
 
 #########################################################################################################
@@ -733,16 +725,16 @@ observe({
       }
       dists$boxall <- plot
       #if(!is.null(ess_genes())){
-      if(!is.null(reactives$essential)){
+      if(!is.null(geneslists$essential)){
       if(length(unique(reactives$joined$Cell_line)) >= 2){
         plot <- reactives$joined %>% 
           #filter(gene %in% as.character(ess_genes()$X)) %>%
-          filter(gene %in% as.character(reactives$essential$X)) %>%
+          filter(gene %in% as.character(geneslists$essential$X)) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) +
           labs(title = "Distribution of normalized log-cpm by sample", subtitle = "essential guides")
       } else{
         plot <- reactives$joined %>% 
-          filter(gene %in% as.character(reactives$essential$X)) %>%
+          filter(gene %in% as.character(geneslists$essential$X)) %>%
           #filter(gene %in% as.character(ess_genes()$X)) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
           labs(title = "Distribution of normalized log-cpm by sample", subtitle = "essential guides")
@@ -750,16 +742,16 @@ observe({
       dists$boxess <- plot
       }
       #if(!is.null(non_ess_genes())){
-      if(!is.null(reactives$non_essential)){
+      if(!is.null(geneslists$non_essential)){
       if(length(unique(reactives$joined$Cell_line)) >= 2){
         plot <- reactives$joined %>%
           #filter(gene %in% c("Non-Targeting","negative_control",as.character(non_ess_genes()$X))) %>%
-          filter(gene %in% c("Non-Targeting","negative_control",as.character(reactives$non_essential$X))) %>%
+          filter(gene %in% c("Non-Targeting","negative_control",as.character(geneslists$non_essential$X))) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() + facet_grid(. ~ .data$Cell_line) +
           labs(title = "Distribution of normalized log-cpm by sample", subtitle = "Non essential and control guides")
       } else{
         plot <- reactives$joined %>%
-          filter(gene %in% c("Non-Targeting","negative_control",as.character(reactives$non_essential$X))) %>%
+          filter(gene %in% c("Non-Targeting","negative_control",as.character(geneslists$non_essential$X))) %>%
           #filter(gene %in% c("Non-Targeting","negative_control",as.character(non_ess_genes()$X))) %>%
           ggplot(aes(x = .data$Timepoint, y = .data$log_cpm, fill = .data$Replicate)) + geom_boxplot() +
           labs(title = "Distribution of normalized log-cpm by sample", subtitle = "Non essential and control guides")
@@ -800,9 +792,9 @@ observe({
     
     essential_distribs <- reactive({
       req(reactives$joined)
-      req(reactives$essential)
+      req(geneslists$essential)
       counts <- reactives$joined
-      ess_genes <- reactives$essential
+      ess_genes <- geneslists$essential
       #ess_genes <- ess_genes()
       withProgress(message = 'Calculating density ridges', value = 0.5, {
         incProgress(0.3)
@@ -828,9 +820,9 @@ observe({
 
       req(reactives$joined)
       #req(non_ess_genes())
-      req(reactives$non_essential)
+      req(geneslists$non_essential)
       counts <- reactives$joined
-      non_ess_genes <- reactives$non_essential
+      non_ess_genes <- geneslists$non_essential
       #non_ess_genes <- non_ess_genes()
       print("non ess and control selection")
       
@@ -886,7 +878,7 @@ observe({
     req(reactives$diff_t0)
     firstpoint <- input$timepoints_order[[1]]
     #if(is.null(input$essential) | is.null(input$nonessential)){
-    if(is.null(reactives$essential) | is.null(reactives$non_essential)){
+    if(is.null(geneslists$essential) | is.null(geneslists$non_essential)){
       showModal(
         modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
                     footer = tagList(
@@ -895,7 +887,7 @@ observe({
       )
     } else {
     #non_ess_genes <- non_ess_genes()
-    non_ess_genes <- reactives$non_essential
+    non_ess_genes <- geneslists$non_essential
     diff_t0 <- reactives$diff_t0 %>%
         filter(.data$Timepoint != firstpoint)
       
@@ -922,10 +914,10 @@ observe({
       req(reactives$diff_t0)
       firstpoint <- input$timepoints_order[[1]]
       #if(is.null(input$essential) | is.null(input$nonessential)){
-      if(is.null(reactives$essential) | is.null(reactives$non_essential)){
+      if(is.null(geneslists$essential) | is.null(geneslists$non_essential)){
       } else {
       #ess_genes <- ess_genes()
-      ess_genes <- reactives$essential
+      ess_genes <- geneslists$essential
       diff_boxes$diff_box_ess <-  reactives$diff_t0 %>% 
         filter(.data$Timepoint != !!firstpoint) %>%
         filter(.data$Gene %in% ess_genes[,1]) %>%
@@ -957,7 +949,7 @@ observeEvent(c(input$sidebarmenu,reactives$joined),{
   if (input$sidebarmenu ==  "Roc"){
     if(ROC$toplot == TRUE){
     req(reactives$joined)
-    if(is.null(reactives$essential) | is.null(reactives$non_essential)){
+    if(is.null(geneslists$essential) | is.null(geneslists$non_essential)){
     #if(is.null(input$essential) | is.null(input$nonessential)){
       showModal(
         modalDialog(tagList(h3("You must provide essentials and non essentials genes list to perform positive screening")),
@@ -968,8 +960,8 @@ observeEvent(c(input$sidebarmenu,reactives$joined),{
     } else {
     # ess_genes <- ess_genes()
     # non_ess_genes <- non_ess_genes()
-    ess_genes <- reactives$essential
-    non_ess_genes <- reactives$non_essential
+    ess_genes <- geneslists$essential
+    non_ess_genes <- geneslists$non_essential
  
     req(input$timepoints_order)
     
@@ -1249,7 +1241,6 @@ observeEvent(ClustData$table,ignoreInit = TRUE,{
   }
 })
 
-
 ######################################################################################################
 ######################################## DEA #########################################################
 ######################################################################################################
@@ -1295,8 +1286,10 @@ DEA <- callModule(CRISPRDeaModServer, "DEA", session = session,
                   ctrlterm = ctrlterm,
                   # ess_genes=ess_genes,
                   # non_ess_genes = non_ess_genes)
-                  ess_genes=reactives$essential,
-                  non_ess_genes = reactives$non_essential)
+                  # ess_genes=geneslists$essential,
+                  # non_ess_genes = geneslists$non_essential)
+                  ess_genes= geneslists,
+                  non_ess_genes = geneslists)
 
 observeEvent(DEA$concatenated$results,ignoreInit = TRUE,{
 req(DEA$concatenated$results)
