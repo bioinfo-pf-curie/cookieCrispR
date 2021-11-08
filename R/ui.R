@@ -51,7 +51,8 @@ ui_crispr_app <- function(request){
                 valueBoxOutput("Depth",width = 6),
                 br(),
                 fluidRow(
-                    box(title = p('Inputs',actionButton("startCicerone0",label=NULL,icon = icon("info-circle"))),
+                    box(title = p('Inputs',actionButton("startCicerone0",label=NULL,icon = icon("info-circle")),
+                                  actionButton("exampledatasetbut",label=NULL,icon = icon("teeth"))),
                     width = 12,
                     status = "success",solidHeader = TRUE,
                     #title="Inputs",

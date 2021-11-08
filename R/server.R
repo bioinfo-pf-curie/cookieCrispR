@@ -72,37 +72,56 @@ guide0 <- Cicerone$
   #)#$
 
 observeEvent(input$startCicerone0, {
-  withProgress(message = 'Loading example dataset...', value = 0.5, {
-  metadata_path <- system.file("extdata", "SampleDescriptiondatatest.txt", package = "CRISPRApp")
-  reactives$sampleplan <- read.table(metadata_path, sep = ";",header = TRUE) %>%
-    mutate(Timepoint = as.factor(.data$Timepoint)) %>%
-    mutate(Treatment = as.factor(.data$Treatment)) %>%
-    mutate(Timepoint_num = as.numeric(gsub("[^0-9.-]", "", .data$Timepoint))) %>% 
-    mutate(Timepoint = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
-  reactives$samples <- as.character(reactives$sampleplan$Sample_ID)
-  
-  counts_path <- system.file("extdata", "global_counts_table_datatest.csv", package = "CRISPRApp")
-  counts <- as.data.frame(fread(counts_path, sep = ",", header = TRUE,fill = TRUE))
-  counts <- counts %>% rename(X = V1)
-  counts <- dplyr::rename(counts, sgRNA = .data$X)
-  counts <- dplyr::select(counts, -.data$sequence)
-  reactives$guidelist <- as.character(unique(counts$sgRNA))
-  reactives$genelist <- as.character(unique(counts$gene))
-  reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
-  
-  essential_path <- system.file("extdata", "essentials.csv", package = "CRISPRApp")
-  ess_genes <- read.table(essential_path, header=FALSE)
-  ess_genes <- ess_genes %>% rename(X = V1)
-  geneslists$essential <- ess_genes
-  non_essential_path <- system.file("extdata", "non_essentials_datatest.csv", package = "CRISPRApp")
-  non_ess_genes <- read.table(non_essential_path, header=FALSE)
-  non_ess_genes <- non_ess_genes %>% rename(X = V1)
-  geneslists$non_essential <- non_ess_genes
-  
   print("guideinit")
   guide0$init()$start()
-  })
+  
 })
+
+observeEvent(input$exampledatasetbut,{
+showModal(
+  modalDialog(tagList(h3("An example dataset is available in the app"),
+              #fluidRow(
+                column(width = 12,selectInput("exampledataset","Do you want to load the example dataset ?",
+                                                     choices = c("Yes","No"),width = "100%"))),
+              #),
+              footer = tagList(
+                actionButton("confirmchoice","Confirm choice"))
+              ))
+})
+observeEvent(input$confirmchoice,{
+req(input$exampledataset)
+removeModal()
+if(input$exampledataset == "Yes"){
+withProgress(message = 'Loading example dataset...', value = 0.5, {
+    metadata_path <- system.file("extdata", "SampleDescriptiondatatest.txt", package = "CRISPRApp")
+    reactives$sampleplan <- read.table(metadata_path, sep = ";",header = TRUE) %>%
+      mutate(Timepoint = as.factor(.data$Timepoint)) %>%
+      mutate(Treatment = as.factor(.data$Treatment)) %>%
+      mutate(Timepoint_num = as.numeric(gsub("[^0-9.-]", "", .data$Timepoint))) %>% 
+      mutate(Timepoint = fct_reorder(.f = factor(.data$Timepoint), .x = .data$Timepoint_num))
+    reactives$samples <- as.character(reactives$sampleplan$Sample_ID)
+    
+    counts_path <- system.file("extdata", "global_counts_table_datatest.csv", package = "CRISPRApp")
+    counts <- as.data.frame(fread(counts_path, sep = ",", header = TRUE,fill = TRUE))
+    counts <- counts %>% rename(X = V1)
+    counts <- dplyr::rename(counts, sgRNA = .data$X)
+    counts <- dplyr::select(counts, -.data$sequence)
+    reactives$guidelist <- as.character(unique(counts$sgRNA))
+    reactives$genelist <- as.character(unique(counts$gene))
+    reactives$countsRaw <- counts %>% select(sgRNA,gene, everything())
+    
+    essential_path <- system.file("extdata", "essentials.csv", package = "CRISPRApp")
+    ess_genes <- read.table(essential_path, header=FALSE)
+    ess_genes <- ess_genes %>% rename(X = V1)
+    geneslists$essential <- ess_genes
+    non_essential_path <- system.file("extdata", "non_essentials_datatest.csv", package = "CRISPRApp")
+    non_ess_genes <- read.table(non_essential_path, header=FALSE)
+    non_ess_genes <- non_ess_genes %>% rename(X = V1)
+    geneslists$non_essential <- non_ess_genes
+  })
+  }
+})
+
 
 ##################### END OF CICERONE ##########################
 
@@ -578,7 +597,8 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
     #} # end of else
 }) # End of observer    
 
-     observe({ 
+    #observe({
+    observeEvent(input$essential,{
       req(input$essential)
       inFile <- input$essential
       ess_genes <- read.table(inFile$datapath, header=FALSE)
@@ -588,14 +608,14 @@ observeEvent(c(reactives$counts,reactives$sampleplan,input$sidebarmenu,input$cou
       geneslists$essential <- ess_genes
     })
     
-    observe({ 
+    #observe({
+    observeEvent(input$nonessential,{
       req(input$nonessential)
       inFile <- input$nonessential
       non_ess <- read.table(inFile$datapath, header = FALSE)
       if ("V1" %in% colnames(non_ess)){
         non_ess <- non_ess %>% rename(X = V1)
       }
-      return(non_ess)
       geneslists$non_essential <- non_ess
     })
 
